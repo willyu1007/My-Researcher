@@ -98,7 +98,8 @@ type JsonSchema = Record<string, unknown>;
 
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
-const nullableNumber = { anyOf: [{ type: 'number' }, { type: 'null' }] } as const;
+// A type union preserves explicit null when HTTP validation coerces scalar types.
+const nullableNumber = { type: ['number', 'null'] } as const;
 const stringArray = { type: 'array', items: stringId } as const;
 const functionalRefArray = { type: 'array', items: topicSelectionFunctionalRefSchema } as const;
 const recordPayload = { type: 'object', additionalProperties: true } as const;

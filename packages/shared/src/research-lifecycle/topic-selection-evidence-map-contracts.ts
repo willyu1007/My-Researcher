@@ -554,7 +554,8 @@ export interface TopicSelectionEvidenceMapHandoff {
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
 const numberValue = { type: 'number' } as const;
-const nullableNumber = { anyOf: [numberValue, { type: 'null' }] } as const;
+// A type union preserves explicit null when HTTP validation coerces scalar types.
+const nullableNumber = { type: ['number', 'null'] } as const;
 const booleanValue = { type: 'boolean' } as const;
 const stringArray = { type: 'array', items: stringId } as const;
 const objectPayload = { type: 'object', additionalProperties: true } as const;

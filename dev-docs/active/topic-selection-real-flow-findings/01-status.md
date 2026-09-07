@@ -5,14 +5,14 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 implementation complete, including FIND-011 rejected-topic disposition; focused verification passed
-- Next step: Start Phase 2 with FIND-003 / TSRF-03: align the public EvidenceMap request contract with the existing runtime fields and enums, then address the workflow-run route contracts.
+- Current phase: Phase 2 started; FIND-003 / TSRF-03 EvidenceMap public contract and nullable-number preservation implemented and focused-verified
+- Next step: Continue Phase 2 with FIND-022 workflow-run state/advance documentation and FIND-015 node-specific invocation constraints; preserve the existing coordinator and N9→N7 recovery authority.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
 - [x] TSRF-02: Human-visible risk and conflict summaries remain semantically consistent with the checkpoint packet; a material conflict cannot be rendered as “no open risks.”
-- [ ] TSRF-03: The public EvidenceMap request contract documents the runtime-supported evidence-unit, locator, review-status, relationship, conflict, and digest fields and their enums.
+- [x] TSRF-03: The public EvidenceMap request contract documents the runtime-supported evidence-unit, locator, review-status, relationship, conflict, and digest fields and their enums.
 - [ ] TSRF-04: A focused real-flow verification covers topic rejection and replacement, fresh lineage, paragraph-level evidence locators, strict-human checkpoint blocking, and idempotent decision recovery.
 - [ ] TSRF-05: Operational and experiment-asset findings that are not topic-selection defects receive an explicit disposition and, when still material, a separately owned follow-up proposal.
 - [x] TSRF-06: Before an evidence-landscape checkpoint is eligible to advance, the workflow either covers directly overlapping recent work or visibly records the unresolved literature-freshness and near-duplicate risk for an exact Human decision; systematic retrieval and evidence onboarding remain T-150 work and do not block this visibility repair.

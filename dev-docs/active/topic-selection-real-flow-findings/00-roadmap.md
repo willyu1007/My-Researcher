@@ -49,7 +49,7 @@
 | Assumption | Risk if wrong | Validation |
 |---|---|---|
 | All Human-view content required by this task can be derived from current checkpoint packets and referenced authorities. | A projection fix could require a new decision authority or data model. | Trace every proposed field to a canonical packet, contract, assessment, or risk record before implementation. |
-| EvidenceMap runtime validation is the intended public request behavior. | OpenAPI alignment could expose internal-only fields. | Compare route schema, service input, existing clients, and API conventions before changing the public schema. |
+| EvidenceMap runtime validation is the intended public request behavior. | OpenAPI alignment could expose internal-only fields. | Confirmed for FIND-003 by registered-route schema, service inputs, and HTTP consumption checks; the direct EvidenceMap request is public and its existing source-authority gate remains enforced. |
 | Regular Debate routing can reuse the existing scenario and gate without adopting T-150 contracts. | The route could accidentally depend on retrieval-native round semantics. | Keep T-150 interfaces out of this task and verify frozen-evidence behavior explicitly. |
 
 ## Task relationships
@@ -93,6 +93,7 @@
 - Exit criteria: TSRF-03 and the in-scope dispositions under TSRF-04/05/07 pass without a second API path.
 - Verification: Schema/runtime parity tests, exact persisted-ref replay, preflight boundary tests, and read-before-replay checks.
 - Recovery: Revert additive contract and normalization adapters; retain all existing records.
+- Phase progress: FIND-003 / TSRF-03 is implemented and focused-verified. The public EvidenceMap request documents all registered input fields and enums, including strict locator fields and optional structural records. Nullable-number schema unions preserve explicit null through HTTP validation. Remaining Phase 2 work starts with FIND-022 workflow-run routes and FIND-015 node-specific request constraints, followed by reference and effective-setting composition.
 
 ### Phase 3 — Align regular Debate and promotion decision support
 - Outcome: Consequential question and promotion recommendations receive the agreed bounded review, and conditional-promotion support is ready for Human confirmation.

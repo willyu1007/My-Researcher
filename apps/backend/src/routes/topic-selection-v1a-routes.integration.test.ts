@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_DRAFT_SCHEMA_VERSION,
+  type TopicSelectionEvidenceSourceLocator,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import {
   TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
@@ -17,6 +18,7 @@ import {
   TOPIC_SELECTION_V1A_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1a-workflow-harness-contracts';
 import { buildApp } from '../app.js';
+import type { EvidenceMapBody } from '../controllers/topic-selection-v1a-controller.js';
 import type { LlmCallTelemetry, LlmStructuredOutputRequest } from '../services/llm-gateway.js';
 import { TopicSelectionEvidenceMapMaterializationService } from '../services/topic-selection-evidence-map-materialization-service.js';
 import {
@@ -102,7 +104,7 @@ function manualLocator(input: {
   literatureRef: TopicSelectionFunctionalRef;
   sourceRef: TopicSelectionFunctionalRef;
   key: string;
-}) {
+}): TopicSelectionEvidenceSourceLocator {
   return {
     locator_type: 'manual',
     locator_ref: ref('manual_locator', input.key, input.titleCardId),
@@ -714,75 +716,138 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     const matrix = matrixRes.json() as { summary: { satisfied_count: number } };
     assert.equal(matrix.summary.satisfied_count, 4);
 
+    const evidenceMapPayload = {
+      title_card_id: titleCardId,
+      search_run_id: run.search_run.search_run_id,
+      evidence_map_version: `contract-${suffix}`,
+      workspace_id: null,
+      policy_version_id: null,
+      evidence_units: [
+        {
+          client_unit_key: 'support',
+          coverage_row_intent_id: supportRow.coverage_row_intent_id,
+          evidence_role: 'support',
+          literature_ref: literatureRef,
+          source_refs: [sourceRef],
+          locator: { ...manualLocator({
+            titleCardId,
+            literatureRef,
+            sourceRef,
+            key: `support-${suffix}`,
+          }), content_ref: null, document_ref: null, section_ref: null, paragraph_ref: null,
+            anchor_ref: null, quote_hash: null, start_offset: 0, end_offset: 90, page_number: null },
+          source_attribution_kind: 'source_claim',
+          source_statement: 'Reviewers need traceability from source claims to topic-selection decisions.',
+          normalized_statement: 'Source-to-decision traceability is required.',
+          interpretation_payload: { claim_boundary: 'Reviewer-facing provenance only.' },
+          extraction_confidence: 0.9,
+          review_status: 'human_reviewed',
+        },
+        {
+          client_unit_key: 'challenge',
+          coverage_row_intent_id: challengeRow.coverage_row_intent_id,
+          evidence_role: 'challenge',
+          literature_ref: literatureRef,
+          locator: manualLocator({
+            titleCardId,
+            literatureRef,
+            sourceRef,
+            key: `challenge-${suffix}`,
+          }),
+          source_attribution_kind: 'counter_evidence',
+          source_statement: 'A direct alternative explanation challenges whether traceability alone improves reviewer decisions.',
+          extraction_confidence: null,
+        },
+        {
+          client_unit_key: 'baseline',
+          coverage_row_intent_id: baselineRow.coverage_row_intent_id,
+          evidence_role: 'baseline',
+          literature_ref: literatureRef,
+          locator: manualLocator({
+            titleCardId,
+            literatureRef,
+            sourceRef,
+            key: `baseline-${suffix}`,
+          }),
+          source_statement: 'Baseline decision chains often collapse provenance into a single opaque status.',
+        },
+        {
+          client_unit_key: 'context',
+          coverage_row_intent_id: contextRow.coverage_row_intent_id,
+          evidence_role: 'context',
+          literature_ref: literatureRef,
+          locator: manualLocator({
+            titleCardId,
+            literatureRef,
+            sourceRef,
+            key: `context-${suffix}`,
+          }),
+          source_statement: 'The workflow is scoped to local CS paper engineering and reviewer-aligned evidence review.',
+        },
+      ],
+      typed_links: [{ link_type: 'challenges', source_unit_key: 'challenge', target_unit_key: 'support',
+        rationale: 'Tests the claimed benefit.', confidence: 0.8 }],
+      clusters: [{ cluster_type: 'same_source_family', cluster_key: 'shared-source', unit_keys: ['support', 'challenge'],
+        label: 'Shared source, distinct claims', rationale: null, confidence: null }],
+      patterns: [{ pattern_type: 'problem', evidence_role: 'support', unit_keys: ['support'],
+        pattern_statement: 'Decision traceability is missing.', confidence: 0 }],
+      conflict_sets: [{ conflict_type: 'claim_conflict', severity: 'minor', support_unit_keys: ['support'],
+        challenge_unit_keys: ['challenge'], baseline_unit_keys: ['baseline'], context_unit_keys: ['context'],
+        issue_codes: ['TRACEABILITY_BENEFIT_UNCERTAIN'] }],
+      digest_payload: { working_claim: 'Traceability helps reviewers inspect provenance.' },
+      created_by: 'system',
+    } satisfies EvidenceMapBody;
+    for (const [field, value] of [['review_status', 'reviewed'], ['source_attribution_kind', 'model_claim']] as const) {
+      const invalid = await app.inject({
+        method: 'POST', url: '/topic-selection/v1a/evidence-maps',
+        payload: { ...evidenceMapPayload, evidence_units: [{ ...evidenceMapPayload.evidence_units[0], [field]: value }] },
+      });
+      assertStatus(invalid, 400);
+      assert.match(invalid.body, new RegExp(field));
+    }
+    const inference = await app.inject({
+      method: 'POST', url: '/topic-selection/v1a/evidence-maps',
+      payload: { ...evidenceMapPayload, evidence_units: [{ ...evidenceMapPayload.evidence_units[0], source_attribution_kind: 'llm_inference' }] },
+    });
+    assertStatus(inference, 409);
+    assert.equal(inference.json().error.code, 'GATE_CONSTRAINT_FAILED');
+    const before = await app.inject({ method: 'GET', url: `/topic-selection/v1a/title-cards/${titleCardId}/evidence-maps` });
+    assertStatus(before, 200);
+    assert.equal(before.json().items.length, 0);
     const evidenceMapRes = await app.inject({
-      method: 'POST',
-      url: '/topic-selection/v1a/evidence-maps',
-      payload: {
-        title_card_id: titleCardId,
-        search_run_id: run.search_run.search_run_id,
-        evidence_units: [
-          {
-            client_unit_key: 'support',
-            coverage_row_intent_id: supportRow.coverage_row_intent_id,
-            evidence_role: 'support',
-            literature_ref: literatureRef,
-            locator: manualLocator({
-              titleCardId,
-              literatureRef,
-              sourceRef,
-              key: `support-${suffix}`,
-            }),
-            source_statement: 'Reviewers need traceability from source claims to topic-selection decisions.',
-          },
-          {
-            client_unit_key: 'challenge',
-            coverage_row_intent_id: challengeRow.coverage_row_intent_id,
-            evidence_role: 'challenge',
-            literature_ref: literatureRef,
-            locator: manualLocator({
-              titleCardId,
-              literatureRef,
-              sourceRef,
-              key: `challenge-${suffix}`,
-            }),
-            source_attribution_kind: 'counter_evidence',
-            source_statement: 'A direct alternative explanation challenges whether traceability alone improves reviewer decisions.',
-          },
-          {
-            client_unit_key: 'baseline',
-            coverage_row_intent_id: baselineRow.coverage_row_intent_id,
-            evidence_role: 'baseline',
-            literature_ref: literatureRef,
-            locator: manualLocator({
-              titleCardId,
-              literatureRef,
-              sourceRef,
-              key: `baseline-${suffix}`,
-            }),
-            source_statement: 'Baseline decision chains often collapse provenance into a single opaque status.',
-          },
-          {
-            client_unit_key: 'context',
-            coverage_row_intent_id: contextRow.coverage_row_intent_id,
-            evidence_role: 'context',
-            literature_ref: literatureRef,
-            locator: manualLocator({
-              titleCardId,
-              literatureRef,
-              sourceRef,
-              key: `context-${suffix}`,
-            }),
-            source_statement: 'The workflow is scoped to local CS paper engineering and reviewer-aligned evidence review.',
-          },
-        ],
-        created_by: 'system',
-      },
+      method: 'POST', url: '/topic-selection/v1a/evidence-maps', payload: evidenceMapPayload,
     });
     assertStatus(evidenceMapRes, 201);
     const evidenceMap = evidenceMapRes.json() as {
-      evidence_map: { evidence_map_id: string; support_unit_count: number };
+      evidence_map: { evidence_map_id: string; support_unit_count: number; digest_payload: unknown };
+      evidence_units: Array<{ evidence_unit_id: string; source_attribution_kind: string; review_status: string;
+        normalized_statement: string | null; interpretation_payload: unknown; extraction_confidence: number | null;
+        source_refs: TopicSelectionFunctionalRef[]; locator: unknown }>;
+      typed_links: Array<{ source_unit_ref: TopicSelectionFunctionalRef; target_unit_ref: TopicSelectionFunctionalRef }>;
+      clusters: Array<{ unit_refs: TopicSelectionFunctionalRef[]; confidence: number | null }>;
+      patterns: Array<{ pattern_statement: string; confidence: number | null }>;
+      conflict_sets: Array<{ severity: string; issue_codes: string[] }>;
     };
     assert.equal(evidenceMap.evidence_map.support_unit_count, 1);
+    const support = evidenceMap.evidence_units[0];
+    assert.ok(support);
+    assert.equal(support.review_status, 'human_reviewed');
+    assert.equal(support.source_attribution_kind, 'source_claim');
+    assert.equal(support.normalized_statement, evidenceMapPayload.evidence_units[0]?.normalized_statement);
+    assert.equal(support.extraction_confidence, 0.9);
+    assert.equal(evidenceMap.evidence_units[1]?.extraction_confidence, null);
+    assert.deepEqual(support.interpretation_payload, evidenceMapPayload.evidence_units[0]?.interpretation_payload);
+    assert.deepEqual(support.locator, evidenceMapPayload.evidence_units[0]?.locator);
+    assert.ok(support.source_refs.some((item) => item.ref_id === sourceRef.ref_id));
+    assert.equal(evidenceMap.typed_links[0]?.target_unit_ref.ref_id, support.evidence_unit_id);
+    assert.equal(evidenceMap.typed_links[0]?.source_unit_ref.ref_id, evidenceMap.evidence_units[1]?.evidence_unit_id);
+    assert.equal(evidenceMap.clusters[0]?.unit_refs.length, 2);
+    assert.equal(evidenceMap.clusters[0]?.confidence, null);
+    assert.equal(evidenceMap.patterns[0]?.pattern_statement, evidenceMapPayload.patterns[0]?.pattern_statement);
+    assert.equal(evidenceMap.patterns[0]?.confidence, 0);
+    assert.equal(evidenceMap.conflict_sets[0]?.severity, 'minor');
+    assert.deepEqual(evidenceMap.conflict_sets[0]?.issue_codes, ['TRACEABILITY_BENEFIT_UNCERTAIN']);
+    assert.deepEqual(evidenceMap.evidence_map.digest_payload, evidenceMapPayload.digest_payload);
     await advanceEvidenceCheckpoint(app, titleCardId);
 
     // T-087 Phase 2.3 — EvidenceUnit list by evidence-map drives the drilldown UI.

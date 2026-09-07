@@ -4617,6 +4617,13 @@ paths:
     post:
       operationId: createTopicSelectionV1aEvidenceMap
       summary: Create a claim-level EvidenceMap from a SearchRun.
+      description: >-
+        Direct materialization consumes an existing succeeded or partial SearchRun for the same
+        title card. Literature, source, and content refs must match the SearchRun's admitted
+        evidence refs; coverage rows must belong to its SearchPlan. Section, paragraph, and
+        anchor locators require existing fulltext records. Structural unit keys resolve within
+        this request. This operation does not invoke retrieval or accept automatic workflow-harness
+        invocation markers; automated work uses the native workflow-harness invocation route.
       tags: [topic-selection-v1a]
       requestBody:
         required: true
@@ -12012,7 +12019,7 @@ components:
     TopicSelectionEvidenceSourceLocator:
       type: object
       required: [locator_type, locator_ref, literature_ref, source_ref]
-      additionalProperties: true
+      additionalProperties: false
       properties:
         locator_type:
           type: string
@@ -12023,36 +12030,178 @@ components:
           $ref: '#/components/schemas/TopicSelectionFunctionalRef'
         source_ref:
           $ref: '#/components/schemas/TopicSelectionFunctionalRef'
-        manual_label: { type: string, nullable: true }
+        content_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        document_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        section_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        paragraph_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        anchor_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        manual_label: { type: [string, 'null'], minLength: 1 }
+        quote_hash: { type: [string, 'null'], minLength: 1 }
+        start_offset: { type: [number, 'null'] }
+        end_offset: { type: [number, 'null'] }
+        page_number: { type: [number, 'null'] }
 
     TopicSelectionEvidenceUnitInput:
       type: object
       required: [evidence_role, literature_ref, locator, source_statement]
       additionalProperties: true
       properties:
-        client_unit_key: { type: string }
-        coverage_row_intent_id: { type: string, nullable: true }
+        client_unit_key:
+          type: string
+          minLength: 1
+          description: Request-local key used by links, clusters, patterns and conflicts; defaults to the unit's zero-based array index as a string.
+        coverage_row_intent_id: { type: [string, 'null'], minLength: 1 }
         evidence_role:
           type: string
           enum: [support, challenge, baseline, context]
         literature_ref:
           $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
         locator:
           $ref: '#/components/schemas/TopicSelectionEvidenceSourceLocator'
+        source_attribution_kind:
+          type: string
+          enum: [source_claim, counter_evidence, human_judgment, llm_inference]
+          default: source_claim
+          description: The route recognizes all four attribution kinds; the source-authority gate rejects llm_inference with 409 GATE_CONSTRAINT_FAILED. Put interpretation in interpretation_payload.
         source_statement: { type: string, minLength: 1 }
+        normalized_statement: { type: [string, 'null'], minLength: 1 }
+        interpretation_payload:
+          $ref: '#/components/schemas/JsonObject'
+        extraction_confidence: { type: [number, 'null'] }
+        review_status:
+          type: string
+          enum: [draft, machine_checked, human_reviewed, rejected]
+          default: machine_checked
+
+    TopicSelectionEvidenceTypedLinkInput:
+      type: object
+      required: [link_type, source_unit_key, target_unit_key]
+      additionalProperties: true
+      properties:
+        link_type:
+          type: string
+          enum: [supports, challenges, baselines, contextualizes, duplicates, refines, conflicts_with]
+        source_unit_key: { type: string, minLength: 1 }
+        target_unit_key: { type: string, minLength: 1 }
+        rationale: { type: [string, 'null'], minLength: 1 }
+        confidence: { type: [number, 'null'] }
+
+    TopicSelectionEvidenceClusterInput:
+      type: object
+      required: [cluster_type, cluster_key, unit_keys, label]
+      additionalProperties: true
+      properties:
+        cluster_type:
+          type: string
+          enum: [same_claim, same_source_family, method_family, limitation_family, baseline_family]
+        cluster_key: { type: string, minLength: 1 }
+        unit_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        label: { type: string, minLength: 1 }
+        rationale: { type: [string, 'null'], minLength: 1 }
+        confidence: { type: [number, 'null'] }
+
+    TopicSelectionEvidencePatternInput:
+      type: object
+      required: [pattern_type, evidence_role, unit_keys, pattern_statement]
+      additionalProperties: true
+      properties:
+        pattern_type:
+          type: string
+          enum: [problem, solution, limitation, unresolved, baseline, context]
+        evidence_role:
+          type: string
+          enum: [support, challenge, baseline, context]
+        unit_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        pattern_statement: { type: string, minLength: 1 }
+        confidence: { type: [number, 'null'] }
+
+    TopicSelectionEvidenceConflictSetInput:
+      type: object
+      required: [conflict_type, severity]
+      additionalProperties: true
+      properties:
+        conflict_type:
+          type: string
+          enum: [claim_conflict, baseline_conflict, locator_conflict, source_health_conflict]
+        severity:
+          type: string
+          enum: [minor, moderate, material, blocking]
+        support_unit_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        challenge_unit_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        baseline_unit_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        context_unit_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        issue_codes:
+          type: array
+          items: { type: string, minLength: 1 }
 
     TopicSelectionV1aEvidenceMapRequest:
       type: object
       required: [title_card_id, search_run_id, evidence_units]
       additionalProperties: true
       properties:
+        workspace_id: { type: [string, 'null'], minLength: 1 }
         title_card_id: { type: string, minLength: 1 }
         search_run_id: { type: string, minLength: 1 }
+        evidence_map_version: { type: string, minLength: 1 }
         evidence_units:
           type: array
           minItems: 1
           items:
             $ref: '#/components/schemas/TopicSelectionEvidenceUnitInput'
+        typed_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionEvidenceTypedLinkInput'
+        clusters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionEvidenceClusterInput'
+        patterns:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionEvidencePatternInput'
+        conflict_sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionEvidenceConflictSetInput'
+        digest_payload:
+          $ref: '#/components/schemas/JsonObject'
+        created_by:
+          type: string
+          enum: [human, llm, system, hybrid]
+          default: system
+        policy_version_id: { type: [string, 'null'], minLength: 1 }
 
     TopicSelectionEvidenceRoleBundleInput:
       type: object

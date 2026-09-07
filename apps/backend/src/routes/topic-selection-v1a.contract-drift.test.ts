@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { buildApp } from '../app.js';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../../../');
 const routePath = path.join(repoRoot, 'apps/backend/src/routes/topic-selection-v1a-routes.ts');
@@ -29,6 +30,61 @@ function extractOperationBlock(source: string, operationId: string): string {
   const candidates = [nextOperation, nextPath].filter((index) => index !== -1);
   return source.slice(start, candidates.length > 0 ? Math.min(...candidates) : source.length);
 }
+
+test('public EvidenceMap request documents the registered fields, required inputs and enums', async () => {
+  type Schema = {
+    properties?: Record<string, Schema>;
+    items?: Schema;
+    required?: readonly string[];
+    enum?: readonly string[];
+    additionalProperties?: boolean;
+  };
+  const app = buildApp();
+  let requestSchema: Schema | undefined;
+  app.addHook('onRoute', (route) => {
+    if (route.method === 'POST' && route.url === '/topic-selection/v1a/evidence-maps') {
+      requestSchema = route.schema?.body as Schema;
+    }
+  });
+  try {
+    await app.ready();
+    assert.ok(requestSchema, 'The documented EvidenceMap POST must be registered.');
+    const unitSchema = requestSchema.properties?.evidence_units?.items;
+    const schemas = [
+      ['TopicSelectionV1aEvidenceMapRequest', requestSchema],
+      ['TopicSelectionEvidenceUnitInput', unitSchema],
+      ['TopicSelectionEvidenceSourceLocator', unitSchema?.properties?.locator],
+      ['TopicSelectionEvidenceTypedLinkInput', requestSchema.properties?.typed_links?.items],
+      ['TopicSelectionEvidenceClusterInput', requestSchema.properties?.clusters?.items],
+      ['TopicSelectionEvidencePatternInput', requestSchema.properties?.patterns?.items],
+      ['TopicSelectionEvidenceConflictSetInput', requestSchema.properties?.conflict_sets?.items],
+    ] as const;
+    const source = fs.readFileSync(openapiPath, 'utf8');
+    const operation = extractOperationBlock(source, 'createTopicSelectionV1aEvidenceMap');
+    assert.match(operation, /TopicSelectionV1aEvidenceMapRequest/);
+    for (const [name, schema] of schemas) {
+      assert.ok(schema?.properties, `${name} has a runtime schema.`);
+      const block = extractSchemaBlock(source, name);
+      const documentedFields = [...block.matchAll(/^        (\w+):/gm)].map((match) => match[1]);
+      assert.deepEqual(documentedFields.sort(), Object.keys(schema.properties).sort(), `${name} properties`);
+      const required = block.match(/^      required: \[([^\]]*)\]/m)?.[1]?.split(',').map((field) => field.trim()) ?? [];
+      assert.deepEqual(required.sort(), [...(schema.required ?? [])].sort(), `${name} required fields`);
+      assert.ok(block.includes(`additionalProperties: ${schema.additionalProperties}`), `${name} additional properties`);
+      for (const [field, property] of Object.entries(schema.properties)) {
+        if (!property.enum) continue;
+        const propertyBlock = block.split(`        ${field}:`)[1]?.split(/\n        \w+:/)[0];
+        assert.ok(propertyBlock?.includes(`enum: [${property.enum.join(', ')}]`), `${name}.${field} enum`);
+      }
+    }
+    const request = extractSchemaBlock(source, 'TopicSelectionV1aEvidenceMapRequest');
+    for (const name of ['TopicSelectionEvidenceUnitInput', 'TopicSelectionEvidenceTypedLinkInput',
+      'TopicSelectionEvidenceClusterInput', 'TopicSelectionEvidencePatternInput', 'TopicSelectionEvidenceConflictSetInput']) {
+      assert.ok(request.includes(`$ref: '#/components/schemas/${name}'`), `Request references ${name}.`);
+    }
+  } finally {
+    await app.close();
+  }
+});
 
 test('v1a HumanConfirmNeed runtime route is fully documented in OpenAPI', () => {
   const routeSource = fs.readFileSync(routePath, 'utf8');
