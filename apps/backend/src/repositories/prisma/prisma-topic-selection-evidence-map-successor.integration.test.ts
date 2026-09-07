@@ -137,6 +137,44 @@ test('Prisma EvidenceMap successor publication is one transactional compare-and-
       searchRepository.createSearchPlanRecheckRequest(recheck('recheck_2')),
     ]);
     assert.equal(replayedRequest.search_plan_recheck_request_id, firstRequest.search_plan_recheck_request_id);
+    const [claimedRequest, humanResolvedRequest] = await Promise.all([
+      searchRepository.claimSearchPlanRecheckRequestExecution(firstRequest.search_plan_recheck_request_id),
+      searchRepository.transitionSearchPlanRecheckRequest(
+        firstRequest.search_plan_recheck_request_id,
+        'open',
+        {
+          status: 'accepted',
+          decision_summary: 'Human resolution won the race.',
+          resolved_at: '2026-09-03T00:01:00.000Z',
+        },
+      ),
+    ]);
+    assert.equal(Number(claimedRequest !== null) + Number(humanResolvedRequest !== null), 1);
+
+    if (claimedRequest) {
+      const [automaticCompletion, staleHumanResolution] = await Promise.all([
+        searchRepository.transitionSearchPlanRecheckRequest(
+          firstRequest.search_plan_recheck_request_id,
+          'executing',
+          {
+            status: 'materialized',
+            decision_summary: 'The claimed automatic execution completed.',
+            resolved_at: '2026-09-03T00:02:00.000Z',
+          },
+        ),
+        searchRepository.transitionSearchPlanRecheckRequest(
+          firstRequest.search_plan_recheck_request_id,
+          'open',
+          {
+            status: 'rejected',
+            decision_summary: 'This stale human write must lose.',
+            resolved_at: '2026-09-03T00:02:00.000Z',
+          },
+        ),
+      ]);
+      assert.equal(automaticCompletion?.status, 'materialized');
+      assert.equal(staleHumanResolution, null);
+    }
   } finally {
     await prisma.topicSelectionSearchPlanRecheckRequest.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionEvidenceMap.deleteMany({ where: { titleCardId } });

@@ -10,8 +10,10 @@ import type {
   TopicSelectionSearchRunRecord,
   TopicSelectionTopicSeedRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import { AppError } from '../errors/app-error.js';
 import type {
   TopicSelectionSearchPlanWithCoverageIntentsResult,
+  TopicSelectionSearchPlanRecheckRequestPatch,
   TopicSelectionSearchResourceRepository,
   TopicSelectionSearchRunCoverageRecords,
   TopicSelectionSearchRunWithCoverageRecordsResult,
@@ -56,6 +58,23 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
     searchPlan: TopicSelectionSearchPlanRecord,
     coverageRowIntents: TopicSelectionCoverageRowIntentRecord[],
   ): Promise<TopicSelectionSearchPlanWithCoverageIntentsResult> {
+    if (this.searchPlans.has(searchPlan.search_plan_id)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `SearchPlan ${searchPlan.search_plan_id} already exists.`);
+    }
+    if ([...this.searchPlans.values()].some((candidate) => (
+      candidate.title_card_id === searchPlan.title_card_id
+      && candidate.plan_version === searchPlan.plan_version
+    ))) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `SearchPlan version ${searchPlan.plan_version} already exists for this title card.`,
+      );
+    }
+    const coverageKeys = coverageRowIntents.map((intent) => intent.coverage_key);
+    if (new Set(coverageKeys).size !== coverageKeys.length) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Coverage row intent keys must be unique within a SearchPlan.');
+    }
     this.searchPlans.set(searchPlan.search_plan_id, searchPlan);
     for (const intent of coverageRowIntents) {
       this.coverageRowIntents.set(intent.coverage_row_intent_id, intent);
@@ -68,6 +87,12 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
 
   async findSearchPlanById(searchPlanId: string): Promise<TopicSelectionSearchPlanRecord | null> {
     return this.searchPlans.get(searchPlanId) ?? null;
+  }
+
+  async findSearchPlanByRecheckRequestId(requestId: string): Promise<TopicSelectionSearchPlanRecord | null> {
+    return [...this.searchPlans.values()].find((record) => (
+      record.recheck_request_ref?.ref_id === requestId
+    )) ?? null;
   }
 
   async listSearchPlansByTitleCardId(
@@ -141,6 +166,9 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
     searchRun: TopicSelectionSearchRunRecord,
     coverageRecords: TopicSelectionSearchRunCoverageRecords,
   ): Promise<TopicSelectionSearchRunWithCoverageRecordsResult> {
+    if (this.searchRuns.has(searchRun.search_run_id)) {
+      throw new Error(`SearchRun ${searchRun.search_run_id} already exists.`);
+    }
     this.searchRuns.set(searchRun.search_run_id, searchRun);
     for (const observation of coverageRecords.observations) {
       this.coverageExecutionObservations.set(observation.coverage_execution_observation_id, observation);
@@ -162,6 +190,10 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
 
   async findSearchRunById(searchRunId: string): Promise<TopicSelectionSearchRunRecord | null> {
     return this.searchRuns.get(searchRunId) ?? null;
+  }
+
+  async findSearchRunBySearchPlanId(searchPlanId: string): Promise<TopicSelectionSearchRunRecord | null> {
+    return [...this.searchRuns.values()].find((record) => record.search_plan_ref.ref_id === searchPlanId) ?? null;
   }
 
   async createSearchPlanRecheckRequest(
@@ -198,17 +230,26 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
       .sort((left, right) => right.created_at.localeCompare(left.created_at));
   }
 
-  async updateSearchPlanRecheckRequest(
+  async claimSearchPlanRecheckRequestExecution(
     requestId: string,
-    patch: Partial<Omit<
-      TopicSelectionSearchPlanRecheckRequestRecord,
-      'search_plan_recheck_request_id' | 'workspace_id' | 'title_card_id' | 'source_ref' | 'target_search_plan_ref' | 'created_at'
-    >>,
-  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const current = this.recheckRequests.get(requestId);
+    if (!current || current.status !== 'open') return null;
+    const claimed = { ...current, status: 'executing' as const };
+    this.recheckRequests.set(requestId, claimed);
+    return claimed;
+  }
+
+  async transitionSearchPlanRecheckRequest(
+    requestId: string,
+    expectedStatus: TopicSelectionSearchPlanRecheckRequestRecord['status'],
+    patch: TopicSelectionSearchPlanRecheckRequestPatch,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
     const current = this.recheckRequests.get(requestId);
     if (!current) {
       throw new Error(`SearchPlanRecheckRequest ${requestId} not found.`);
     }
+    if (current.status !== expectedStatus) return null;
     const next: TopicSelectionSearchPlanRecheckRequestRecord = {
       ...current,
       ...patch,

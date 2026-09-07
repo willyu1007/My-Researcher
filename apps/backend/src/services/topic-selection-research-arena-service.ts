@@ -80,6 +80,11 @@ type SynthesizeEvidenceLandscapeSessionInput = {
   round_link_artifact_ref: TopicSelectionFunctionalRef;
 };
 
+type RecordBlockedEvidenceLandscapeSessionInput = {
+  arena_session_id: string;
+  blocked_transcript_artifact_ref: TopicSelectionFunctionalRef;
+};
+
 type ServiceOptions = {
   idFactory?: (prefix: string) => string;
   now?: () => string;
@@ -213,6 +218,14 @@ export class TopicSelectionResearchArenaService {
     return this.dependencies.arenaRepository.findSessionByKey(sessionKey);
   }
 
+  async claimSessionExecution(
+    arenaSessionId: string,
+  ): Promise<TopicSelectionResearchArenaSessionRecord | null> {
+    const session = await this.getSession(arenaSessionId);
+    if (session.status !== 'open' || !session.current_arena_key) return null;
+    return this.dependencies.arenaRepository.claimSessionExecution(arenaSessionId);
+  }
+
   async getCurrentSession(
     titleCardId: string,
     arenaKind: TopicSelectionResearchArenaKind,
@@ -232,8 +245,8 @@ export class TopicSelectionResearchArenaService {
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord> {
     const session = await this.dependencies.arenaRepository.findSessionById(input.arena_session_id);
     if (!session) throw new AppError(404, 'NOT_FOUND', `ResearchArenaSession ${input.arena_session_id} was not found.`);
-    if (session.status !== 'open' || !session.current_arena_key) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Role execution requires the current open arena.');
+    if (!['open', 'executing'].includes(session.status) || !session.current_arena_key) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Role execution requires the current executable arena.');
     }
     if (!session.participant_roles.includes(input.participant_role)) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Participant role is outside the arena execution plan.');
@@ -455,8 +468,9 @@ export class TopicSelectionResearchArenaService {
       || session.loop_transcript_hash !== transcriptHash)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Synthesized evidence-convergence arena has a different transcript.');
     }
-    if (!synthesizedReplay && (session.status !== 'open' || !session.current_arena_key)) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Only the current open evidence-convergence arena can be synthesized.');
+    if (!synthesizedReplay
+      && (!['open', 'executing'].includes(session.status) || !session.current_arena_key)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Only the current executable evidence-convergence arena can be synthesized.');
     }
 
     const executions = await this.dependencies.arenaRepository.listRoleExecutionsBySessionId(
@@ -564,7 +578,7 @@ export class TopicSelectionResearchArenaService {
 
     const now = this.now();
     try {
-      return await this.dependencies.arenaRepository.updateSession({
+      const completed = {
         ...session,
         status: 'synthesized',
         termination_reason: terminationReason,
@@ -572,6 +586,58 @@ export class TopicSelectionResearchArenaService {
         loop_transcript_hash: transcriptHash,
         updated_at: now,
         synthesized_at: now,
+      } as const;
+      return await (session.status === 'executing'
+        ? this.dependencies.arenaRepository.completeClaimedSession(completed)
+        : this.dependencies.arenaRepository.updateSession(completed));
+    } catch (error) {
+      if (error instanceof TopicSelectionResearchArenaConflictError) {
+        throw new AppError(409, 'VERSION_CONFLICT', error.message);
+      }
+      throw error;
+    }
+  }
+
+  async recordBlockedEvidenceLandscapeSession(
+    input: RecordBlockedEvidenceLandscapeSessionInput,
+  ): Promise<TopicSelectionResearchArenaSessionRecord> {
+    const session = await this.getSession(input.arena_session_id);
+    if (session.arena_kind !== 'evidence_landscape'
+      || session.status !== 'executing'
+      || !session.current_arena_key) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Only a claimed evidence-landscape arena can record a blocked terminal outcome.',
+      );
+    }
+    const snapshot = await this.requireSnapshot(session.input_snapshot_id, session.title_card_id);
+    const artifact = await this.requireArtifact(
+      input.blocked_transcript_artifact_ref,
+      session.title_card_id,
+      snapshot,
+    );
+    const payload = artifact.payload;
+    const artifactHash = this.requireArtifactHash(artifact, 'Blocked evidence-convergence transcript');
+    if (payload?.schema_version !== 'TopicSelectionEvidenceConvergenceRoundBlocked@v1'
+      || payload.arena_session_id !== session.arena_session_id
+      || payload.input_snapshot_id !== session.input_snapshot_id
+      || payload.support_only !== true) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'Blocked evidence-convergence transcript does not bind the claimed arena.',
+      );
+    }
+    const now = this.now();
+    try {
+      return await this.dependencies.arenaRepository.completeClaimedSession({
+        ...session,
+        status: 'blocked',
+        termination_reason: 'policy_blocked',
+        loop_transcript_ref: input.blocked_transcript_artifact_ref,
+        loop_transcript_hash: artifactHash,
+        updated_at: now,
       });
     } catch (error) {
       if (error instanceof TopicSelectionResearchArenaConflictError) {
@@ -758,6 +824,13 @@ export class TopicSelectionResearchArenaService {
         );
       }
       return;
+    }
+    if (current.status === 'open' || current.status === 'executing') {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'An active arena must reach a terminal state before a retry can replace it.',
+      );
     }
     if (loopDeltaRefs.length === 0) {
       throw new AppError(

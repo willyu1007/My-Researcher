@@ -37,6 +37,8 @@ type SearchResources = Pick<TopicSelectionSearchResourceService,
   | 'getCoverageMatrix'
   | 'createSearchPlan'
   | 'recordSearchRun'
+  | 'claimEvidenceConvergenceRecheckRequestExecution'
+  | 'findEvidenceConvergenceExecution'
   | 'completeEvidenceConvergenceRecheckRequest'
   | 'getSearchRunById'
   | 'getSearchPlanRecheckRequestById'
@@ -78,11 +80,16 @@ export type TopicSelectionEvidenceConvergenceRetrievalExecution = {
   retrieval_hit_count: number;
   retrieval_hits: TopicSelectionEvidenceConvergenceRetrievalHit[];
   retrieval_cost_microusd: number;
+  search_run_status: TopicSelectionSearchRunRecord['run_status'];
   reused: boolean;
 };
 
 export type TopicSelectionEvidenceConvergenceRetrievalResult = {
-  status: 'retrieval_ready' | 'saturated_unresolved' | 'boundary_exhausted_unresolved';
+  status:
+    | 'retrieval_ready'
+    | 'retrieval_failed_unresolved'
+    | 'saturated_unresolved'
+    | 'boundary_exhausted_unresolved';
   reason_codes: string[];
   requests: TopicSelectionSearchPlanRecheckRequestRecord[];
   executions: TopicSelectionEvidenceConvergenceRetrievalExecution[];
@@ -112,6 +119,11 @@ type QueryExecution = {
 };
 
 export class TopicSelectionEvidenceConvergenceCoordinatorService {
+  private readonly requestExecutions = new Map<
+    string,
+    Promise<TopicSelectionEvidenceConvergenceRetrievalExecution>
+  >();
+
   constructor(private readonly dependencies: {
     searchResources: SearchResources;
     retriever: { retrieve(request: LiteratureRetrieveRequest): Promise<LiteratureRetrieveResponse> };
@@ -223,6 +235,9 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       }
       return completed;
     }));
+    const hasFailedExecution = executions.some((execution) => (
+      execution.search_run_status === 'failed' || execution.search_run_status === 'blocked'
+    ));
     const hasHits = executions.some((execution) => execution.retrieval_hit_count > 0);
     const accounting = {
       ...input.accounting,
@@ -247,9 +262,11 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
     return {
       status: completedBoundary.disposition === 'boundary_exhausted_unresolved'
         ? 'boundary_exhausted_unresolved'
+        : hasFailedExecution ? 'retrieval_failed_unresolved'
         : hasHits ? 'retrieval_ready' : 'saturated_unresolved',
       reason_codes: completedBoundary.disposition === 'boundary_exhausted_unresolved'
         ? completedBoundary.reason_codes
+        : hasFailedExecution ? ['RETRIEVAL_EXECUTION_FAILED']
         : hasHits ? [] : ['UNCHANGED_STRATEGY_NO_RETRIEVAL_HITS'],
       requests: completedRequests,
       executions,
@@ -301,7 +318,28 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
     request: TopicSelectionSearchPlanRecheckRequestRecord,
     predecessorUnits: TopicSelectionEvidenceUnitRecord[],
   ): Promise<TopicSelectionEvidenceConvergenceRetrievalExecution> {
-    if (request.resulting_search_run_ref) {
+    const ongoing = this.requestExecutions.get(request.search_plan_recheck_request_id);
+    if (ongoing) {
+      const shared = await ongoing;
+      return { ...shared, reused: true };
+    }
+    const execution = this.executeOrReuseRequestOnce(request, predecessorUnits);
+    this.requestExecutions.set(request.search_plan_recheck_request_id, execution);
+    try {
+      return await execution;
+    } finally {
+      if (this.requestExecutions.get(request.search_plan_recheck_request_id) === execution) {
+        this.requestExecutions.delete(request.search_plan_recheck_request_id);
+      }
+    }
+  }
+
+  private async executeOrReuseRequestOnce(
+    initialRequest: TopicSelectionSearchPlanRecheckRequestRecord,
+    predecessorUnits: TopicSelectionEvidenceUnitRecord[],
+  ): Promise<TopicSelectionEvidenceConvergenceRetrievalExecution> {
+    let request = initialRequest;
+    if (request.status === 'materialized' && request.resulting_search_run_ref) {
       const run = await this.dependencies.searchResources.getSearchRunById(
         request.resulting_search_run_ref.ref_id,
       );
@@ -318,14 +356,62 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         true,
       );
     }
+    const recovered = await this.dependencies.searchResources.findEvidenceConvergenceExecution(
+      request.search_plan_recheck_request_id,
+    );
+    if (recovered?.search_run) {
+      const completed = await this.dependencies.searchResources.completeEvidenceConvergenceRecheckRequest({
+        request_id: request.search_plan_recheck_request_id,
+        resulting_search_plan_id: recovered.search_plan.search_plan_id,
+        resulting_search_run_id: recovered.search_run.search_run_id,
+        decision_summary: 'Coordinator recovered the already-persisted retrieval execution.',
+      });
+      return this.executionResult(
+        completed,
+        recovered.search_run,
+        this.readPersistedHits(recovered.search_run),
+        this.persistedRetrievalCostMicrousd(recovered.search_run),
+        true,
+      );
+    }
+    if (request.status === 'executing') {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        recovered
+          ? 'Evidence-convergence retrieval execution was interrupted before a durable SearchRun; provider work will not be repeated automatically.'
+          : 'Evidence-convergence retrieval execution is already claimed; provider work will not be duplicated.',
+      );
+    }
     if (request.status !== 'open' || !request.retrieval_intent || !request.corpus_manifest_ref
       || !request.issue_ref || !request.request_key) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence request is not executable.');
     }
+    const claimed = await this.dependencies.searchResources
+      .claimEvidenceConvergenceRecheckRequestExecution(request.search_plan_recheck_request_id);
+    if (!claimed) {
+      const latest = await this.dependencies.searchResources.getSearchPlanRecheckRequestById(
+        request.search_plan_recheck_request_id,
+      );
+      if (latest?.status === 'materialized' && latest.resulting_search_run_ref) {
+        return this.executeOrReuseRequestOnce(latest, predecessorUnits);
+      }
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence retrieval execution is already claimed; provider work will not be duplicated.',
+      );
+    }
+    request = claimed;
+    const retrievalIntent = request.retrieval_intent;
+    const corpusManifestRef = request.corpus_manifest_ref;
+    if (!retrievalIntent || !corpusManifestRef) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Claimed evidence-convergence request lost its execution identity.');
+    }
     const [parentPlan, manifest, coverage] = await Promise.all([
       this.dependencies.searchResources.getSearchPlanById(request.target_search_plan_ref.ref_id),
       this.dependencies.searchResources.getLiteratureResourcePoolSnapshotById(
-        request.corpus_manifest_ref.ref_id,
+        corpusManifestRef.ref_id,
       ),
       this.dependencies.searchResources.getCoverageMatrix(request.target_search_plan_ref.ref_id),
     ]);
@@ -344,7 +430,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       title_card_id: request.title_card_id,
       topic_seed_id: parentPlan.topic_seed_ref.ref_id,
       literature_resource_pool_snapshot_id: manifest.literature_resource_pool_snapshot_id,
-      query_intents: request.retrieval_intent.candidate_queries,
+      query_intents: retrievalIntent.candidate_queries,
       must_check_constraints: parentPlan.must_check_constraints,
       exclusion_rules: parentPlan.exclusion_rules,
       coverage_strategy: {
@@ -377,18 +463,28 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       throw new AppError(500, 'INTERNAL_ERROR', 'Evidence-convergence child plan lost the issue coverage row.');
     }
     const queryExecutions: QueryExecution[] = [];
-    for (let index = 0; index < request.retrieval_intent.candidate_queries.length; index += 1) {
-      const query = request.retrieval_intent.candidate_queries[index]!;
-      const response = await this.retrieve(query, request, manifest);
-      queryExecutions.push({ query, response, coverageRow: childIssueRow });
+    let failure: { query: string; reason_code: string } | null = null;
+    for (let index = 0; index < retrievalIntent.candidate_queries.length; index += 1) {
+      const query = retrievalIntent.candidate_queries[index]!;
+      try {
+        const response = await this.retrieve(query, request, manifest);
+        queryExecutions.push({ query, response, coverageRow: childIssueRow });
+        if (response.items.some((item) => item.is_stale)) {
+          failure = { query, reason_code: 'STALE_RETRIEVAL_EVIDENCE' };
+          break;
+        }
+      } catch {
+        failure = { query, reason_code: 'SEARCH_PROVIDER_FAILED' };
+        break;
+      }
     }
-    const hits = this.hits(queryExecutions, request.title_card_id);
+    const hits = failure ? [] : this.hits(queryExecutions, request.title_card_id);
     const uniqueLiteratureCount = new Set(hits.map((hit) => hit.literature_ref.ref_id)).size;
-    const degraded = queryExecutions.some(({ response }) => response.meta.degraded_mode
+    const degraded = !failure && queryExecutions.some(({ response }) => response.meta.degraded_mode
       || response.meta.freshness_warnings.length > 0
       || response.meta.skipped_profiles.length > 0);
     const evidenceMapInputRefs = this.uniqueRefs([
-      ...this.evidenceMapInputRefs(queryExecutions, request.title_card_id),
+      ...(failure ? [] : this.evidenceMapInputRefs(queryExecutions, request.title_card_id)),
       ...predecessorUnits.flatMap((unit) => this.unitAuthorityRefs(unit)),
     ]);
     const runResult = await this.dependencies.searchResources.recordSearchRun({
@@ -396,26 +492,39 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       title_card_id: request.title_card_id,
       search_plan_id: child.search_plan.search_plan_id,
       literature_resource_pool_snapshot_id: manifest.literature_resource_pool_snapshot_id,
-      literature_resource_pool_snapshot_ref: request.corpus_manifest_ref,
+      literature_resource_pool_snapshot_ref: corpusManifestRef,
       expected_literature_snapshot_hash: request.corpus_manifest_hash ?? undefined,
       run_kind: 'recheck_followup',
-      run_status: degraded ? 'partial' : 'succeeded',
-      query_provenance: queryExecutions.map(({ query, response }) => ({
+      run_status: failure ? 'failed' : degraded ? 'partial' : 'succeeded',
+      query_provenance: [
+        ...queryExecutions.map(({ query, response }) => ({
         schema_version: 'TopicSelectionEvidenceConvergenceQueryExecution@v1',
         request_key: request.request_key,
         strategy_key: request.strategy_key,
         query,
         retrieval_meta: response.meta,
         hits: hits.filter((hit) => hit.query === query),
-      })),
+        })),
+        ...(failure && !queryExecutions.some(({ query }) => query === failure.query) ? [{
+          schema_version: 'TopicSelectionEvidenceConvergenceQueryExecution@v1',
+          request_key: request.request_key,
+          strategy_key: request.strategy_key,
+          query: failure.query,
+          failure_reason_code: failure.reason_code,
+          hits: [],
+        }] : []),
+      ],
       result_accounting: {
-        total_result_count: queryExecutions.reduce((total, item) => total + item.response.items.length, 0),
+        total_result_count: failure
+          ? 0
+          : queryExecutions.reduce((total, item) => total + item.response.items.length, 0),
         unique_literature_count: uniqueLiteratureCount,
         duplicate_result_count: Math.max(
           0,
-          queryExecutions.reduce((total, item) => total + item.response.items.length, 0) - uniqueLiteratureCount,
+          (failure ? 0 : queryExecutions.reduce((total, item) => total + item.response.items.length, 0))
+            - uniqueLiteratureCount,
         ),
-        failed_source_count: 0,
+        failed_source_count: failure ? 1 : 0,
         skipped_source_count: queryExecutions.reduce(
           (total, item) => total + item.response.meta.skipped_profiles.length,
           0,
@@ -423,7 +532,12 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       },
       source_health_summary: {
         degraded_mode: degraded,
-        warning_codes: degraded ? ['RETRIEVAL_DEGRADED'] : [],
+        warning_codes: failure
+          ? [failure.reason_code]
+          : degraded ? ['RETRIEVAL_DEGRADED'] : [],
+        failure_summary: failure
+          ? 'Evidence-convergence retrieval failed closed before producing consumable evidence.'
+          : null,
         freshness_warnings: queryExecutions.flatMap((item) => item.response.meta.freshness_warnings),
         skipped_profiles: queryExecutions.flatMap((item) => item.response.meta.skipped_profiles),
       },
@@ -440,8 +554,16 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         corpus_manifest_ref: request.corpus_manifest_ref,
         corpus_manifest_hash: request.corpus_manifest_hash,
         query_executions: queryExecutions.map(({ query, response }) => ({ query, response })),
+        failure,
       },
-      coverage_observations: queryExecutions.map(({ response, coverageRow }) => ({
+      coverage_observations: failure ? [{
+        coverage_row_intent_id: childIssueRow.coverage_row_intent_id,
+        status: 'failed',
+        result_count: 0,
+        source_count: 0,
+        missing_reason_codes: [failure.reason_code],
+        notes: 'Coordinator persisted a failed-closed evidence-convergence retrieval.',
+      }] : queryExecutions.map(({ response, coverageRow }) => ({
         coverage_row_intent_id: coverageRow.coverage_row_intent_id,
         status: degraded ? 'partial' : 'succeeded',
         result_count: response.items.length,
@@ -449,8 +571,8 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         missing_reason_codes: response.items.length === 0 ? ['NO_RETRIEVAL_HITS'] : [],
         notes: 'Coordinator-owned evidence-convergence retrieval execution.',
       })),
-      evidence_bindings: this.evidenceBindings(queryExecutions, request.title_card_id),
-      coverage_assessments: coverage.rows.flatMap(({ coverage_row_intent: row, latest_assessment: assessment }) => {
+      evidence_bindings: failure ? [] : this.evidenceBindings(queryExecutions, request.title_card_id),
+      coverage_assessments: failure ? [] : coverage.rows.flatMap(({ coverage_row_intent: row, latest_assessment: assessment }) => {
         const childRow = child.coverage_row_intents.find((candidate) => candidate.coverage_key === row.coverage_key);
         return childRow && assessment ? [{
           coverage_row_intent_id: childRow.coverage_row_intent_id,
@@ -467,7 +589,9 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       request_id: request.search_plan_recheck_request_id,
       resulting_search_plan_id: child.search_plan.search_plan_id,
       resulting_search_run_id: runResult.search_run.search_run_id,
-      decision_summary: 'Coordinator persisted the replayable managed-library retrieval execution.',
+      decision_summary: failure
+        ? `Coordinator persisted failed-closed retrieval outcome ${failure.reason_code}.`
+        : 'Coordinator persisted the replayable managed-library retrieval execution.',
     });
     return this.executionResult(
       completed,
@@ -497,9 +621,6 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
     const items = response.items.filter((item) => allowedVersions.has(
       `${item.literature_id}:${item.embedding_version_id}`,
     ));
-    if (items.some((item) => item.is_stale)) {
-      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Evidence-convergence retrieval returned stale evidence.');
-    }
     return { ...response, items };
   }
 
@@ -664,6 +785,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       retrieval_hit_count: hits.length,
       retrieval_hits: hits,
       retrieval_cost_microusd: retrievalCostMicrousd,
+      search_run_status: run.run_status,
       reused,
     };
   }

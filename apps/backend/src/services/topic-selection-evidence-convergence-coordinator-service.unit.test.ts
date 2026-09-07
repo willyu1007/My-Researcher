@@ -259,8 +259,8 @@ function response(query: string): LiteratureRetrieveResponse {
 
 test('coordinator merges equivalent role requests, persists execution before distribution, and reuses it', async () => {
   const calls: string[] = [];
-  let runtimeNowMs = 100;
   let durableRequest = requestRecord();
+  let exposePersistedExecution = false;
   const run: TopicSelectionSearchRunRecord = {
     search_run_id: 'run_1',
     workspace_id: null,
@@ -328,6 +328,17 @@ test('coordinator merges equivalent role requests, persists execution before dis
         calls.push('persist-run');
         return { search_run: run, observations: [], evidence_bindings: [], assessments: [], risk_acceptances: [] };
       },
+      claimEvidenceConvergenceRecheckRequestExecution: async () => {
+        if (durableRequest.status !== 'open') return null;
+        durableRequest = { ...durableRequest, status: 'executing' };
+        return durableRequest;
+      },
+      findEvidenceConvergenceExecution: async () => exposePersistedExecution
+        ? {
+          search_plan: { ...searchPlan('plan_2'), plan_version: 'v2' },
+          search_run: run,
+        }
+        : null,
       completeEvidenceConvergenceRecheckRequest: async () => {
         calls.push('complete-request');
         durableRequest = {
@@ -366,11 +377,7 @@ test('coordinator merges equivalent role requests, persists execution before dis
       }),
       listEvidenceUnitsByEvidenceMapId: async () => [],
     },
-    nowMs: () => {
-      const current = runtimeNowMs;
-      runtimeNowMs += 25;
-      return current;
-    },
+    nowMs: () => 100,
   });
 
   const roleRequests = [
@@ -399,7 +406,7 @@ test('coordinator merges equivalent role requests, persists execution before dis
   }), /workspace scope/u);
   assert.deepEqual(calls, []);
 
-  const first = await service.executeRoleRetrievalRequests({
+  const executionInput = {
     title_card_id: 'title_1',
     target_search_plan_id: 'plan_1',
     predecessor_evidence_map_id: 'map_1',
@@ -410,20 +417,26 @@ test('coordinator merges equivalent role requests, persists execution before dis
       elapsed_ms: 0,
       accumulated_cost_microusd: 0,
     },
-  });
+  } as const;
+  const [first, concurrentReplay] = await Promise.all([
+    service.executeRoleRetrievalRequests(executionInput),
+    service.executeRoleRetrievalRequests(executionInput),
+  ]);
 
   assert.equal(first.status, 'retrieval_ready');
   assert.equal(first.executions.length, 1);
   assert.equal(first.executions[0]?.reused, false);
+  assert.equal(concurrentReplay.executions[0]?.reused, true);
   assert.equal(first.executions[0]?.retrieval_hit_count, 2);
   assert.equal(first.role_distributions.length, 2);
   assert.equal(first.requests[0]?.status, 'materialized');
   assert.deepEqual(first.accounting, {
     orchestration_steps: 1,
     linked_rounds: 0,
-    elapsed_ms: 25,
+    elapsed_ms: 0,
     accumulated_cost_microusd: 500,
   });
+  assert.equal(concurrentReplay.accounting.accumulated_cost_microusd, 0);
   assert.deepEqual(calls, [
     'retrieve:direct challenge evidence',
     'retrieve:failure mode evidence',
@@ -432,6 +445,22 @@ test('coordinator merges equivalent role requests, persists execution before dis
   ]);
 
   calls.length = 0;
+  durableRequest = {
+    ...durableRequest,
+    status: 'executing',
+    resulting_search_plan_ref: null,
+    resulting_search_run_ref: null,
+    resolved_at: null,
+  };
+  exposePersistedExecution = true;
+  const recovered = await service.executeRoleRetrievalRequests(executionInput);
+  assert.equal(recovered.status, 'retrieval_ready');
+  assert.equal(recovered.executions[0]?.reused, true);
+  assert.equal(recovered.executions[0]?.search_run_ref.ref_id, run.search_run_id);
+  assert.deepEqual(calls, ['complete-request']);
+
+  calls.length = 0;
+  exposePersistedExecution = false;
   const replay = await service.executeRoleRetrievalRequests({
     title_card_id: 'title_1',
     target_search_plan_id: 'plan_1',
@@ -444,7 +473,7 @@ test('coordinator merges equivalent role requests, persists execution before dis
   assert.deepEqual(replay.accounting, {
     orchestration_steps: 1,
     linked_rounds: 0,
-    elapsed_ms: 50,
+    elapsed_ms: 0,
     accumulated_cost_microusd: 500,
   });
   assert.deepEqual(calls, []);
@@ -456,7 +485,7 @@ test('coordinator merges equivalent role requests, persists execution before dis
     role_requests: roleRequests,
     accounting: {
       ...replay.accounting,
-      elapsed_ms: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY.max_elapsed_ms_per_issue - 25,
+      elapsed_ms: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY.max_elapsed_ms_per_issue,
     },
   });
   assert.equal(exhaustedAfterReplay.status, 'boundary_exhausted_unresolved');
@@ -479,6 +508,8 @@ test('coordinator halts exhausted work unresolved before retrieval', async () =>
       getCoverageMatrix: async () => { throw new Error('unreachable'); },
       createSearchPlan: async () => { throw new Error('unreachable'); },
       recordSearchRun: async () => { throw new Error('unreachable'); },
+      claimEvidenceConvergenceRecheckRequestExecution: async () => { throw new Error('unreachable'); },
+      findEvidenceConvergenceExecution: async () => { throw new Error('unreachable'); },
       completeEvidenceConvergenceRecheckRequest: async () => { throw new Error('unreachable'); },
       getSearchRunById: async () => null,
       getSearchPlanRecheckRequestById: async () => null,

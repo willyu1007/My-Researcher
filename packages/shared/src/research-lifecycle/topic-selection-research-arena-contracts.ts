@@ -112,6 +112,8 @@ export type TopicSelectionResearchArenaKind =
 
 export const TOPIC_SELECTION_RESEARCH_ARENA_STATUSES = [
   'open',
+  'executing',
+  'blocked',
   'synthesized',
   'superseded',
 ] as const;

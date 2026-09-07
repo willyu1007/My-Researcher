@@ -1117,6 +1117,413 @@ test('SearchPlanRecheckRequest accepted, reject, accepted-risk, and materialized
   assert.equal(materializedResult.follow_up_search_run?.run_status, 'failed');
 });
 
+test('SearchPlanRecheckRequest claim and human resolution have one atomic winner', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_race', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise the execution-claim race.',
+  });
+
+  const [claimed, resolved] = await Promise.all([
+    ctx.searchResourceRepository.claimSearchPlanRecheckRequestExecution(
+      request.search_plan_recheck_request_id,
+    ),
+    ctx.searchResourceRepository.transitionSearchPlanRecheckRequest(
+      request.search_plan_recheck_request_id,
+      'open',
+      {
+        status: 'accepted',
+        decision_summary: 'Human resolution won the race.',
+        resolved_at: '2026-09-07T00:00:00.000Z',
+      },
+    ),
+  ]);
+
+  assert.equal(Number(claimed !== null) + Number(resolved !== null), 1);
+  const persisted = await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+    request.search_plan_recheck_request_id,
+  );
+  assert.ok(persisted?.status === 'executing' || persisted?.status === 'accepted');
+});
+
+test('manual materialization rejects deterministic plan errors before claim and permits corrected input', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_invalid_materialization', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise pre-claim validation.',
+  });
+
+  await assert.rejects(
+    ctx.service.resolveSearchPlanRecheckRequest({
+      request_id: request.search_plan_recheck_request_id,
+      outcome: 'materialized',
+      decision_summary: 'This invalid attempt must not poison the request.',
+      revised_search_plan: {
+        query_intents: ['first query', 'second query'],
+        coverage_intents: [
+          { coverage_key: 'duplicate', query: 'first query' },
+          { coverage_key: 'duplicate', query: 'second query' },
+        ],
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+  assert.equal(
+    (await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+      request.search_plan_recheck_request_id,
+    ))?.status,
+    'open',
+  );
+
+  const corrected = await ctx.service.resolveSearchPlanRecheckRequest({
+    request_id: request.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Corrected materialization succeeds.',
+    revised_search_plan: {
+      query_intents: ['first query', 'second query'],
+      coverage_intents: [
+        { coverage_key: 'first', query: 'first query' },
+        { coverage_key: 'second', query: 'second query' },
+      ],
+    },
+  });
+  assert.equal(corrected.request.status, 'materialized');
+});
+
+test('in-memory SearchPlan persistence mirrors Prisma title-version and coverage-key uniqueness', async () => {
+  const ctx = await createBasePlan();
+  await assert.rejects(
+    ctx.searchResourceRepository.createSearchPlanWithCoverageIntents({
+      ...ctx.plan.search_plan,
+      search_plan_id: 'search_plan_duplicate_version',
+    }, []),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+
+  const searchPlanId = 'search_plan_duplicate_coverage_key';
+  const firstRow = ctx.plan.coverage_row_intents[0]!;
+  await assert.rejects(
+    ctx.searchResourceRepository.createSearchPlanWithCoverageIntents({
+      ...ctx.plan.search_plan,
+      search_plan_id: searchPlanId,
+      plan_version: 'unique-coverage-key-check',
+    }, [
+      {
+        ...firstRow,
+        coverage_row_intent_id: 'coverage_intent_duplicate_1',
+        search_plan_id: searchPlanId,
+        coverage_key: 'duplicate-key',
+      },
+      {
+        ...firstRow,
+        coverage_row_intent_id: 'coverage_intent_duplicate_2',
+        search_plan_id: searchPlanId,
+        coverage_key: 'duplicate-key',
+      },
+    ]),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(await ctx.searchResourceRepository.findSearchPlanById(searchPlanId), null);
+});
+
+test('manual materialization resumes exact planned targets after SearchPlan persistence failure', async () => {
+  const planFailure = await createBasePlan();
+  const planFailureRequest = await planFailure.service.createSearchPlanRecheckRequest({
+    title_card_id: planFailure.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_plan_failure', planFailure.titleCard.title_card_id),
+    target_search_plan_id: planFailure.plan.search_plan.search_plan_id,
+    reason: 'Exercise plan materialization recovery.',
+  });
+  const resolveInput: Parameters<TopicSelectionSearchResourceService['resolveSearchPlanRecheckRequest']>[0] = {
+    request_id: planFailureRequest.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Attempt a revised plan.',
+    revised_search_plan: {
+      plan_version: 'plan-failure-v1',
+      query_intents: ['recovery query'],
+    },
+  };
+  const persistPlan = planFailure.searchResourceRepository.createSearchPlanWithCoverageIntents.bind(
+    planFailure.searchResourceRepository,
+  );
+  let failPlanPersistence = true;
+  planFailure.searchResourceRepository.createSearchPlanWithCoverageIntents = async (...args) => {
+    if (failPlanPersistence) {
+      failPlanPersistence = false;
+      throw new Error('simulated SearchPlan persistence failure');
+    }
+    return persistPlan(...args);
+  };
+  await assert.rejects(
+    planFailure.service.resolveSearchPlanRecheckRequest(resolveInput),
+    /simulated SearchPlan persistence failure/u,
+  );
+  const pending = await planFailure.searchResourceRepository.findSearchPlanRecheckRequestById(
+    planFailureRequest.search_plan_recheck_request_id,
+  );
+  assert.equal(pending?.status, 'executing');
+  assert.match(pending?.decision_summary ?? '', /^manual-materialization-attempt:/u);
+  assert.ok(pending?.resulting_search_plan_ref);
+  assert.equal(pending?.resulting_search_run_ref, null);
+  assert.equal(pending?.resolved_at, null);
+
+  const restartedService = new TopicSelectionSearchResourceService(
+    planFailure.searchResourceRepository,
+    planFailure.controlPlane,
+    planFailure.titleCards,
+    planFailure.literature,
+    { now: () => '2026-05-13T00:00:00.000Z' },
+  );
+  await assert.rejects(
+    restartedService.resolveSearchPlanRecheckRequest({
+      ...resolveInput,
+      revised_search_plan: {
+        ...resolveInput.revised_search_plan!,
+        query_intents: ['different recovery query'],
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  const resumed = await restartedService.resolveSearchPlanRecheckRequest(resolveInput);
+  assert.equal(resumed.request.status, 'materialized');
+  assert.equal(resumed.revised_search_plan?.search_plan_id, pending?.resulting_search_plan_ref?.ref_id);
+  assert.equal(resumed.request.decision_summary, resolveInput.decision_summary);
+  await assert.rejects(
+    restartedService.resolveSearchPlanRecheckRequest(resolveInput),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
+
+test('manual materialization terminalizes deterministic failures after its durable claim', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_terminal_failure', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise deterministic failure settlement after claim.',
+  });
+  ctx.searchResourceRepository.createSearchPlanWithCoverageIntents = async () => {
+    throw new AppError(409, 'VERSION_CONFLICT', 'simulated deterministic SearchPlan conflict');
+  };
+
+  await assert.rejects(
+    ctx.service.resolveSearchPlanRecheckRequest({
+      request_id: request.search_plan_recheck_request_id,
+      outcome: 'materialized',
+      decision_summary: 'Attempt deterministic conflict.',
+      revised_search_plan: { query_intents: ['deterministic conflict query'] },
+    }),
+    /simulated deterministic SearchPlan conflict/u,
+  );
+  const failed = await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+    request.search_plan_recheck_request_id,
+  );
+  assert.equal(failed?.status, 'materialization_failed');
+  assert.ok(failed?.resulting_search_plan_ref);
+  assert.match(failed?.decision_summary ?? '', /^manual-materialization-attempt:/u);
+  assert.ok(failed?.resolved_at);
+});
+
+test('manual materialization resumes the same SearchPlan and planned SearchRun after restart', async () => {
+  const runFailure = await createBasePlan();
+  const runFailureRequest = await runFailure.service.createSearchPlanRecheckRequest({
+    title_card_id: runFailure.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_run_failure', runFailure.titleCard.title_card_id),
+    target_search_plan_id: runFailure.plan.search_plan.search_plan_id,
+    reason: 'Exercise follow-up SearchRun materialization recovery.',
+  });
+  const resolveInput: Parameters<TopicSelectionSearchResourceService['resolveSearchPlanRecheckRequest']>[0] = {
+    request_id: runFailureRequest.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Attempt a revised plan and follow-up run.',
+    revised_search_plan: {
+      plan_version: 'run-failure-v1',
+      query_intents: ['recovery query'],
+    },
+    follow_up_search_run: {
+      run_status: 'failed',
+      result_accounting: {
+        total_result_count: 0,
+        unique_literature_count: 0,
+        duplicate_result_count: 0,
+        failed_source_count: 1,
+        skipped_source_count: 0,
+      },
+      source_health_summary: { warning_codes: ['SEARCH_PROVIDER_FAILED'] },
+      evidence_map_input_refs: [],
+    },
+  };
+  const persistRun = runFailure.searchResourceRepository.createSearchRunWithCoverageRecords.bind(
+    runFailure.searchResourceRepository,
+  );
+  let failRunPersistence = true;
+  runFailure.searchResourceRepository.createSearchRunWithCoverageRecords = async (...args) => {
+    if (failRunPersistence) {
+      failRunPersistence = false;
+      throw new Error('simulated SearchRun persistence failure');
+    }
+    return persistRun(...args);
+  };
+  await assert.rejects(
+    runFailure.service.resolveSearchPlanRecheckRequest(resolveInput),
+    /simulated SearchRun persistence failure/u,
+  );
+  const pending = await runFailure.searchResourceRepository.findSearchPlanRecheckRequestById(
+    runFailureRequest.search_plan_recheck_request_id,
+  );
+  assert.equal(pending?.status, 'executing');
+  assert.ok(pending?.resulting_search_plan_ref);
+  assert.ok(pending?.resulting_search_run_ref);
+
+  const restartedService = new TopicSelectionSearchResourceService(
+    runFailure.searchResourceRepository,
+    runFailure.controlPlane,
+    runFailure.titleCards,
+    runFailure.literature,
+    { now: () => '2026-05-13T00:00:00.000Z' },
+  );
+  const resumed = await restartedService.resolveSearchPlanRecheckRequest(resolveInput);
+  assert.equal(resumed.request.status, 'materialized');
+  assert.equal(resumed.revised_search_plan?.search_plan_id, pending?.resulting_search_plan_ref?.ref_id);
+  assert.equal(resumed.follow_up_search_run?.search_run_id, pending?.resulting_search_run_ref?.ref_id);
+  const revisedPlans = (await runFailure.searchResourceRepository.listSearchPlansByTitleCardId(
+    runFailure.titleCard.title_card_id,
+  )).filter((item) => item.recheck_request_ref?.ref_id === runFailureRequest.search_plan_recheck_request_id);
+  assert.equal(revisedPlans.length, 1);
+});
+
+test('concurrent manual materialization converges on one persisted plan and run', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_concurrent_materialization', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise cross-service exact materialization convergence.',
+  });
+  const peerService = new TopicSelectionSearchResourceService(
+    ctx.searchResourceRepository,
+    ctx.controlPlane,
+    ctx.titleCards,
+    ctx.literature,
+    { now: () => '2026-05-13T00:00:00.000Z' },
+  );
+  const input: Parameters<TopicSelectionSearchResourceService['resolveSearchPlanRecheckRequest']>[0] = {
+    request_id: request.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Converge concurrent materialization.',
+    revised_search_plan: {
+      plan_version: 'concurrent-v1',
+      query_intents: ['concurrent recovery query'],
+    },
+    follow_up_search_run: {
+      run_status: 'failed',
+      result_accounting: {
+        total_result_count: 0,
+        unique_literature_count: 0,
+        duplicate_result_count: 0,
+        failed_source_count: 1,
+        skipped_source_count: 0,
+      },
+      source_health_summary: { error_codes: ['SEARCH_PROVIDER_FAILED'] },
+      evidence_map_input_refs: [],
+    },
+  };
+
+  const [left, right] = await Promise.all([
+    ctx.service.resolveSearchPlanRecheckRequest(input),
+    peerService.resolveSearchPlanRecheckRequest(input),
+  ]);
+  assert.equal(left.revised_search_plan?.search_plan_id, right.revised_search_plan?.search_plan_id);
+  assert.equal(left.follow_up_search_run?.search_run_id, right.follow_up_search_run?.search_run_id);
+  const revisedPlans = (await ctx.searchResourceRepository.listSearchPlansByTitleCardId(
+    ctx.titleCard.title_card_id,
+  )).filter((item) => item.recheck_request_ref?.ref_id === request.search_plan_recheck_request_id);
+  assert.equal(revisedPlans.length, 1);
+});
+
+test('concurrent manual requests deterministically settle a shared SearchPlan version loser', async () => {
+  const ctx = await createBasePlan();
+  const [leftRequest, rightRequest] = await Promise.all([
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: ref('need_candidate', 'need_candidate_version_race_left', ctx.titleCard.title_card_id),
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Race an explicit SearchPlan version.',
+    }),
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: ref('need_candidate', 'need_candidate_version_race_right', ctx.titleCard.title_card_id),
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Race the same explicit SearchPlan version.',
+    }),
+  ]);
+  const persistPlan = ctx.searchResourceRepository.createSearchPlanWithCoverageIntents.bind(
+    ctx.searchResourceRepository,
+  );
+  let arrivals = 0;
+  let releaseBoth!: () => void;
+  const bothArrived = new Promise<void>((resolve) => {
+    releaseBoth = resolve;
+  });
+  ctx.searchResourceRepository.createSearchPlanWithCoverageIntents = async (...args) => {
+    arrivals += 1;
+    if (arrivals === 2) {
+      releaseBoth();
+    }
+    await bothArrived;
+    return persistPlan(...args);
+  };
+  const resolve = (requestId: string) => ctx.service.resolveSearchPlanRecheckRequest({
+    request_id: requestId,
+    outcome: 'materialized',
+    decision_summary: 'Materialize a shared explicit SearchPlan version.',
+    revised_search_plan: {
+      plan_version: 'shared-version-race-v1',
+      query_intents: ['shared version race query'],
+    },
+  });
+
+  const results = await Promise.allSettled([
+    resolve(leftRequest.search_plan_recheck_request_id),
+    resolve(rightRequest.search_plan_recheck_request_id),
+  ]);
+  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+  const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+  assert.ok(rejected);
+  assert.ok(rejected.reason instanceof AppError);
+  assert.equal(rejected.reason.statusCode, 409);
+  assert.equal(rejected.reason.errorCode, 'VERSION_CONFLICT');
+
+  const requests = await Promise.all([
+    ctx.searchResourceRepository.findSearchPlanRecheckRequestById(leftRequest.search_plan_recheck_request_id),
+    ctx.searchResourceRepository.findSearchPlanRecheckRequestById(rightRequest.search_plan_recheck_request_id),
+  ]);
+  assert.deepEqual(requests.map((request) => request?.status).sort(), ['materialization_failed', 'materialized']);
+  const matchingPlans = (await ctx.searchResourceRepository.listSearchPlansByTitleCardId(
+    ctx.titleCard.title_card_id,
+  )).filter((plan) => plan.plan_version === 'shared-version-race-v1');
+  assert.equal(matchingPlans.length, 1);
+});
+
 test('evidence-convergence recheck requests derive coordinator identities and reuse equivalent durable work', async () => {
   const ctx = await createBasePlan({
     managedLibraryEligibilityResolver: {
@@ -1298,33 +1705,27 @@ test('evidence-convergence recheck requests derive coordinator identities and re
     1,
   );
 
-  const materialized = await ctx.service.resolveSearchPlanRecheckRequest({
-    request_id: first.search_plan_recheck_request_id,
-    outcome: 'materialized',
-    decision_summary: 'Persist the replayable execution lineage.',
-    revised_search_plan: {
-      query_intents: ['direct counter evidence'],
-      created_by: 'system',
-    },
-    follow_up_search_run: {
-      run_status: 'failed',
-      result_accounting: {
-        total_result_count: 0,
-        unique_literature_count: 0,
-        duplicate_result_count: 0,
-        failed_source_count: 1,
-        skipped_source_count: 0,
+  await assert.rejects(
+    ctx.service.resolveSearchPlanRecheckRequest({
+      request_id: first.search_plan_recheck_request_id,
+      outcome: 'materialized',
+      decision_summary: 'The manual path cannot claim coordinator-owned work.',
+      revised_search_plan: {
+        query_intents: ['direct counter evidence'],
+        created_by: 'system',
       },
-      source_health_summary: { error_codes: ['FIXTURE_FAILURE'] },
-      evidence_map_input_refs: [],
-      created_by: 'system',
-    },
-  });
-  assert.equal(
-    materialized.revised_search_plan?.literature_snapshot_ref.ref_id,
-    manifest.literature_resource_pool_snapshot_id,
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
   );
-  assert.equal(materialized.request.resulting_search_run_ref?.ref_id, materialized.follow_up_search_run?.search_run_id);
+  assert.equal(
+    (await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+      first.search_plan_recheck_request_id,
+    ))?.status,
+    'open',
+  );
 });
 
 test('evidence-convergence execution persists a zero-hit SearchRun and closes only exact child lineage', async () => {
@@ -1429,6 +1830,13 @@ test('evidence-convergence execution persists a zero-hit SearchRun and closes on
       missing_reason_codes: ['NO_RETRIEVAL_HITS'],
     })),
   });
+
+  assert.equal(
+    (await ctx.service.claimEvidenceConvergenceRecheckRequestExecution(
+      request.search_plan_recheck_request_id,
+    ))?.status,
+    'executing',
+  );
 
   const completed = await ctx.service.completeEvidenceConvergenceRecheckRequest({
     request_id: request.search_plan_recheck_request_id,

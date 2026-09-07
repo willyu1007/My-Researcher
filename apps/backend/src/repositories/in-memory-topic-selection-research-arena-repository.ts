@@ -30,6 +30,9 @@ implements TopicSelectionResearchArenaRepository {
     const previousId = this.currentSessionIds.get(currentKey);
     if (previousId) {
       const previous = this.requireSession(previousId);
+      if (previous.status === 'open' || previous.status === 'executing') {
+        throw new TopicSelectionResearchArenaConflictError('An active arena cannot be superseded.');
+      }
       this.sessions.set(previousId, {
         ...previous,
         current_arena_key: null,
@@ -72,6 +75,27 @@ implements TopicSelectionResearchArenaRepository {
     return record;
   }
 
+  async claimSessionExecution(
+    sessionId: string,
+  ): Promise<TopicSelectionResearchArenaSessionRecord | null> {
+    const current = this.requireSession(sessionId);
+    if (current.status !== 'open' || !current.current_arena_key) return null;
+    const claimed = { ...current, status: 'executing' as const };
+    this.sessions.set(sessionId, claimed);
+    return claimed;
+  }
+
+  async completeClaimedSession(
+    record: TopicSelectionResearchArenaSessionRecord,
+  ): Promise<TopicSelectionResearchArenaSessionRecord> {
+    const current = this.requireSession(record.arena_session_id);
+    if (current.current_arena_key !== record.current_arena_key || current.status !== 'executing') {
+      throw new TopicSelectionResearchArenaConflictError('Claimed arena changed concurrently.');
+    }
+    this.sessions.set(record.arena_session_id, record);
+    return record;
+  }
+
   async synthesizeSessionWithCandidateProjections(
     record: TopicSelectionResearchArenaSessionRecord,
     candidateProjections: TopicSelectionResearchArenaCandidateProjection[],
@@ -99,8 +123,8 @@ implements TopicSelectionResearchArenaRepository {
     record: TopicSelectionResearchArenaRoleExecutionRecord,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord> {
     const session = this.requireSession(record.arena_session_id);
-    if (session.status !== 'open' || !session.current_arena_key) {
-      throw new TopicSelectionResearchArenaConflictError('Arena is not current and open.');
+    if (!['open', 'executing'].includes(session.status) || !session.current_arena_key) {
+      throw new TopicSelectionResearchArenaConflictError('Arena is not current and executable.');
     }
     const slotKey = `${record.arena_session_id}:${record.role_slot_id}:${record.instance_index}`;
     const semanticKey = `${record.arena_session_id}:${record.semantic_position_hash}`;

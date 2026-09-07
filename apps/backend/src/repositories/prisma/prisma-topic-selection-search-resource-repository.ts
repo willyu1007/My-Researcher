@@ -15,8 +15,10 @@ import type {
   TopicSelectionSearchRunRecord,
   TopicSelectionTopicSeedRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import { AppError } from '../../errors/app-error.js';
 import type {
   TopicSelectionSearchPlanWithCoverageIntentsResult,
+  TopicSelectionSearchPlanRecheckRequestPatch,
   TopicSelectionSearchResourceRepository,
   TopicSelectionSearchRunCoverageRecords,
   TopicSelectionSearchRunWithCoverageRecordsResult,
@@ -533,25 +535,40 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
     searchPlan: TopicSelectionSearchPlanRecord,
     coverageRowIntents: TopicSelectionCoverageRowIntentRecord[],
   ): Promise<TopicSelectionSearchPlanWithCoverageIntentsResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const planRow = await tx.topicSelectionSearchPlan.create({
-        data: this.toSearchPlanCreateInput(searchPlan),
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const planRow = await tx.topicSelectionSearchPlan.create({
+          data: this.toSearchPlanCreateInput(searchPlan),
+        });
+        const intentRows = [];
+        for (const intent of coverageRowIntents) {
+          intentRows.push(await tx.topicSelectionCoverageRowIntent.create({
+            data: this.toCoverageRowIntentCreateInput(intent),
+          }));
+        }
+        return {
+          search_plan: toSearchPlanRecord(planRow),
+          coverage_row_intents: intentRows.map(toCoverageRowIntentRecord),
+        };
       });
-      const intentRows = [];
-      for (const intent of coverageRowIntents) {
-        intentRows.push(await tx.topicSelectionCoverageRowIntent.create({
-          data: this.toCoverageRowIntentCreateInput(intent),
-        }));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlan identity or coverage key already exists.');
       }
-      return {
-        search_plan: toSearchPlanRecord(planRow),
-        coverage_row_intents: intentRows.map(toCoverageRowIntentRecord),
-      };
-    });
+      throw error;
+    }
   }
 
   async findSearchPlanById(searchPlanId: string): Promise<TopicSelectionSearchPlanRecord | null> {
     const row = await this.prisma.topicSelectionSearchPlan.findUnique({ where: { id: searchPlanId } });
+    return row ? toSearchPlanRecord(row) : null;
+  }
+
+  async findSearchPlanByRecheckRequestId(requestId: string): Promise<TopicSelectionSearchPlanRecord | null> {
+    const row = await this.prisma.topicSelectionSearchPlan.findFirst({
+      where: { recheckRequestId: requestId },
+      orderBy: { createdAt: 'asc' },
+    });
     return row ? toSearchPlanRecord(row) : null;
   }
 
@@ -694,6 +711,14 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
     return row ? toSearchRunRecord(row) : null;
   }
 
+  async findSearchRunBySearchPlanId(searchPlanId: string): Promise<TopicSelectionSearchRunRecord | null> {
+    const row = await this.prisma.topicSelectionSearchRun.findFirst({
+      where: { searchPlanId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return row ? toSearchRunRecord(row) : null;
+  }
+
   async createSearchPlanRecheckRequest(
     record: TopicSelectionSearchPlanRecheckRequestRecord,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
@@ -782,15 +807,13 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
     return rows.map(toRecheckRequestRecord);
   }
 
-  async updateSearchPlanRecheckRequest(
+  async transitionSearchPlanRecheckRequest(
     requestId: string,
-    patch: Partial<Omit<
-      TopicSelectionSearchPlanRecheckRequestRecord,
-      'search_plan_recheck_request_id' | 'workspace_id' | 'title_card_id' | 'source_ref' | 'target_search_plan_ref' | 'created_at'
-    >>,
-  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
-    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.update({
-      where: { id: requestId },
+    expectedStatus: TopicSelectionSearchPlanRecheckRequestRecord['status'],
+    patch: TopicSelectionSearchPlanRecheckRequestPatch,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const transitioned = await this.prisma.topicSelectionSearchPlanRecheckRequest.updateMany({
+      where: { id: requestId, status: expectedStatus },
       data: {
         targetLiteratureSnapshotRef: patch.target_literature_snapshot_ref === undefined
           ? undefined
@@ -849,6 +872,24 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
           : patch.resulting_search_run_ref?.ref_id ?? null,
         resolvedAt: patch.resolved_at === undefined ? undefined : parseDate(patch.resolved_at),
       },
+    });
+    if (transitioned.count !== 1) return null;
+    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.findUniqueOrThrow({
+      where: { id: requestId },
+    });
+    return toRecheckRequestRecord(row);
+  }
+
+  async claimSearchPlanRecheckRequestExecution(
+    requestId: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const claimed = await this.prisma.topicSelectionSearchPlanRecheckRequest.updateMany({
+      where: { id: requestId, status: 'open' },
+      data: { status: 'executing' },
+    });
+    if (claimed.count !== 1) return null;
+    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.findUniqueOrThrow({
+      where: { id: requestId },
     });
     return toRecheckRequestRecord(row);
   }

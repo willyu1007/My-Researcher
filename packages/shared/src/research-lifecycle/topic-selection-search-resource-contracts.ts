@@ -123,10 +123,12 @@ export type TopicSelectionSearchRunStatus = (typeof TOPIC_SELECTION_SEARCH_RUN_S
 
 export const TOPIC_SELECTION_RECHECK_REQUEST_STATUSES = [
   'open',
+  'executing',
   'accepted',
   'rejected',
   'accepted_risk',
   'materialized',
+  'materialization_failed',
 ] as const;
 export type TopicSelectionSearchPlanRecheckRequestStatus =
   (typeof TOPIC_SELECTION_RECHECK_REQUEST_STATUSES)[number];

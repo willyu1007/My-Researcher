@@ -18,6 +18,12 @@ export interface TopicSelectionResearchArenaRepository {
     arenaKind: TopicSelectionResearchArenaKind,
   ): Promise<TopicSelectionResearchArenaSessionRecord | null>;
   updateSession(record: TopicSelectionResearchArenaSessionRecord): Promise<TopicSelectionResearchArenaSessionRecord>;
+  claimSessionExecution(
+    sessionId: string,
+  ): Promise<TopicSelectionResearchArenaSessionRecord | null>;
+  completeClaimedSession(
+    record: TopicSelectionResearchArenaSessionRecord,
+  ): Promise<TopicSelectionResearchArenaSessionRecord>;
   synthesizeSessionWithCandidateProjections(
     record: TopicSelectionResearchArenaSessionRecord,
     candidateProjections: TopicSelectionResearchArenaCandidateProjection[],

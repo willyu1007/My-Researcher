@@ -112,7 +112,7 @@ same deterministic evidence-landscape checkpoint. It moves the checkpoint policy
 downstream question/value/promotion semantics.
 
 ### Phase 3 — Prove the kernel and stop before broad rollout
-- Status: completed and verified on 2026-09-03.
+- Status: completed and verified on 2026-09-03; concurrency and historical-replay quality repair verified on 2026-09-07.
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.
 - Approach: Exercise duplicate requests, alternative strategies, negative retrieval, budget boundaries, stale sources, successor races, and strict-human barriers without adding another scenario.
 - Planned changes:
@@ -125,13 +125,24 @@ downstream question/value/promotion semantics.
 - Verification: Targeted regression suite, provenance audit, and one Human-reviewed real-flow packet.
 - Recovery: Return to the last trustworthy map/gate and leave additional scenario adoption unstarted.
 
-Phase 3 completed without adopting a second Debate scenario. Exact retrieval replay now remains
-available after the predecessor EvidenceMap is superseded, while a changed strategy against that
-historical map fails before provider execution. Exact linked-round replay reconstructs its result from
-the existing Arena transcript, role executions, round link, and idempotent checkpoint; it performs no
-new role calls and creates no completion receipt or parallel round authority. The bounded pilot also
-proves negative retrieval, stale-source failure, distinct provenance identities, and preservation of a
-strict-Human loopback decision across successor checkpoint publication.
+Phase 3 completed without adopting a second Debate scenario. Exact retrieval replay remains available
+after predecessor EvidenceMap supersession, while a changed historical strategy fails before provider
+execution. The post-completion quality repair adds an atomic request execution claim, makes stale or
+provider-failed retrieval a durable audit-only SearchRun, recovers already-persisted execution lineage,
+and refuses to repeat ambiguous interrupted provider work. Human resolution and automatic completion
+use storage-level expected-status transitions, and the internal `executing` state is not a public outcome.
+Manual materialization also persists its canonical input hash and planned SearchPlan/SearchRun refs in
+that same claim before any control-plane side effect, but only after closed deterministic preflight.
+An interrupted infrastructure attempt therefore resumes only the same input against the same targets
+after restart; a changed retry fails closed, while concurrent exact executors converge on the winning
+claim instead of minting parallel authorities. A deterministic failure discovered after claim terminates
+as traced `materialization_failed` work so a corrected input can use a new request. Coordinator-owned
+evidence-convergence requests cannot enter this manual path.
+Linked rounds now atomically claim the Arena session, prevent an active session from being superseded,
+recover unclaimed open sessions, persist blocked terminal transcripts, and freeze checkpoint
+inputs inside the existing round transcript. Completed historical replay therefore survives later
+coverage changes and real EvidenceMap/Arena supersession without changing checkpoint identity. No
+completion receipt, parallel round authority, or second Debate scenario was introduced.
 
 Another scenario may adopt the kernel only after it has an independently accepted outcome and owner,
 an exact managed-corpus/request identity, an immutable successor route, a linked-round replay seam,

@@ -508,6 +508,13 @@ test('arena replaces the current stage only when a recorded loop delta explains 
     service.openSession({ ...input, arena_kind: 'question_design' }),
     (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
   );
+  await arenaRepository.updateSession({
+    ...first,
+    status: 'synthesized',
+    termination_reason: 'recommendation_ready',
+    updated_at: '2026-08-29T00:01:00.000Z',
+    synthesized_at: '2026-08-29T00:01:00.000Z',
+  });
 
   await assert.rejects(
     service.openSession({ ...input, session_key: 'arena-key-2' }),
@@ -539,6 +546,13 @@ test('arena replaces the current stage only when a recorded loop delta explains 
   const previous = await arenaRepository.findSessionById(first.arena_session_id);
   assert.equal(previous?.status, 'superseded');
   assert.equal(second.supersedes_arena_session_id, first.arena_session_id);
+  await arenaRepository.updateSession({
+    ...second,
+    status: 'synthesized',
+    termination_reason: 'recommendation_ready',
+    updated_at: '2026-08-29T00:02:00.000Z',
+    synthesized_at: '2026-08-29T00:02:00.000Z',
+  });
   await assert.rejects(
     service.openSession({
       ...input,
@@ -552,6 +566,58 @@ test('arena replaces the current stage only when a recorded loop delta explains 
       }],
     }),
     (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+});
+
+test('a claimed arena session cannot be superseded by a different session', async () => {
+  const { arenaRepository, service } = fixture();
+  const first = await service.openSession({
+    session_key: 'arena-claimed-key-1',
+    title_card_id: 'title_1',
+    arena_kind: 'gap_portfolio',
+    target_ref: ref('validated_need', 'need_1'),
+    input_snapshot_id: 'snapshot_1',
+    participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+    execution_plan_ref: ref('artifact_ref', 'plan_1'),
+  });
+  const claimed = await service.claimSessionExecution(first.arena_session_id);
+  assert.equal(claimed?.status, 'executing');
+
+  await assert.rejects(
+    service.openSession({
+      session_key: 'arena-claimed-key-2',
+      title_card_id: 'title_1',
+      arena_kind: 'gap_portfolio',
+      target_ref: ref('validated_need', 'need_1'),
+      input_snapshot_id: 'snapshot_2',
+      participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+      execution_plan_ref: ref('artifact_ref', 'plan_2'),
+      loop_delta_refs: [{
+        delta_type: 'evidence',
+        ref: ref('evidence_unit', 'evidence_delta_1'),
+        rationale: 'A concurrent retry must wait for the claimed execution.',
+      }],
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(
+    (await arenaRepository.findCurrentSession('title_1', 'gap_portfolio'))?.arena_session_id,
+    first.arena_session_id,
+  );
+  assert.equal((await arenaRepository.findSessionById(first.arena_session_id))?.status, 'executing');
+  await assert.rejects(
+    arenaRepository.replaceCurrentSession({
+      ...first,
+      arena_session_id: 'arena_competing_direct',
+      session_key: 'arena-competing-direct',
+      status: 'open',
+      supersedes_arena_session_id: first.arena_session_id,
+      created_at: '2026-08-29T00:01:00.000Z',
+      updated_at: '2026-08-29T00:01:00.000Z',
+    }),
+    /active arena cannot be superseded/u,
   );
 });
 

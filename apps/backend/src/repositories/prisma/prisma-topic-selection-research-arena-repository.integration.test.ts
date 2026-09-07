@@ -75,12 +75,44 @@ test('Prisma arena repository enforces execution identity and concurrent gap pro
 
   try {
     const first = await repository.replaceCurrentSession(session(1));
+    await repository.updateSession({
+      ...first,
+      status: 'blocked',
+      termination_reason: 'policy_blocked',
+      updated_at: new Date(Date.parse(NOW) + 1_500).toISOString(),
+    });
     const second = await repository.replaceCurrentSession(session(2));
     assert.equal(second.supersedes_arena_session_id, first.arena_session_id);
     assert.equal((await repository.findSessionById(first.arena_session_id))?.status, 'superseded');
     assert.equal(await prisma.topicSelectionResearchArenaSession.count({
       where: { titleCardId, currentArenaKey: { not: null } },
     }), 1);
+
+    const activeFence = await repository.replaceCurrentSession({
+      ...session(1),
+      arena_session_id: `arena_fence_${suffix}`,
+      session_key: `session_fence_${suffix}`,
+      arena_kind: 'comparative_value',
+      current_arena_key: `${titleCardId}:comparative_value`,
+      loop_delta_refs: [],
+      supersedes_arena_session_id: null,
+    });
+    assert.equal((await repository.claimSessionExecution(activeFence.arena_session_id))?.status, 'executing');
+    await assert.rejects(
+      repository.replaceCurrentSession({
+        ...activeFence,
+        arena_session_id: `arena_fence_competing_${suffix}`,
+        session_key: `session_fence_competing_${suffix}`,
+        status: 'open',
+        created_at: new Date(Date.parse(NOW) + 2_000).toISOString(),
+        updated_at: new Date(Date.parse(NOW) + 2_000).toISOString(),
+      }),
+      /active arena cannot be superseded/u,
+    );
+    assert.equal(
+      (await repository.findCurrentSession(titleCardId, 'comparative_value'))?.arena_session_id,
+      activeFence.arena_session_id,
+    );
 
     const role: TopicSelectionResearchArenaRoleExecutionRecord = {
       schema_version: 'TopicSelectionResearchArenaRoleExecution@v1',

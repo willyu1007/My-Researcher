@@ -37,13 +37,35 @@ Phase 1 realized these shapes through the smallest existing owners: `LiteratureR
 
 Canonical request identity normalizes whitespace and case in semantic text, sorts and deduplicates candidate queries, normalizes absent versus explicit-null functional-ref version fields, and includes the coordinator-owned retrieval parameters. Roles cannot supply `request_key` or `strategy_key`; the coordinator hashes the normalized strategy and request payloads. Equivalent concurrent writes converge on one request through a synchronous in-memory key index or the Prisma unique request key. EvidenceDelta and ResolutionRoute artifact keys include content plus title, workspace, workflow, and input-snapshot lineage so reuse cannot cross authority boundaries.
 
-Phase 3 keeps replay inside those same authorities. Once a predecessor EvidenceMap is superseded, the
-coordinator permits only lookup of an exact already-materialized request with its existing SearchPlan
-and SearchRun; a changed strategy cannot execute against historical state. A completed linked round is
-reconstructed from its Arena session, immutable transcript, role executions, content-addressed round
-link, successor EvidenceMap, and idempotent checkpoint. The transcript binds the canonical request
-identity and returned accounting, and replay revalidates each durable input before returning. There is
-no separate completion receipt, aggregate pilot record, or mutable resume authority.
+Phase 3 keeps replay inside those same authorities. A recheck request moves atomically from `open` to
+`executing`; one local single-flight shares concurrent exact calls, while the persisted claim fences
+other executors. Human terminal resolution is an `open` compare-and-set, while automatic completion is
+an `executing` compare-and-set; the HTTP contract exposes neither claim ownership nor `executing` as a
+caller-authored outcome. A retry recovers an already-persisted child SearchPlan/SearchRun and closes the request;
+an ambiguous interrupted claim does not repeat provider work. Stale or failed provider output becomes
+an audit-only failed SearchRun bound to the request, so exact replay returns the same unresolved result.
+Once a predecessor EvidenceMap is superseded, only an exact materialized request can replay and a changed
+strategy cannot execute against historical state.
+
+The public manual-materialization path first closes its nested HTTP payload and runs deterministic plan,
+run, workspace, snapshot, accounting, timestamp, coverage-key, and plan-version checks. Only then does it
+record a canonical input hash plus planned SearchPlan/SearchRun refs in the `executing` request before
+compiling any control-plane snapshot. SearchPlan and SearchRun creation reuse those target IDs. If an
+infrastructure write fails or the process stops, a later process accepts only the same hashed input,
+reconciles any already-persisted target, and continues the missing target; concurrent exact attempts
+converge on the same records. A deterministic conflict after claim preserves the planned refs and closes
+as `materialization_failed`, rather than becoming a permanently executing poison. Coordinator-keyed
+requests reject the manual path, and the coordinator reads result refs only from a materialized request.
+
+A linked round likewise claims its existing ArenaSession before role work. An unclaimed `open` session
+can resume, an ambiguous `executing` session fails closed, and a role failure records a content-addressed
+blocked transcript on the same session. The completed transcript freezes request accounting plus the
+conflict and coverage inputs used by the checkpoint. Historical replay revalidates the Arena lineage,
+role executions, round link, transcript, successor-map identity, and frozen checkpoint input; it accepts
+a verified superseded successor and reuses the original idempotent checkpoint even if live coverage has
+changed. Both in-memory and Prisma replacement paths refuse to supersede a current `open` or `executing`
+session, so a second session cannot revoke the execution fence. There is no separate completion receipt,
+aggregate pilot record, or mutable resume authority.
 
 ## Migration and operation
 

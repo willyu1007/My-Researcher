@@ -14,6 +14,7 @@ import type {
 import type {
   TopicSelectionResearchArenaSessionRecord,
   TopicSelectionResearchEvidencePacket,
+  TopicSelectionResearchEvidencePacketRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import type {
   TopicSelectionSearchRunRecord,
@@ -155,7 +156,7 @@ test('material successor runs one linked frozen Arena round before the fresh che
     payload: { evidence_delta_ref: deltaRef },
     created_by: 'system',
   });
-  const evidenceMap = {
+  const evidenceMap: TopicSelectionEvidenceMapRecord = {
     evidence_map_id: 'map_2',
     workspace_id: null,
     title_card_id: TITLE_CARD_ID,
@@ -185,7 +186,7 @@ test('material successor runs one linked frozen Arena round before the fresh che
     lineage_revision: 0,
     created_by: 'system',
     created_at: NOW,
-  } satisfies TopicSelectionEvidenceMapRecord;
+  };
   const evidenceUnits = [
     evidenceUnit('unit_support', 'support', evidenceMap, issueRef),
     evidenceUnit(evidenceUnitRef.ref_id, 'challenge', evidenceMap, issueRef),
@@ -322,6 +323,8 @@ test('material successor runs one linked frozen Arena round before the fresh che
     return { role, artifact, packet };
   }));
   const checkpoints: unknown[] = [];
+  let currentAssessmentId = 'assessment_1';
+  let currentAssessmentVerdict: 'satisfied' | 'missing' = 'satisfied';
   const checkpointRepository = new InMemoryTopicSelectionResearchCheckpointRepository();
   const checkpointService = new TopicSelectionResearchCheckpointService(
     checkpointRepository,
@@ -332,6 +335,53 @@ test('material successor runs one linked frozen Arena round before the fresh che
     },
   );
   const orchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, now: () => NOW });
+  const getCoverageMatrix = async () => ({
+    search_plan_ref: evidenceMap.search_plan_ref,
+    generated_at: NOW,
+    rows: [{
+      coverage_row_intent: {
+        coverage_row_intent_id: issueRef.ref_id,
+        search_plan_id: 'plan_2',
+        coverage_key: 'challenge',
+        intent_type: 'challenge' as const,
+        query: 'failure under shift',
+        rationale: 'Required challenge coverage.',
+        required: true,
+        priority: 1,
+        target_source_types: [],
+        expected_evidence_role: 'challenge' as const,
+        refs: [],
+        created_at: NOW,
+      },
+      evidence_bindings: [],
+      risk_acceptances: [],
+      latest_assessment: {
+        coverage_assessment_id: currentAssessmentId,
+        search_plan_id: 'plan_2',
+        coverage_row_intent_id: issueRef.ref_id,
+        verdict: currentAssessmentVerdict,
+        issue_codes: [],
+        confidence: 0.9,
+        assessed_by: 'system' as const,
+        created_at: NOW,
+      },
+    }],
+    summary: {
+      row_count: 1,
+      satisfied_count: currentAssessmentVerdict === 'satisfied' ? 1 : 0,
+      partial_count: 0,
+      missing_count: currentAssessmentVerdict === 'missing' ? 1 : 0,
+      accepted_risk_count: 0,
+      unassessed_count: 0,
+    },
+  });
+  const evidencePacketResolver = {
+    resolve: async (request: TopicSelectionResearchEvidencePacketRequest) => {
+      const packet = packets.find(({ role }) => role === request.participant_role)?.packet;
+      if (!packet) throw new Error(`Missing packet fixture for ${request.participant_role}.`);
+      return packet;
+    },
+  };
   const service = new TopicSelectionEvidenceConvergenceRoundService({
     controlPlane,
     evidenceMaps: {
@@ -341,46 +391,7 @@ test('material successor runs one linked frozen Arena round before the fresh che
     },
     searchResources: {
       getSearchRunById: async (id) => id === searchRun.search_run_id ? searchRun : null,
-      getCoverageMatrix: async () => ({
-        search_plan_ref: evidenceMap.search_plan_ref,
-        generated_at: NOW,
-        rows: [{
-          coverage_row_intent: {
-            coverage_row_intent_id: issueRef.ref_id,
-            search_plan_id: 'plan_2',
-            coverage_key: 'challenge',
-            intent_type: 'challenge',
-            query: 'failure under shift',
-            rationale: 'Required challenge coverage.',
-            required: true,
-            priority: 1,
-            target_source_types: [],
-            expected_evidence_role: 'challenge',
-            refs: [],
-            created_at: NOW,
-          },
-          evidence_bindings: [],
-          risk_acceptances: [],
-          latest_assessment: {
-            coverage_assessment_id: 'assessment_1',
-            search_plan_id: 'plan_2',
-            coverage_row_intent_id: issueRef.ref_id,
-            verdict: 'satisfied',
-            issue_codes: [],
-            confidence: 0.9,
-            assessed_by: 'system',
-            created_at: NOW,
-          },
-        }],
-        summary: {
-          row_count: 1,
-          satisfied_count: 1,
-          partial_count: 0,
-          missing_count: 0,
-          accepted_risk_count: 0,
-          unassessed_count: 0,
-        },
-      }),
+      getCoverageMatrix,
     },
     arena,
     debateCore: new TopicSelectionBoundedDebateCoreService({
@@ -388,13 +399,7 @@ test('material successor runs one linked frozen Arena round before the fresh che
       agentOrchestrator: orchestrator,
     }),
     contextProfiles: new TopicSelectionContextPolicyProfileRegistryService(),
-    evidencePacketResolver: {
-      resolve: async (request) => {
-        const packet = packets.find(({ role }) => role === request.participant_role)?.packet;
-        if (!packet) throw new Error(`Missing packet fixture for ${request.participant_role}.`);
-        return packet;
-      },
-    },
+    evidencePacketResolver,
     checkpoints: {
       materializeEvidenceLandscapeCheckpoint: async (input) => {
         checkpoints.push(input);
@@ -490,10 +495,79 @@ test('material successor runs one linked frozen Arena round before the fresh che
   assert.equal(exhausted.status, 'boundary_exhausted_unresolved');
   assert.equal(checkpoints.length, 0);
 
-  const result = await service.runLinkedRound(runInput);
+  const blockedArenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
+  await blockedArenaRepository.replaceCurrentSession(parent);
+  const blockedArena = new TopicSelectionResearchArenaService({
+    arenaRepository: blockedArenaRepository,
+    controlPlaneRepository: controlRepository,
+  }, {
+    idFactory: (prefix) => `${prefix}_${++sequence}`,
+    now: () => NOW,
+  });
+  const blockedService = new TopicSelectionEvidenceConvergenceRoundService({
+    controlPlane,
+    evidenceMaps: {
+      findEvidenceMapById: async (id) => id === evidenceMap.evidence_map_id ? evidenceMap : null,
+      listEvidenceUnitsByEvidenceMapId: async () => evidenceUnits,
+      listConflictSetsByEvidenceMapId: async () => [],
+    },
+    searchResources: {
+      getSearchRunById: async (id) => id === searchRun.search_run_id ? searchRun : null,
+      getCoverageMatrix,
+    },
+    arena: blockedArena,
+    debateCore: new TopicSelectionBoundedDebateCoreService({
+      controlPlane,
+      agentOrchestrator: orchestrator,
+    }),
+    contextProfiles: new TopicSelectionContextPolicyProfileRegistryService(),
+    evidencePacketResolver,
+    checkpoints: {
+      materializeEvidenceLandscapeCheckpoint: async () => {
+        throw new Error('a blocked round must not materialize a checkpoint');
+      },
+    },
+    nowMs: () => 100,
+  });
+  const blockedInput = {
+    ...runInput,
+    role_inputs: runInput.role_inputs.map((roleInput, index) => index === 0
+      ? {
+          ...roleInput,
+          structured_output: {
+            ...roleInput.structured_output,
+            unexpected_field: 'schema validation must fail closed',
+          } as TopicSelectionEvidenceConvergenceRoundRoleOutput,
+        }
+      : roleInput),
+  };
+  const blocked = await blockedService.runLinkedRound(blockedInput);
+  assert.equal(blocked.status, 'role_blocked_unresolved');
+  if (blocked.status !== 'role_blocked_unresolved') return;
+  assert.equal(blocked.arena_session.status, 'blocked');
+  const blockedReplay = await blockedService.runLinkedRound(blockedInput);
+  assert.deepEqual(blockedReplay, blocked, 'a blocked exact retry must reuse its frozen terminal outcome');
+  assert.equal(
+    (await blockedArenaRepository.listRoleExecutionsBySessionId(blocked.arena_session.arena_session_id)).length,
+    0,
+  );
+
+  const claimSessionExecution = arena.claimSessionExecution.bind(arena);
+  arena.claimSessionExecution = async () => null;
+  const preopened = await service.runLinkedRound(runInput);
+  assert.equal(preopened.status, 'execution_interrupted_unresolved');
+  assert.equal(preopened.arena_session.status, 'open');
+  assert.equal(checkpoints.length, 0);
+  arena.claimSessionExecution = claimSessionExecution;
+
+  const [result, concurrentReplay] = await Promise.all([
+    service.runLinkedRound(runInput),
+    service.runLinkedRound(runInput),
+  ]);
 
   assert.equal(result.status, 'linked_round_completed');
   if (result.status !== 'linked_round_completed') return;
+  assert.deepEqual(concurrentReplay, result, 'concurrent exact calls must share one claimed round execution');
   assert.equal(result.role_executions.length, 3);
   assert.equal(result.arena_session.supersedes_arena_session_id, parent.arena_session_id);
   assert.equal(result.arena_session.status, 'synthesized');
@@ -506,9 +580,11 @@ test('material successor runs one linked frozen Arena round before the fresh che
   assert.deepEqual(checkpointPacket.packet_payload.policy_issues, []);
   assert.equal((await arenaRepository.findSessionById(parent.arena_session_id))?.status, 'superseded');
 
+  currentAssessmentId = 'assessment_later';
+  currentAssessmentVerdict = 'missing';
   const replay = await service.runLinkedRound(runInput);
   assert.deepEqual(replay, result, 'an exact replay must reuse the completed linked round and its accounting');
-  assert.equal(checkpoints.length, 2, 'an exact replay must re-evaluate the canonical checkpoint input');
+  assert.equal(checkpoints.length, 2, 'an exact replay must reuse the frozen checkpoint input');
   assert.equal(
     (await checkpointRepository.listCheckpointsByTitleCardId(TITLE_CARD_ID)).length,
     1,
@@ -526,6 +602,10 @@ test('material successor runs one linked frozen Arena round before the fresh che
     supersedes_arena_session_id: result.arena_session.arena_session_id,
     superseded_by_arena_session_id: null,
   });
+  evidenceMap.status = 'stale';
+  evidenceMap.freshness_status = 'superseded';
+  evidenceMap.successor_evidence_map_ref = ref('evidence_map', 'map_3', 'v3');
+  evidenceMap.lineage_revision = (evidenceMap.lineage_revision ?? 0) + 1;
   const historicalReplay = await service.runLinkedRound(runInput);
   assert.equal(historicalReplay.status, 'linked_round_completed');
   assert.equal(historicalReplay.arena_session.status, 'superseded');

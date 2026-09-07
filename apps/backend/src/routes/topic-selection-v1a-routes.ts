@@ -13,7 +13,6 @@ import {
   TOPIC_SELECTION_COVERAGE_EXECUTION_STATUSES,
   TOPIC_SELECTION_COVERAGE_INTENT_TYPES,
   TOPIC_SELECTION_EVIDENCE_ROLES,
-  TOPIC_SELECTION_RECHECK_REQUEST_STATUSES,
   TOPIC_SELECTION_RESOURCE_POOL_SOURCES,
   TOPIC_SELECTION_SEARCH_RUN_KINDS,
   TOPIC_SELECTION_SEARCH_RUN_STATUSES,
@@ -412,6 +411,47 @@ const searchRunBody = bodySchema([
   policy_version_id: nullableStringId,
 });
 
+const manualRevisedSearchPlan = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['query_intents'],
+  properties: {
+    workspace_id: nullableStringId,
+    plan_version: stringId,
+    query_intents: { type: 'array', minItems: 1, items: stringId },
+    must_check_constraints: stringArray,
+    exclusion_rules: stringArray,
+    coverage_strategy: recordPayload,
+    coverage_intents: {
+      type: 'array',
+      items: { ...coverageIntent, additionalProperties: false },
+    },
+    created_by: actorType,
+    policy_version_id: nullableStringId,
+  },
+} as const;
+
+const manualFollowUpSearchRun = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['result_accounting', 'source_health_summary', 'evidence_map_input_refs'],
+  properties: {
+    workspace_id: nullableStringId,
+    run_status: { enum: [...TOPIC_SELECTION_SEARCH_RUN_STATUSES] },
+    query_provenance: recordArray,
+    result_accounting: topicSelectionSearchRunResultAccountingSchema,
+    source_health_summary: recordPayload,
+    dedup_summary: recordPayload,
+    evidence_map_input_refs: searchRunEvidenceMapInputRefs,
+    raw_log_artifact_ref: nullableRawLogArtifactRef,
+    raw_log_artifact: { anyOf: [recordPayload, { type: 'null' }] },
+    started_at: stringId,
+    finished_at: nullableStringId,
+    created_by: actorType,
+    policy_version_id: nullableStringId,
+  },
+} as const;
+
 const searchPlanParams = paramsSchema({ searchPlanId: stringId });
 
 const searchPlanRecheckBody = bodySchema(['title_card_id', 'source_ref', 'target_search_plan_id', 'reason'], {
@@ -426,13 +466,21 @@ const searchPlanRecheckBody = bodySchema(['title_card_id', 'source_ref', 'target
   evidence_convergence_intent: topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema,
 });
 
-const resolveSearchPlanRecheckBody = bodyAndParamsSchema(['outcome', 'decision_summary'], {
-  outcome: { enum: [...TOPIC_SELECTION_RECHECK_REQUEST_STATUSES.filter((status) => status !== 'open')] },
-  decision_summary: stringId,
-  accepted_risk_refs: functionalRefArray,
-  revised_search_plan: recordPayload,
-  follow_up_search_run: recordPayload,
-}, { requestId: stringId });
+const resolveSearchPlanRecheckBody = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['outcome', 'decision_summary'],
+    properties: {
+      outcome: { enum: ['accepted', 'rejected', 'accepted_risk', 'materialized'] },
+      decision_summary: stringId,
+      accepted_risk_refs: functionalRefArray,
+      revised_search_plan: manualRevisedSearchPlan,
+      follow_up_search_run: manualFollowUpSearchRun,
+    },
+  },
+  ...paramsSchema({ requestId: stringId }),
+} as const;
 
 const evidenceUnit = {
   type: 'object',

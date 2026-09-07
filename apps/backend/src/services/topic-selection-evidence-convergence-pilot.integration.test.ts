@@ -764,7 +764,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
       retrieve: async () => { throw new Error('unexpected narrowed retrieval'); },
     },
   });
-  await assert.rejects(staleCoordinator.executeRoleRetrievalRequests({
+  const staleInput = {
     ...retrievalInput,
     role_requests: [{
       participant_role: 'opportunity_scout',
@@ -774,8 +774,54 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
         candidate_queries: ['historical shift failure evidence'],
       },
     }],
-  }), /returned stale evidence/u);
+  } satisfies TopicSelectionExecuteEvidenceConvergenceRetrievalInput;
+  const stale = await staleCoordinator.executeRoleRetrievalRequests(staleInput);
+  assert.equal(stale.status, 'retrieval_failed_unresolved');
+  assert.deepEqual(stale.reason_codes, ['RETRIEVAL_EXECUTION_FAILED']);
+  assert.equal(stale.executions[0]?.search_run_status, 'failed');
+  assert.equal(stale.requests[0]?.status, 'materialized');
+  const staleReplay = await staleCoordinator.executeRoleRetrievalRequests(staleInput);
+  assert.equal(staleReplay.status, 'retrieval_failed_unresolved');
+  assert.equal(staleReplay.executions[0]?.reused, true);
   assert.equal(staleRetrievalCalls, 1);
+
+  let providerFailureCalls = 0;
+  const providerFailureCoordinator = new TopicSelectionEvidenceConvergenceCoordinatorService({
+    searchResources: searchService,
+    evidenceMapReader: evidenceRepository,
+    retriever: {
+      retrieve: async () => {
+        providerFailureCalls += 1;
+        throw new Error('pilot provider unavailable');
+      },
+    },
+    scopedRetriever: {
+      retrieve: async () => { throw new Error('unexpected narrowed retrieval'); },
+    },
+  });
+  const providerFailureInput = {
+    ...retrievalInput,
+    role_requests: [{
+      participant_role: 'empirical_skeptic',
+      intent: {
+        ...requestIntent,
+        search_intent: 'Test a distinct provider-failure recovery strategy.',
+        candidate_queries: ['provider failure boundary evidence'],
+      },
+    }],
+  } satisfies TopicSelectionExecuteEvidenceConvergenceRetrievalInput;
+  const providerFailure = await providerFailureCoordinator.executeRoleRetrievalRequests(
+    providerFailureInput,
+  );
+  assert.equal(providerFailure.status, 'retrieval_failed_unresolved');
+  assert.equal(providerFailure.executions[0]?.search_run_status, 'failed');
+  assert.equal(providerFailure.requests[0]?.status, 'materialized');
+  const providerFailureReplay = await providerFailureCoordinator.executeRoleRetrievalRequests(
+    providerFailureInput,
+  );
+  assert.equal(providerFailureReplay.status, 'retrieval_failed_unresolved');
+  assert.equal(providerFailureReplay.executions[0]?.reused, true);
+  assert.equal(providerFailureCalls, 1);
 
   const successor = await evidenceService.publishEvidenceConvergenceSuccessor({
     title_card_id: titleCardId,
