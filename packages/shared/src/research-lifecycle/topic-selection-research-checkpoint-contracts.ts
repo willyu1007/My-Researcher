@@ -436,6 +436,8 @@ export interface TopicSelectionResearchStatusProjection {
   next_authorized_transition?: string | null;
   open_blocking_objection_count: number;
   material_risk_finding_refs: TopicSelectionFunctionalRef[];
+  /** Read-only value stage for the current question; never an execution authorization. */
+  current_value?: TopicSelectionResearchStageManifestEntry | null;
   legacy_provenance: boolean;
 }
 

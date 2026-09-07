@@ -23,6 +23,7 @@ import type {
   TopicSelectionValueDispositionDecisionRecord,
   TopicSelectionValueReasoningMemoRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
+import type { TopicSelectionTopicQuestionContractRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
@@ -315,6 +316,117 @@ test('human and LLM stage views share one current manifest while keeping differe
   ]);
 });
 
+test('question Human view preserves the question, design boundaries, and answerability risks', async () => {
+  const { service } = createService();
+  const checkpoint = await service.materializeCheckpoint({
+    title_card_id: 'title_question',
+    checkpoint_kind: 'question_contract',
+    target_ref: { ref_type: 'topic_question_contract', ref_id: 'contract_1', title_card_id: 'title_question' },
+    target_snapshot_hash: HASH_A,
+    allowed_actions: ['advance', 'loopback', 'hold'],
+    packet_payload: {
+      main_question: 'Can retrieval depth improve recall under a fixed latency budget?',
+      answerability_verdict: 'answerable_with_risk',
+      mechanism_design: { intervention_or_approach: 'Increase retrieval depth', comparison_baseline: 'Fixed top-k 5' },
+      operationalization: { observable_outcome: 'Recall at fixed latency', metrics: ['Recall', 'P95 latency'] },
+      evaluation_design: {
+        datasets_or_resources: ['Frozen evaluation corpus'],
+        baselines: ['Fixed top-k 5'],
+        ablations_or_comparisons: ['Top-k 10 versus top-k 5'],
+        evaluation_setting: 'One frozen retriever',
+        open_dependencies: ['Dataset access is pending'],
+        known_gaps: ['Weak-drift coverage is limited'],
+      },
+      risk_notes: ['Baseline collapse remains possible'],
+      dependency_risks: ['Dataset licensing may prevent replication'],
+      confounds_and_alternatives: ['Corpus composition may explain the observed gain'],
+      falsification_conditions: [{ statement: 'Stop if quality falls below the accepted margin', expected_action: 'reframe' }],
+      claim_boundary: { claim_ceiling: 'This frozen retrieval setup only', prohibited_claims: ['Universal superiority'] },
+    },
+  });
+  const frozen = await service.getPacket(checkpoint.research_checkpoint_id);
+  const human = await service.getStageView('title_question', 'research_question', 'human');
+  const llm = await service.getStageView('title_question', 'research_question', 'llm');
+  for (const text of [
+    'Can retrieval depth improve recall under a fixed latency budget?',
+    'Recall at fixed latency', 'P95 latency', 'Top-k 10 versus top-k 5',
+    'Stop if quality falls below the accepted margin', 'This frozen retrieval setup only',
+    'Universal superiority',
+  ]) assert.ok(human.markdown.includes(text), text);
+  for (const text of [
+    'Dataset access is pending', 'Weak-drift coverage is limited',
+    'Baseline collapse remains possible', 'Dataset licensing may prevent replication',
+    'Corpus composition may explain the observed gain',
+  ]) assert.ok(llm.working_set.human_summary.open_risks.some((risk) => risk.includes(text)), text);
+  assert.match(human.markdown, /可回答，但仍有风险/u);
+  assert.deepEqual(await service.getPacket(checkpoint.research_checkpoint_id), frozen);
+});
+
+test('backfilled question view retains its top-level frozen claim boundaries', async () => {
+  const { service } = createService();
+  const checkpoint = await service.materializeCheckpoint({
+    title_card_id: 'title_question', checkpoint_kind: 'question_contract', provenance_class: 'backfilled',
+    target_ref: { ref_type: 'topic_question_contract', ref_id: 'backfilled_contract', title_card_id: 'title_question' },
+    target_snapshot_hash: HASH_A, allowed_actions: ['advance', 'loopback'],
+    packet_payload: {
+      main_question: 'Does a frozen intervention improve recall?',
+      expected_claim: 'A bounded local improvement', fallback_claim: 'An informative null result',
+      max_claim_strength: 'One controlled comparison', claim_ceiling: 'The frozen corpus only',
+      prohibited_claims: ['Universal superiority'],
+    },
+  });
+  const frozen = await service.getPacket(checkpoint.research_checkpoint_id);
+  const human = await service.getStageView('title_question', 'research_question', 'human');
+  for (const text of ['A bounded local improvement', 'An informative null result', 'One controlled comparison', 'The frozen corpus only', 'Universal superiority']) {
+    assert.ok(human.markdown.includes(text), text);
+  }
+  assert.deepEqual(await service.getPacket(checkpoint.research_checkpoint_id), frozen);
+});
+
+test('legacy question view reads only its exact contract and leaves the frozen packet unchanged', async () => {
+  const contract: TopicSelectionTopicQuestionContractRecord = {
+    topic_question_contract_id: 'legacy_contract', title_card_id: 'title_question',
+    topic_question_id: 'question_1', version: 'v1', answerability_plan_id: 'plan_1',
+    source_research_slice_id: 'slice_1', source_research_slice_version: 'v1',
+    source_candidate_id: 'candidate_1', selection_decision_id: 'selection_1',
+    input_snapshot_ref: { ref_type: 'input_snapshot', ref_id: 'snapshot_1' }, contract_hash: HASH_A,
+    main_question: 'Does the fixed intervention improve recall?', question_type: 'method',
+    contribution_hypothesis: 'method', target_setting: 'Frozen retrieval setup', target_community: 'IR',
+    expected_claim: 'Local recall improvement', fallback_claim: 'No detectable improvement',
+    max_claim_strength: 'Local comparison', evaluation_route: 'Frozen benchmark',
+    claim_ceiling: 'Frozen setup only', prohibited_claims: ['Universal superiority'],
+    required_evidence_categories: [], allowed_refinements: [], stop_reopen_conditions: [],
+    accepted_risk_refs: [], risk_notes: ['Benchmark validity remains unresolved'],
+    status: 'active', artifact_refs: [], created_at: NOW, updated_at: NOW,
+  };
+  let returnedContract = contract;
+  const { service } = createService({
+    topicPackageRepository: { listPackagesByTitleCardId: async () => [] },
+    valueAssessmentRepository: {
+      listAssessmentsByTitleCardId: async () => [], listDispositionDecisionsByTitleCardId: async () => [],
+    },
+    questionRepository: { findTopicQuestionContractById: async () => returnedContract },
+  });
+  const checkpoint = await service.materializeCheckpoint({
+    title_card_id: 'title_question', checkpoint_kind: 'question_contract',
+    target_ref: { ref_type: 'topic_question_contract', ref_id: 'legacy_contract', title_card_id: 'title_question', version_id: 'v1' },
+    target_snapshot_hash: HASH_A, allowed_actions: ['advance', 'loopback'],
+    packet_payload: { answerability_verdict: 'answerable_with_risk' },
+  });
+  const frozen = await service.getPacket(checkpoint.research_checkpoint_id);
+  const human = await service.getStageView('title_question', 'research_question', 'human');
+  assert.ok(human.markdown.includes(contract.main_question));
+  assert.ok(human.markdown.includes('Benchmark validity remains unresolved'));
+  assert.deepEqual(await service.getPacket(checkpoint.research_checkpoint_id), frozen);
+  returnedContract = { ...contract, version: 'v2', main_question: 'A different question' };
+  await assert.rejects(service.getStageView('title_question', 'research_question', 'human'),
+    (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT');
+  returnedContract = { ...contract, title_card_id: 'another_title' };
+  await assert.rejects(service.getStageView('title_question', 'research_question', 'human'),
+    (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT');
+  assert.deepEqual(await service.getPacket(checkpoint.research_checkpoint_id), frozen);
+});
+
 test('pending evidence Human view presents substantive evidence and exact unresolved gate risks', async () => {
   const { service } = createService();
   const rows = [
@@ -481,18 +593,20 @@ test('multi-run current dispositions resolve by the current question contract in
     risk_finding_refs: [riskRef(`risk_${suffix}`)],
     created_at: createdAt,
   }) as unknown as TopicSelectionValueDispositionDecisionRecord;
-  const { service } = createService({
+  const assessments = [
+    assessmentFor('superseded_run', 'question_contract_old'),
+    assessmentFor('current_run', 'question_contract_live'),
+  ];
+  const decisions = [
+    // The superseded run is newer; current contract scoping must beat recency.
+    decisionFor('superseded_run', '2026-08-30T10:00:00Z'),
+    decisionFor('current_run', '2026-08-28T10:00:00Z'),
+  ];
+  const { service, controlPlane } = createService({
     topicPackageRepository: { listPackagesByTitleCardId: async () => [] },
     valueAssessmentRepository: {
-      listAssessmentsByTitleCardId: async () => [
-        assessmentFor('superseded_run', 'question_contract_old'),
-        assessmentFor('current_run', 'question_contract_live'),
-      ],
-      listDispositionDecisionsByTitleCardId: async () => [
-        // The superseded run's decision is deliberately NEWER: contract scoping must beat recency.
-        decisionFor('superseded_run', '2026-08-30T10:00:00Z'),
-        decisionFor('current_run', '2026-08-28T10:00:00Z'),
-      ],
+      listAssessmentsByTitleCardId: async () => assessments,
+      listDispositionDecisionsByTitleCardId: async () => decisions,
       findReasoningMemoById: async () => null,
       listEvidenceRefsByAssessmentId: async () => [],
     },
@@ -515,6 +629,65 @@ test('multi-run current dispositions resolve by the current question contract in
   const valueStage = manifest.stages.find((stage) => stage.stage === 'value_feasibility');
   assert.equal(valueStage?.authority_ref?.ref_id, 'assessment_current_run');
   assert.deepEqual(valueStage?.issue_codes, []);
+
+  assessments.push({
+    ...assessmentFor('pending', 'question_contract_live'),
+    readiness_status: 'needs_refinement', total_score: 66,
+    risk_notes: ['Coverage remains insufficient'], created_at: '2026-09-07T10:00:00Z',
+  });
+  const pendingStatus = await service.getResearchStatus(titleCardId);
+  assert.equal(pendingStatus.current_value?.authority_ref?.ref_id, 'assessment_pending');
+  assert.equal(pendingStatus.current_value?.status, 'needs_refinement:awaiting_disposition');
+  assert.deepEqual(pendingStatus.material_risk_finding_refs, [riskRef('risk_pending')]);
+  assert.equal(pendingStatus.current_value?.source_refs.some((ref) => ref.ref_type === 'value_disposition_decision'), false);
+  const pendingHuman = await service.getStageView(titleCardId, 'value_feasibility', 'human');
+  assert.match(pendingHuman.markdown, /Coverage remains insufficient/u);
+  assert.match(pendingHuman.markdown, /66/u);
+
+  const payload = {
+    schema_version: TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+    title_card_id: titleCardId, summary: 'Benchmark validity needs an independent check',
+  };
+  const artifact = await controlPlane.recordArtifactRef({
+    title_card_id: titleCardId, artifact_kind: 'structured_output', storage_kind: 'inline',
+    payload, checksum: sha256Text(stableStringify(payload)), created_by: 'system',
+  });
+  assessments[2]!.risk_finding_refs = [riskRef(artifact.artifact_ref_id)];
+  assessments[2]!.artifact_refs = [riskRef(artifact.artifact_ref_id)];
+  decisions.push({
+    ...decisionFor('pending', '2026-09-07T11:00:00Z'), decision: 'refine_question',
+    decision_rationale: 'Refine the metric contract before packaging',
+    required_actions: ['Define the primary metric'],
+    artifact_refs: [riskRef(artifact.artifact_ref_id)], risk_finding_refs: [riskRef(artifact.artifact_ref_id)],
+  });
+  for (const kind of ['evidence_landscape', 'gap_selection'] as const) {
+    const checkpoint = await service.materializeCheckpoint({
+      title_card_id: titleCardId, checkpoint_kind: kind,
+      target_ref: { ref_type: kind === 'evidence_landscape' ? 'evidence_map' : 'need_candidate_arena', ref_id: kind, title_card_id: titleCardId },
+      target_snapshot_hash: HASH_A, allowed_actions: ['advance', 'loopback'],
+    });
+    if (kind === 'evidence_landscape') {
+      await service.recordDecision(checkpoint.research_checkpoint_id, advancingDecision());
+    } else {
+      await service.adaptExistingStageDecision(checkpoint.research_checkpoint_id, {
+        confirmed_snapshot_hash: HASH_A,
+        decision_authority_ref: { ref_type: 'human_confirmed_decision', ref_id: 'confirmed_need', title_card_id: titleCardId },
+      });
+    }
+  }
+  const questionPacket = (await service.getStageView(titleCardId, 'research_question', 'llm')).working_set.current_packet!;
+  await service.recordDecision(questionPacket.research_checkpoint_id, questionDecision(HASH_A, 'confirmed_question'));
+  const frozen = (await service.getStageView(titleCardId, 'research_question', 'llm')).working_set.current_packet;
+  for (const stage of ['research_question', 'value_feasibility', 'overview'] as const) {
+    const view = await service.getStageView(titleCardId, stage, 'human');
+    assert.match(view.markdown, /66/u);
+    assert.match(view.markdown, /Benchmark validity needs an independent check/u);
+    assert.match(view.markdown, /Refine the metric contract before packaging/u);
+    assert.match(view.markdown, /Define the primary metric/u);
+    assert.match(view.markdown, /先修订研究问题/u);
+    assert.doesNotMatch(view.markdown, /下一次人工判断位于“晋级审阅”|请在“晋级审阅”|先处理“晋级审阅”/u);
+  }
+  assert.deepEqual((await service.getStageView(titleCardId, 'research_question', 'llm')).working_set.current_packet, frozen);
 });
 
 test('stage manifest selects the current value disposition and latest package inside that lineage', async () => {
@@ -711,6 +884,8 @@ test('stage manifest selects the current value disposition and latest package in
     staleManifest.stages.some((stage) => stage.authority_ref?.ref_id === 'package_current_new'),
     false,
   );
+  assert.deepEqual((await staleSubject.service.getResearchStatus(titleCardId)).material_risk_finding_refs, []);
+  assert.equal((await staleSubject.service.getResearchStatus(titleCardId)).current_value?.state, 'unavailable');
 });
 
 function questionDecision(snapshotHash: string, decisionKey: string) {

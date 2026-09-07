@@ -78,7 +78,7 @@
 - Exit criteria: TSRF-01, TSRF-02, TSRF-06, TSRF-08, TSRF-09, and TSRF-12 pass.
 - Verification: Projection truth tables plus focused required-missing, material-conflict, answerable-with-risk, resolved-warning, and rejection scenarios.
 - Recovery: Revert projections or assessment binding while preserving canonical packets, coverage records, and decisions.
-- Phase progress: planned change 2 and the evidence-landscape Human view are implemented and focused-verified, closing TSRF-01, TSRF-02, and TSRF-08. T-150 Phase 1 has passed its repaired checkpoint and Phase 2 may now consume the typed issue. This task's next independent work remains the research-question/current-authority projection and live recent-work visibility proof.
+- Phase progress: Required-coverage acceptance, evidence/question Human views, and current value/risk/disposition projection are implemented and focused-verified, closing TSRF-01, TSRF-02, TSRF-08, TSRF-09, and TSRF-12. The projection reads exact existing owners and preserves frozen checkpoint hashes. Remaining Phase 1 work covers resolved-warning reconciliation, recent-work visibility, and rejected-topic disposition; live verification remains a later bounded check.
 
 ### Phase 2 — Close public contract and local composition gaps
 - Outcome: Contract-correct callers can execute the existing workflow without undocumented aliases, node-invalid fields, or missing public routes.

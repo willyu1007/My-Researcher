@@ -5005,6 +5005,16 @@ test('v1b workflow harness N7 materializes an active TopicQuestionContract from 
   const packet = await ctx.researchCheckpointService.getPacket(checkpoint!.research_checkpoint_id);
   assert.equal(packet.packet_payload.policy_result, 'eligible_for_human_review');
   assert.equal(packet.allowed_actions.includes('advance'), true);
+  const viewService = new TopicSelectionResearchCheckpointService(ctx.researchCheckpointRepository, ctx.controlPlane, {
+    stageProjectionSources: {
+      questionRepository: ctx.topicQuestionRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository,
+      topicPackageRepository: ctx.topicPackageRepository,
+    },
+  });
+  const human = await viewService.getStageView(TITLE_CARD_ID, 'research_question', 'human');
+  assert.ok(human.markdown.includes(contract!.main_question));
+  assert.deepEqual(await viewService.getPacket(checkpoint!.research_checkpoint_id), packet);
 
   const handoffArtifact = await ctx.controlPlane.getArtifactRef(result.handoff_ref!.ref_id);
   const handoff = handoffArtifact?.payload as TopicSelectionV1bWorkflowHarnessHandoff | null;

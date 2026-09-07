@@ -8937,6 +8937,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        current_value:
+          description: Read-only value stage for the current question; does not authorize execution.
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchStageManifestEntry'
+            - type: 'null'
         legacy_provenance: { type: boolean }
 
     TopicSelectionResearchStageManifestEntry:

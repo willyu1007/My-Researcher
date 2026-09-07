@@ -1107,6 +1107,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     {
       arenaRepository: topicSelectionResearchArenaRepository,
       stageProjectionSources: {
+        questionRepository: topicSelectionV1bTopicQuestionRepository,
         topicPackageRepository: topicSelectionV1bTopicPackageRepository,
         valueAssessmentRepository: topicSelectionV1bValueAssessmentRepository,
       },

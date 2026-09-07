@@ -4,7 +4,10 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionHumanConfirmedDecisionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
-import { topicSelectionRiskFindingRefs } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  topicSelectionRiskFindingRefs,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionEvidenceConflictSetRecord,
   TopicSelectionEvidenceMapRecord,
@@ -92,6 +95,7 @@ import {
 import { topicSelectionNeedCandidateSemanticGroupKey } from '../topic-selection-need-candidate-identity.js';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
+import type { TopicSelectionV1bTopicQuestionRepository } from '../repositories/topic-selection-v1b-topic-question.repository.js';
 import type { TopicSelectionV1bValueAssessmentRepository } from '../repositories/topic-selection-v1b-value-assessment.repository.js';
 import type { TopicSelectionResearchArenaRepository } from '../repositories/topic-selection-research-arena.repository.js';
 import {
@@ -115,6 +119,7 @@ type ServiceOptions = {
   now?: () => string;
   arenaRepository?: Pick<TopicSelectionResearchArenaRepository, 'findCurrentSession'>;
   stageProjectionSources?: {
+    questionRepository?: Pick<TopicSelectionV1bTopicQuestionRepository, 'findTopicQuestionContractById'>;
     topicPackageRepository: Pick<TopicSelectionV1bTopicPackageRepository, 'listPackagesByTitleCardId'>
       & Partial<Pick<
         TopicSelectionV1bTopicPackageRepository,
@@ -1825,10 +1830,11 @@ export class TopicSelectionResearchCheckpointService {
     let nextAuthorizedTransition: string | null = null;
     const openBlockingObjectionCount = (await this.listOpenObjectionsForTitleCard(titleCardId))
       .filter((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity)).length;
-    const materialRiskFindingRefs = await this.currentMaterialRiskFindingRefs(
+    const valueStage = await this.currentValueStageManifestEntry(
       titleCardId,
       currentByKind.get('question_contract')?.target_ref ?? null,
     );
+    const materialRiskFindingRefs = await this.currentMaterialRiskFindingRefs(titleCardId, valueStage.entry);
     for (const kind of TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS) {
       requiredCheckpointKind = kind;
       const checkpoint = currentByKind.get(kind);
@@ -1859,6 +1865,7 @@ export class TopicSelectionResearchCheckpointService {
       next_authorized_transition: nextAuthorizedTransition,
       open_blocking_objection_count: openBlockingObjectionCount,
       material_risk_finding_refs: materialRiskFindingRefs,
+      current_value: valueStage.entry,
       legacy_provenance: checkpointChain.length === 0
         || checkpointChain.some((checkpoint) => checkpoint.provenance_class === 'backfilled'),
     };
@@ -1947,10 +1954,10 @@ export class TopicSelectionResearchCheckpointService {
         issue_codes: [],
       };
     };
-    const valueStage = await this.currentValueStageManifestEntry(
-      titleCardId,
-      checkpointByKind.get('question_contract')?.target_ref ?? null,
-    );
+    const valueEntry = researchStatus.current_value
+      ?? this.unavailableStageManifestEntry('value_feasibility', 'value_disposition_is_current');
+    const currentDispositionDecisionId = valueEntry.source_refs.find((ref) =>
+      ref.ref_type === 'value_disposition_decision')?.ref_id ?? null;
     const gapEntry = checkpointEntry('research_gap', 'gap_selection');
     const gapHistoryArtifactRefs = arenaReviewHistories.flatMap((history) => [
       ...history.reviews.map((item) => item.review_ref),
@@ -1980,8 +1987,8 @@ export class TopicSelectionResearchCheckpointService {
       checkpointEntry('evidence_landscape', 'evidence_landscape'),
       researchGapEntry,
       checkpointEntry('research_question', 'question_contract'),
-      valueStage.entry,
-      await this.currentPackageStageManifestEntry(titleCardId, valueStage.currentDispositionDecisionId),
+      valueEntry,
+      await this.currentPackageStageManifestEntry(titleCardId, currentDispositionDecisionId),
       checkpointEntry('promotion_review', 'promotion'),
     ];
     const currentAuthorityRefs = projectedStages
@@ -2185,6 +2192,23 @@ export class TopicSelectionResearchCheckpointService {
     if (stage === 'overview') {
       canonicalOwner = manifest;
       relatedRecords = { checkpoint_records: checkpointRecords };
+    } else if (stage === 'research_question' && currentPacket
+      && !this.stringField(currentPacket.packet_payload, 'main_question')
+      && this.stageProjectionSources?.questionRepository) {
+      // Legacy packets remain immutable; resolve only the exact contract they already reference.
+      const target = currentPacket.target_ref;
+      const contract = await this.stageProjectionSources.questionRepository
+        .findTopicQuestionContractById(target.ref_id);
+      const checkpoint = checkpointRecords.find((record) =>
+        record.research_checkpoint_id === currentPacket.research_checkpoint_id);
+      if (!contract || target.ref_type !== 'topic_question_contract'
+        || contract.topic_question_contract_id !== target.ref_id
+        || contract.title_card_id !== titleCardId
+        || (contract.workspace_id ?? null) !== (checkpoint?.workspace_id ?? null)
+        || (target.version_id != null && contract.version !== target.version_id)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Legacy question view requires its exact checkpoint contract.');
+      }
+      relatedRecords = { checkpoint_records: checkpointRecords, question_contract: contract };
     } else if (stage === 'research_gap') {
       const arenaReviewHistories = await this.listArenaAdvisoryReviewHistories(titleCardId);
       const arenaAdvisory = this.asRecord(currentPacket?.packet_payload.arena_advisory);
@@ -2211,22 +2235,7 @@ export class TopicSelectionResearchCheckpointService {
       };
     } else if (stage === 'value_feasibility') {
       const repository = this.stageProjectionSources?.valueAssessmentRepository;
-      const [assessments, decisions] = repository
-        ? await Promise.all([
-          repository.listAssessmentsByTitleCardId(titleCardId),
-          repository.listDispositionDecisionsByTitleCardId(titleCardId),
-        ])
-        : [[], []];
-      const assessment = assessments.find(
-        (candidate) => candidate.topic_value_assessment_id === entry.authority_ref?.ref_id,
-      ) ?? null;
-      if (entry.state === 'current' && !assessment) {
-        throw new AppError(409, 'VERSION_CONFLICT', 'Current value stage owner changed while its view was being projected.');
-      }
-      const decision = decisions.find(
-        (candidate) => candidate.is_current
-          && candidate.topic_value_assessment_id === assessment?.topic_value_assessment_id,
-      ) ?? null;
+      const { assessment, decision } = await this.loadValueStageOwners(titleCardId, entry);
       const [memo, evidenceRefs] = assessment
         ? await Promise.all([
           repository?.findReasoningMemoById
@@ -2273,6 +2282,31 @@ export class TopicSelectionResearchCheckpointService {
       };
     }
 
+    if (['overview', 'research_question', 'value_feasibility'].includes(stage)) {
+      const valueEntry = manifest.stages.find((candidate) => candidate.stage === 'value_feasibility');
+      if (valueEntry?.state === 'current') {
+        const owners = stage === 'value_feasibility'
+          ? { assessment: canonicalOwner, decision: relatedRecords.current_disposition_decision }
+          : await this.loadValueStageOwners(titleCardId, valueEntry);
+        const riskRefs = await this.currentMaterialRiskFindingRefs(titleCardId, valueEntry);
+        const riskSummaries = await Promise.all(riskRefs.map(async (ref) => {
+          const artifact = await this.controlPlane.getArtifactRef(ref.ref_id);
+          const payload = artifact?.payload;
+          return artifact?.title_card_id === titleCardId && payload?.title_card_id === titleCardId
+            && payload.schema_version === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION
+            && artifact.checksum === this.hash(payload) && this.stringField(payload, 'summary')
+            ? this.stringField(payload, 'summary')
+            : `风险记录暂无法核验：${ref.ref_id}`;
+        }));
+        relatedRecords = {
+          ...relatedRecords,
+          current_value_assessment: owners.assessment,
+          current_value_disposition: owners.decision,
+          current_value_risk_summaries: riskSummaries,
+        };
+      }
+    }
+
     const workingSetWithoutSummary = {
       manifest_entry: entry,
       research_status: researchStatus,
@@ -2295,6 +2329,20 @@ export class TopicSelectionResearchCheckpointService {
   ): TopicSelectionResearchStageHumanSummary {
     const { manifest_entry: entry, current_packet: packet } = workingSet;
     const label = HUMAN_STAGE_LABELS[stage];
+    const valueAssessment = this.asRecord(workingSet.related_records.current_value_assessment);
+    const valueDecision = this.asRecord(workingSet.related_records.current_value_disposition);
+    const valueFollowup = this.valueFollowup(manifest);
+    const valueConclusions = this.uniqueStrings([
+      this.stringField(valueAssessment, 'value_summary'),
+      typeof valueAssessment?.total_score === 'number' ? `当前价值评分：${valueAssessment.total_score}` : '',
+      this.stringField(valueDecision, 'decision_rationale'),
+      ...this.stringArrayField(valueDecision, 'required_actions').map((action) => `处置要求：${action}`),
+    ]);
+    const valueRisks = this.uniqueStrings([
+      ...this.stringArrayField(valueAssessment, 'risk_notes'),
+      ...this.stringArrayField(valueAssessment, 'reviewer_objections'),
+      ...this.stringArrayField(workingSet.related_records, 'current_value_risk_summaries'),
+    ]);
     if (entry.state === 'unavailable') {
       return {
         conclusions: [`${label}尚未形成可用的当前版本。`],
@@ -2315,21 +2363,20 @@ export class TopicSelectionResearchCheckpointService {
       return {
         conclusions: [
           `当前已有 ${currentStages.length} 个可读阶段，研究流程停留在“${manifest.current_stage ? HUMAN_STAGE_LABELS[manifest.current_stage] : '尚未开始'}”。`,
+          ...valueConclusions,
         ],
         evidence_and_counterevidence: currentStages
           .filter((candidate) => candidate.stage !== 'overview')
           .map((candidate) => `${HUMAN_STAGE_LABELS[candidate.stage]}：${candidate.status ?? '已有当前版本'}`),
         alternatives_and_rejections: [],
         claim_and_falsification_boundaries: [],
-        open_risks: unavailableStages.map(
+        open_risks: [...valueRisks, ...unavailableStages.map(
           (candidate) => `${HUMAN_STAGE_LABELS[candidate.stage]}：${candidate.issue_codes.join('、')}`,
-        ),
-        recommendation: manifest.next_human_decision_stage
+        )],
+        recommendation: valueFollowup ?? (manifest.next_human_decision_stage
           ? `先处理“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”的人工审阅。`
-          : '当前检查点链已完成，可按后续产品门禁继续。',
-        decision_requested: manifest.next_human_decision_stage
-          ? `请在“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”查看完整材料并作出决定。`
-          : '当前没有待确认的人工决定。',
+          : '当前检查点链已完成，可按后续产品门禁继续。'),
+        decision_requested: this.stageDecisionRequest(manifest, stage, packet),
       };
     }
 
@@ -2440,6 +2487,67 @@ export class TopicSelectionResearchCheckpointService {
       };
     }
 
+    if (stage === 'research_question') {
+      const payload = packet?.packet_payload ?? {};
+      const legacyContract = this.asRecord(workingSet.related_records.question_contract);
+      const mechanism = this.asRecord(payload.mechanism_design);
+      const operationalization = this.asRecord(payload.operationalization);
+      const evaluation = this.asRecord(payload.evaluation_design);
+      const boundary = this.asRecord(payload.claim_boundary) ?? payload;
+      const verdict = this.stringField(payload, 'answerability_verdict');
+      return {
+        conclusions: [
+          this.stringField(payload, 'main_question') || this.stringField(legacyContract, 'main_question')
+            || '此检查点未保存可读取的主问题正文。',
+          ...this.uniqueStrings([
+            this.stringField(mechanism, 'intervention_or_approach'),
+            this.stringField(mechanism, 'comparison_baseline'),
+            this.stringField(operationalization, 'observable_outcome'),
+            ...valueConclusions,
+          ]),
+        ],
+        evidence_and_counterevidence: this.humanItems(payload.challenge_evidence_refs),
+        alternatives_and_rejections: this.stringArrayField(payload, 'confounds_and_alternatives'),
+        claim_and_falsification_boundaries: this.uniqueStrings([
+          this.stringField(boundary, 'expected_claim'),
+          this.stringField(boundary, 'fallback_claim'),
+          this.stringField(boundary, 'max_claim_strength'),
+          this.stringField(boundary, 'claim_ceiling'),
+          ...this.stringArrayField(boundary, 'prohibited_claims').map((claim) => `不作此主张：${claim}`),
+          ...this.stringArrayField(operationalization, 'metrics').map((metric) => `评价指标：${metric}`),
+          ...this.stringArrayField(operationalization, 'observable_success_criteria'),
+          ...this.stringArrayField(evaluation, 'datasets_or_resources'),
+          ...this.stringArrayField(evaluation, 'baselines'),
+          ...this.stringArrayField(evaluation, 'ablations_or_comparisons'),
+          this.stringField(evaluation, 'evaluation_setting'),
+          ...(Array.isArray(payload.falsification_conditions)
+            ? payload.falsification_conditions.map((condition) => this.stringField(this.asRecord(condition), 'statement'))
+            : []),
+        ]),
+        open_risks: this.uniqueStrings([
+          ...(verdict === 'answerable_with_risk' ? ['可回答，但仍有风险；需结合以下限制判断。'] : []),
+          ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
+          ...valueRisks,
+          ...this.stringArrayField(payload, 'risk_notes'),
+          ...(!Array.isArray(payload.risk_notes) ? this.stringArrayField(legacyContract, 'risk_notes') : []),
+          ...this.stringArrayField(payload, 'dependency_risks'),
+          ...this.stringArrayField(evaluation, 'open_dependencies').map((item) => `待解决依赖：${item}`),
+          ...this.stringArrayField(evaluation, 'known_gaps').map((item) => `已知缺口：${item}`),
+          ...this.stringArrayField(payload, 'confounds_and_alternatives').map((item) => `混杂因素或替代解释：${item}`),
+          ...this.humanItems(payload.policy_issues),
+          ...this.humanItems(payload.boundary_violations),
+          ...(packet && packet.required_action_refs.length > 0
+            ? [`尚有 ${packet.required_action_refs.length} 项必须处理。`] : []),
+        ]),
+        recommendation: valueFollowup ?? (packet?.decision
+          ? `已记录人工决定：${HUMAN_ACTION_LABELS[packet.decision.decision]}。${packet.decision.rationale}`
+          : packet?.allowed_actions.includes('advance')
+            ? '请结合问题、评价方案与剩余风险决定是否推进。'
+            : '先处理当前异议或必做事项，再决定是否推进。'),
+        decision_requested: this.stageDecisionRequest(manifest, stage, packet),
+      };
+    }
+
     if (stage === 'value_feasibility') {
       const assessment = this.asRecord(workingSet.canonical_owner);
       const memo = this.asRecord(workingSet.related_records.reasoning_memo);
@@ -2448,6 +2556,8 @@ export class TopicSelectionResearchCheckpointService {
         conclusions: this.uniqueStrings([
           this.stringField(assessment, 'value_summary'),
           this.stringField(memo, 'value_thesis'),
+          typeof assessment?.total_score === 'number' ? `当前价值评分：${assessment.total_score}` : '',
+          ...valueConclusions,
           entry.status ? `当前评估状态：${entry.status}` : '',
         ]),
         evidence_and_counterevidence: this.humanItems(workingSet.related_records.evidence_refs),
@@ -2462,8 +2572,8 @@ export class TopicSelectionResearchCheckpointService {
           ...this.stringArrayField(assessment, 'reviewer_objections'),
           ...this.stringArrayField(assessment, 'risk_notes'),
           ...this.stringArrayField(memo, 'top_objections'),
-          ...topicSelectionRiskFindingRefs(this.functionalRefArrayField(assessment, 'artifact_refs'))
-            .map((ref) => `可追踪风险记录：${ref.ref_id}`),
+          ...this.stringArrayField(memo, 'reviewer_risks'),
+          ...valueRisks,
         ]),
         recommendation: this.stringField(decision, 'decision_rationale')
           || this.stringField(memo, 'disposition_bridge')
@@ -2639,6 +2749,8 @@ export class TopicSelectionResearchCheckpointService {
     stage: TopicSelectionResearchStageViewStage,
     packet: TopicSelectionResearchCheckpointPacket | null,
   ): string {
+    const valueFollowup = this.valueFollowup(manifest);
+    if (valueFollowup) return valueFollowup;
     if (manifest.next_human_decision_stage !== stage) {
       return manifest.next_human_decision_stage
         ? `下一次人工判断位于“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”。`
@@ -2648,6 +2760,21 @@ export class TopicSelectionResearchCheckpointService {
     return actions.length > 0
       ? `请审阅本阶段并选择：${actions.join('、')}。`
       : '请审阅本阶段的当前材料并作出决定。';
+  }
+
+  /** Explain the current value outcome without changing the checkpoint grant or coordinator frontier. */
+  private valueFollowup(manifest: TopicSelectionResearchStageManifest): string | null {
+    if (manifest.next_human_decision_stage !== null && manifest.next_human_decision_stage !== 'promotion_review') return null;
+    const value = manifest.stages.find((entry) => entry.stage === 'value_feasibility' && entry.state === 'current');
+    switch (value?.status?.split(':')[1]) {
+      case 'refine_question': return '先修订研究问题并完成回环复核，再考虑晋级审阅。';
+      case 'refine_slice': return '先修订研究切片并完成回环复核，再考虑晋级审阅。';
+      case 'recheck_evidence_or_search': return '先补查证据或检索，再重新评估研究价值。';
+      case 'park': return '当前处置为暂存；明确重启条件后再继续。';
+      case 'drop': return '当前处置为停止；如需重启，应先重新明确研究方向。';
+      case 'awaiting_disposition': return '价值评估已形成，等待处置结果后再确定后续研究步骤。';
+      default: return null;
+    }
   }
 
   private renderHumanStageMarkdown(
@@ -2836,130 +2963,76 @@ export class TopicSelectionResearchCheckpointService {
   private async currentValueStageManifestEntry(
     titleCardId: string,
     currentQuestionContractRef: TopicSelectionFunctionalRef | null,
-  ): Promise<{
-    currentDispositionDecisionId: string | null;
-    entry: TopicSelectionResearchStageManifestEntry;
-  }> {
+  ): Promise<{ entry: TopicSelectionResearchStageManifestEntry }> {
+    const unavailable = (issueCode = 'CURRENT_AUTHORITY_NOT_FOUND') => ({
+      entry: this.unavailableStageManifestEntry('value_feasibility', 'value_disposition_is_current', issueCode),
+    });
     const repository = this.stageProjectionSources?.valueAssessmentRepository;
-    if (!repository) {
-      return {
-        currentDispositionDecisionId: null,
-        entry: this.unavailableStageManifestEntry('value_feasibility', 'value_disposition_is_current'),
-      };
+    if (!repository) return unavailable();
+    if (!currentQuestionContractRef || currentQuestionContractRef.ref_type !== 'topic_question_contract') {
+      return unavailable('CURRENT_QUESTION_CHECKPOINT_MISSING');
     }
     const [assessments, decisions] = await Promise.all([
       repository.listAssessmentsByTitleCardId(titleCardId),
       repository.listDispositionDecisionsByTitleCardId(titleCardId),
     ]);
-    const { decision, ambiguous } = this.resolveCurrentValueDisposition(
-      assessments,
-      decisions,
-      currentQuestionContractRef,
-    );
-    if (!decision) {
-      return {
-        currentDispositionDecisionId: null,
-        entry: this.unavailableStageManifestEntry('value_feasibility', 'value_disposition_is_current'),
-      };
-    }
-    const assessment = assessments.find(
-      (candidate) => candidate.topic_value_assessment_id === decision.topic_value_assessment_id,
-    );
+    // A newer assessment can exist before its disposition; an older decision cannot hide it.
+    const scoped = assessments.filter((assessment) => assessment.title_card_id === titleCardId
+      && assessment.topic_question_contract_id === currentQuestionContractRef.ref_id);
+    const assessment = scoped.filter((candidate) => candidate.freshness_status === 'current')
+      .sort((left, right) => (right.created_at ?? '').localeCompare(left.created_at ?? '')
+        || right.topic_value_assessment_id.localeCompare(left.topic_value_assessment_id))[0];
     if (!assessment) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Current value disposition points to a missing value assessment.');
+      return unavailable(scoped.length > 0 ? 'CURRENT_VALUE_ASSESSMENT_STALE'
+        : assessments.length > 0 ? 'CURRENT_VALUE_UPSTREAM_STALE' : 'CURRENT_AUTHORITY_NOT_FOUND');
     }
-    if (!currentQuestionContractRef) {
-      return {
-        currentDispositionDecisionId: null,
-        entry: this.unavailableStageManifestEntry(
-          'value_feasibility',
-          'value_disposition_is_current',
-          'CURRENT_QUESTION_CHECKPOINT_MISSING',
-        ),
-      };
-    }
-    if (
-      currentQuestionContractRef.ref_type !== 'topic_question_contract'
-      || currentQuestionContractRef.ref_id !== assessment.topic_question_contract_id
-    ) {
-      return {
-        currentDispositionDecisionId: null,
-        entry: this.unavailableStageManifestEntry(
-          'value_feasibility',
-          'value_disposition_is_current',
-          'CURRENT_VALUE_UPSTREAM_STALE',
-        ),
-      };
-    }
-    if (assessment.freshness_status !== 'current') {
-      return {
-        currentDispositionDecisionId: null,
-        entry: this.unavailableStageManifestEntry(
-          'value_feasibility',
-          'value_disposition_is_current',
-          'CURRENT_VALUE_ASSESSMENT_STALE',
-        ),
-      };
-    }
-    const assessmentRef = this.ref('topic_value_assessment', assessment.topic_value_assessment_id, titleCardId);
-    const decisionRef = this.ref('value_disposition_decision', decision.value_disposition_decision_id, titleCardId);
+    const currentDecisions = decisions.filter((candidate) => candidate.title_card_id === titleCardId
+      && candidate.is_current && candidate.topic_value_assessment_id === assessment.topic_value_assessment_id)
+      .sort((left, right) => (right.created_at ?? '').localeCompare(left.created_at ?? '')
+        || right.value_disposition_decision_id.localeCompare(left.value_disposition_decision_id));
+    const decision = currentDecisions[0] ?? null;
     const sourceRefs = this.uniqueRefs([
-      decisionRef,
+      ...(decision ? [this.ref('value_disposition_decision', decision.value_disposition_decision_id, titleCardId)] : []),
       this.ref('topic_question_contract', assessment.topic_question_contract_id, titleCardId),
       ...assessment.artifact_refs,
-      ...decision.artifact_refs,
+      ...(decision?.artifact_refs ?? []),
+      ...(assessment.risk_finding_refs ?? []),
+      ...(decision?.risk_finding_refs ?? []),
     ]);
     return {
-      currentDispositionDecisionId: decision.value_disposition_decision_id,
       entry: {
         stage: 'value_feasibility',
         state: 'current',
-        current_selection_rule: 'value_disposition_is_current',
-        authority_ref: assessmentRef,
+        current_selection_rule: decision ? 'value_disposition_is_current' : 'latest_created_at_then_id',
+        authority_ref: this.ref('topic_value_assessment', assessment.topic_value_assessment_id, titleCardId),
         checkpoint_ref: null,
         supersedes_ref: null,
         snapshot_hash: this.hash({ assessment, decision }),
-        status: `${assessment.readiness_status}:${decision.decision}`,
+        status: `${assessment.readiness_status}:${decision?.decision ?? 'awaiting_disposition'}`,
         source_refs: sourceRefs,
         artifact_refs: sourceRefs.filter((ref) => ref.ref_type === 'artifact_ref'),
-        issue_codes: ambiguous ? ['MULTIPLE_CURRENT_VALUE_DISPOSITIONS'] : [],
+        issue_codes: currentDecisions.length > 1 ? ['MULTIPLE_CURRENT_VALUE_DISPOSITIONS'] : [],
       },
     };
   }
 
-  /**
-   * Multi-run history legitimately keeps one `is_current` disposition per run lineage, so the
-   * title-card-level current disposition is resolved against the current question contract and
-   * falls back newest-first instead of failing the whole projection surface.
-   */
-  private resolveCurrentValueDisposition<
-    TAssessment extends { topic_value_assessment_id: string; topic_question_contract_id: string },
-    TDecision extends {
-      is_current: boolean;
-      topic_value_assessment_id: string;
-      value_disposition_decision_id: string;
-      created_at: string;
-    },
-  >(
-    assessments: TAssessment[],
-    decisions: TDecision[],
-    currentQuestionContractRef: TopicSelectionFunctionalRef | null,
-  ): { decision: TDecision | null; ambiguous: boolean } {
-    const current = decisions.filter((decision) => decision.is_current);
-    if (current.length <= 1) return { decision: current[0] ?? null, ambiguous: false };
-    const assessmentById = new Map(
-      assessments.map((assessment) => [assessment.topic_value_assessment_id, assessment]),
-    );
-    const scoped = currentQuestionContractRef?.ref_type === 'topic_question_contract'
-      ? current.filter((decision) =>
-        assessmentById.get(decision.topic_value_assessment_id)?.topic_question_contract_id
-          === currentQuestionContractRef.ref_id)
-      : [];
-    const pool = scoped.length > 0 ? scoped : current;
-    const [selected] = [...pool].sort((left, right) =>
-      right.created_at.localeCompare(left.created_at)
-      || right.value_disposition_decision_id.localeCompare(left.value_disposition_decision_id));
-    return { decision: selected ?? null, ambiguous: scoped.length !== 1 };
+  private async loadValueStageOwners(titleCardId: string, entry: TopicSelectionResearchStageManifestEntry) {
+    const repository = this.stageProjectionSources?.valueAssessmentRepository;
+    if (entry.state !== 'current' || !repository) return { assessment: null, decision: null };
+    const [assessments, decisions] = await Promise.all([
+      repository.listAssessmentsByTitleCardId(titleCardId),
+      repository.listDispositionDecisionsByTitleCardId(titleCardId),
+    ]);
+    const assessment = assessments.find((candidate) => candidate.topic_value_assessment_id === entry.authority_ref?.ref_id) ?? null;
+    const decisionRef = entry.source_refs.find((ref) => ref.ref_type === 'value_disposition_decision');
+    const decision = decisions.find((candidate) => candidate.value_disposition_decision_id === decisionRef?.ref_id) ?? null;
+    if (!assessment || assessment.title_card_id !== titleCardId
+      || (decisionRef && (!decision || !decision.is_current || decision.title_card_id !== titleCardId
+        || decision.topic_value_assessment_id !== assessment.topic_value_assessment_id))
+      || this.hash({ assessment, decision }) !== entry.snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Current value stage owner changed while its view was being projected.');
+    }
+    return { assessment, decision };
   }
 
   private async currentPackageStageManifestEntry(
@@ -3023,38 +3096,19 @@ export class TopicSelectionResearchCheckpointService {
 
   private async currentMaterialRiskFindingRefs(
     titleCardId: string,
-    currentQuestionContractRef: TopicSelectionFunctionalRef | null,
+    valueEntry: TopicSelectionResearchStageManifestEntry,
   ): Promise<TopicSelectionFunctionalRef[]> {
-    const valueRepository = this.stageProjectionSources?.valueAssessmentRepository;
-    if (!valueRepository) return [];
-    const [assessments, decisions] = await Promise.all([
-      valueRepository.listAssessmentsByTitleCardId(titleCardId),
-      valueRepository.listDispositionDecisionsByTitleCardId(titleCardId),
-    ]);
-    const { decision } = this.resolveCurrentValueDisposition(
-      assessments,
-      decisions,
-      currentQuestionContractRef,
-    );
-    if (!decision) return [];
-    const assessment = assessments.find(
-      (candidate) => candidate.topic_value_assessment_id === decision.topic_value_assessment_id,
-    );
-    if (!assessment) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Current value disposition points to a missing assessment for risk projection.');
-    }
-    const packages = this.stageProjectionSources?.topicPackageRepository
+    if (valueEntry.state !== 'current') return [];
+    const decisionRef = valueEntry.source_refs.find((ref) => ref.ref_type === 'value_disposition_decision');
+    const packages = decisionRef && this.stageProjectionSources?.topicPackageRepository
       ? (await this.stageProjectionSources.topicPackageRepository.listPackagesByTitleCardId(titleCardId))
-          .filter((topicPackage) => topicPackage.value_disposition_decision_id === decision.value_disposition_decision_id)
+          .filter((topicPackage) => topicPackage.value_disposition_decision_id === decisionRef.ref_id)
           .sort((left, right) => left.created_at.localeCompare(right.created_at)
             || left.topic_package_id.localeCompare(right.topic_package_id))
       : [];
     const currentPackage = packages.at(-1);
     return topicSelectionRiskFindingRefs(this.uniqueRefs([
-      ...(assessment.risk_finding_refs ?? []),
-      ...assessment.artifact_refs,
-      ...(decision.risk_finding_refs ?? []),
-      ...decision.artifact_refs,
+      ...valueEntry.artifact_refs,
       ...(currentPackage?.risk_finding_refs ?? []),
       ...(currentPackage?.artifact_refs ?? []),
     ]));
