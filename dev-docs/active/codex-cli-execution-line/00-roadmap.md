@@ -15,6 +15,11 @@
 - Lighting up the dormant provider Debate path (`TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant`).
 - Repointing `.ai/llm/**` OpenAI routes at gpt-6-astra; that is a separate cost-driven decision.
 - A custom product UI. The Codex app is the interim conversation and progress surface.
+- The orchestration tool scope — workflow visibility and gated advancement for the researcher-facing
+  surface. It is a separate outcome with its own lifecycle and its own external dependency: in-flow
+  human confirmation belongs to the Multi Round-Trip Requests pattern, which no released Codex
+  speaks. This task proves scope enforcement with a negative test instead of by building a second
+  scope.
 - Auth/RBAC for the workflow-advancing tools. Recorded as a risk this task makes load-bearing, not
   as work this task closes.
 - The Codex `app-server` / `exec-server` transports. Untested; a candidate follow-up if the stdio
@@ -61,46 +66,92 @@
 
 | Task | Relationship from this task | Owned boundary / exchanged contract | Coordination condition |
 |---|---|---|---|
-| T-148 | depends-on | T-148 owns the API-first Codex-assisted rehearsal and the N6 bounded-Debate wiring. This task consumes its operability evidence and adds a distinct execution line; it does not modify T-148's route. | The colliding N6 surface landed in `f829d9fe`. Phase 1 here is additive and may proceed; the D-8 slice must not be wired until T-148 confirms the N6 Debate contract is stable. T-148 also carried this task's `model_hint` field forward, so D-3's removal needs coordination. |
+| T-148 | depends-on | T-148 owns the API-first Codex-assisted rehearsal and the N6 bounded-Debate wiring. This task consumes its operability evidence and adds a distinct execution line; it does not modify T-148's route. | The N6 surface this task wires against settled in `f829d9fe`, and T-148's remaining Phase 3 work is on the v1c promotion surface. Both tasks share this worktree, so stage explicit paths. T-148 carried this task's `model_hint` field forward when it restructured the route schema, which is why D-3's removal is a manual edit. |
 
 ## Implementation plan
 
-### Phase 1 — Line contract and isolation harness
-- Outcome: The `codex_cli` line exists as a contract and a runnable, isolated invocation, with no node wired to it yet.
-- Approach: Add the execution mode and output source kind alongside the existing three; build the runner as a thin, product-owned invocation with a dedicated `CODEX_HOME`; persist the `--json` event stream as the trace artifact.
+### Phase 1 — The line exists and runs in isolation
+- Outcome: `codex_cli` is a first-class execution line with its own provenance branch and an
+  isolated, schema-constrained, traced runner. No node is wired to it, so nothing in the product
+  changes behaviour yet.
+- Approach: clear the obsolete advisory field first so the contract is not extended around
+  something being removed, then add the line beside the existing three, then build the runner as a
+  thin product-owned invocation whose only outputs are the artifact and the trace.
 - Planned changes:
-  1. Extend `TOPIC_SELECTION_AGENT_EXECUTION_MODES` and `TOPIC_SELECTION_AGENT_OUTPUT_SOURCE_KINDS` with the new line and its provenance branch.
-  2. Add the runner: a product-owned `CODEX_HOME`, `--ephemeral`, `--output-schema`, `--json`, one fresh thread per invocation attempt.
-  3. Persist the event stream as the trace artifact and bind it to the invocation attempt.
-  4. Resolve D-3 in the contract.
-- Affected boundaries / entry points: `packages/shared/src/research-lifecycle/topic-selection-agent-invocation-contracts.ts`, the agent orchestrator, and a new runner service.
-- Dependencies: T-148 Phase 3 committed; D-3, D-6, D-7 closed.
-- Exit criteria: The line can execute a trivial schema-constrained invocation, its trace is persisted, and no existing line's behaviour or hashes change.
-- Verification: New contract tests for the provenance branch; a runner test asserting thread-per-attempt and isolation; full existing suites unchanged.
-- Recovery: The line is additive and unreferenced by any node, so reverting the commit removes it without touching the other three lines.
+  1. Remove `model_hint` and its test by hand — not `git revert 0f5a3d39`, whose lines T-148's
+     `f829d9fe` has since restructured. No caller sets the field, so the change is behaviour-neutral.
+  2. Add the execution mode and output source kind, with a provenance branch that carries an
+     authoritative model identity and the Codex runner version, and no gateway model-option or
+     normalized-parameter identity.
+  3. Build the runner: a product-owned `CODEX_HOME` holding the granular approval policy and the
+     per-server `approve` mode, plus `--ephemeral`, `--output-schema`, `--json`, and one fresh
+     thread per invocation attempt.
+  4. Persist the event stream as the trace artifact bound to the invocation attempt, and record the
+     `usage` totals with it.
+- Affected boundaries / entry points: the shared agent-invocation contracts, the agent
+  orchestrator's source-kind branch, and a new runner service.
+- Dependencies: none. This phase is additive and does not touch the N6 surface T-148 owns.
+- Exit criteria: a trivial schema-constrained invocation completes through the line, its trace and
+  usage persist against the attempt, and no other line's behaviour or recorded hashes change.
+- Verification: contract tests for the new provenance branch; a runner test asserting a distinct
+  thread per attempt and a product-owned `CODEX_HOME`; the existing suites unchanged, which is also
+  the regression check for the `model_hint` removal.
+- Recovery: the line is unreferenced by any node, so reverting the phase removes it without touching
+  the other three lines.
 
-### Phase 2 — Research-role tool surface (provisional)
-- Outcome: A product MCP server exposing a discriminating index and a batch fetch to a research-role scope only, with a server-enforced read budget.
-- Approach: Derive the index fields from what the node's question actually discriminates on; enforce the budget where every call is visible.
-- Exit criteria: A role invocation selects rather than enumerates, and the budget refusal is observable in the trace.
-- Verification: Trace-based assertions on tool-call count and budget refusal.
+### Phase 2 — A scoped, budgeted tool surface Codex can actually reach
+- Outcome: a research-role tool scope that an agent can use to select rather than enumerate, that
+  refuses work outside its attempt's scope, that stops at a server-enforced budget, and that today's
+  Codex can connect to.
+- Approach: implement the current MCP revision natively and confine the older-revision handshake to
+  a shim at the transport edge, sharing one tool implementation between both paths. Carry attempt
+  and role scope in a server-minted handle passed as an ordinary tool argument, which is what makes
+  the same tool correct on either path.
+- Planned changes:
+  1. The server core on revision `2026-07-28`: `server/discover`, per-request version and
+     capabilities in `_meta`, no session state.
+  2. The compatibility shim: accept the `initialize` handshake, translate the request envelope, and
+     dispatch into the same tool implementations.
+  3. Two research-role tools — a discriminating index and a batch fetch — where the index carries
+     the fields the node's question actually discriminates on.
+  4. Handle-based scope enforcement and a read budget refused by the server, both surfaced in the
+     trace.
+- Affected boundaries / entry points: a new MCP server package, and the runner's server wiring.
+- Dependencies: Phase 1's runner and trace.
+- Exit criteria: an invocation selects a bounded set instead of reading the corpus; a budget refusal
+  appears in the trace; a handle is refused a tool outside its scope; and one tool returns identical
+  results and recorded scope natively and through the shim.
+- Verification: trace-based assertions on tool-call count, budget refusal and scope refusal; the
+  native-versus-shim equivalence check named in `verification.md`.
+- Recovery: the surface is only reachable from the new line, so it can be withdrawn without
+  affecting the other three.
 
-### Phase 3 — One debate role end to end (provisional)
-- Outcome: The slice chosen in D-8 runs on the `codex_cli` line through the existing deterministic gate.
-- Exit criteria: The gate still owns admission; the artifact and trace are persisted; the other roles are unchanged.
-
-### Phase 4 — Orchestration scope (provisional)
-- Outcome: A separate tool scope for workflow visibility and gated advancement, with human confirmation preserved.
-- Dependencies: The `elicitation` verification in `verification.md`, and an explicit decision on the RBAC gap.
+### Phase 3 — One debate role runs on the line
+- Outcome: the D-8 slice — one N6 divergent-debate role — produces its artifact through the
+  `codex_cli` line, admitted by the existing deterministic gate.
+- Approach: swap the single role's source while leaving its siblings and the gate untouched, so the
+  comparison against the previous line is direct.
+- Planned changes:
+  1. Route the chosen role's invocation through the new line, leaving the other roles as they are.
+  2. Record the run's cost and tool-call trace alongside the artifact.
+- Affected boundaries / entry points: the N6 divergent-debate runtime's role invocation path.
+- Dependencies: Phase 2. The N6 Debate contract this phase wires against settled in T-148's
+  `f829d9fe`; T-148's remaining Phase 3 work is on the v1c promotion surface and does not touch it.
+- Exit criteria: the deterministic gate still owns admission; the artifact and its trace persist;
+  the untouched roles produce unchanged results; and the run's cost is recorded for comparison with
+  the bundle-fed path.
+- Verification: the node's existing gate and admission tests, plus a new assertion that the role's
+  provenance carries the line's model identity and its trace.
+- Recovery: route the role back to its previous line; the line and its tool surface remain, unused.
 
 ## Kickoff gate
 
-- Status: pending
-- Authorized boundary: none
+- Status: ready
+- Authorized boundary: through phase 1
 - [x] Decisions: D-1 through D-9 are all decided; no user-owned choice blocks implementation.
-- [ ] Design: the line's contract, trace shape and tool-scoping boundary are settled in `02-architecture.md`.
-- [ ] Route: Phase 1 is executable with exit, verification and recovery criteria, and T-148 Phase 3 is committed.
-- [ ] Verification: the outstanding checks in `verification.md` are either closed or explicitly deferred with their consequence accepted.
+- [x] Design: the line's contract, trace shape, session rule, handle-based scoping and shim boundary are settled in `02-architecture.md`.
+- [x] Route: three phases reach the goal; Phase 1 is executable and dependency-free, and each phase carries exit, verification and recovery criteria.
+- [x] Verification: every phase's checks are identified in `verification.md`, and the remaining open items are external dependencies with recorded consequences, not blockers on Phase 1.
 
 ## Risks and recovery
 
