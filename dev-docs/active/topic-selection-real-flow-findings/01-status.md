@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: blocked
-- Current phase: Phase 4 bounded external literature recheck and paired-benchmark feasibility proposal completed; awaiting exact Human evidence loopback decision
-- Next step: Review artifacts/phase4-evidence-recheck-2026-09-08.md and confirm or revise the draft loopback for checkpoint research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc. After an exact decision, use existing admission to incorporate the new evidence and prepare a fresh review; do not submit the withdrawn advance proposal or start experiments. Fresh downstream Debate/refinement/promotion verification remains after evidence acceptance.
-- Blocker: The current frozen packet still has two missing coverage rows and no Human decision. External research changed the advisory recommendation but has not changed product coverage or authority; continuation remains at the Human boundary. The local schema blocker FIND-033 is resolved (82/82 migrations applied).
+- Current phase: Phase 4 user-confirmed evidence loopback completed; two new fulltext challenges admitted and updated evidence review prepared
+- Next step: Review artifacts/phase4-human-review-2026-09-08.md for checkpoint research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13. The next research judgment is whether to accept the two remaining evidence gaps and continue refining the question, request specific further evidence, hold, or reject. Do not ask again for or resubmit the already recorded loopback. Fresh downstream Debate/refinement/promotion verification remains after evidence acceptance; experiments remain outside this authorization.
+- Blocker: The new evidence packet still lacks direct frozen-router/retriever-replacement evidence and a qualified paired benchmark. Its source-inspectability gate passes, but advancing requires the researcher's decision on these exact current gaps. The original loopback decision and frozen packet remain intact. The local schema blocker FIND-033 is resolved (82/82 migrations applied).
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.

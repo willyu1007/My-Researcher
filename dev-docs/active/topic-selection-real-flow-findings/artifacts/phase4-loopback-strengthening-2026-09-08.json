@@ -1,0 +1,2763 @@
+{
+  "purpose": "T-148 Phase 4 user-confirmed evidence loopback verification. Historical HTTP receipts support recovery; product APIs remain workflow authority.",
+  "at": "2026-09-08T03:19:24.250712+00:00",
+  "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+  "api_base": "http://127.0.0.1:3000",
+  "confirmed_loopback": {
+    "at": "2026-09-08T03:02:46.605118+00:00",
+    "operation": "/topic-selection/checkpoints/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc/decisions",
+    "effect_class": "human_authority_explicitly_confirmed_by_user",
+    "input": {
+      "decision_key": "t148-phase4-20260908-evidence-recheck-loopback",
+      "decision": "loopback",
+      "actor": {
+        "actor_type": "human",
+        "actor_id": "researcher"
+      },
+      "confirmed_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
+      "rationale": "回环补强证据：当前冻结包尚未纳入 2026 年 8 月的校准迁移与停止风险反例；先通过现有来源准入补齐可核查材料，区分直接冻结路由器替换证据与相邻方法，并明确同语料 BM25→稠密检索器的最小配对协议、固定基线回退及预算/覆盖定义。保留两项缺失覆盖义务，再提交新的证据包供人工审阅。本次不接受覆盖缺口，不推进问题生成，也不授权实验或付费 provider 执行。",
+      "review_payload": {
+        "review_kind": "evidence_landscape",
+        "nearest_work_reviewed": false,
+        "disconfirming_evidence_reviewed": false,
+        "source_quality_reviewed": false,
+        "limitations": [
+          "本轮补查是外部原始来源研究，新增文献尚未成为当前冻结包的已准入证据。",
+          "没有找到直接验证冻结原路由器、检索器替换及小标签修复完整链条的研究；这不是不存在该研究的证明。",
+          "可构建基准仍是草案，现有公开示例缓存不符合真实配对实验输入要求。",
+          "路由器回退与最终拒答不同；严格递增校准不改变精确预算下的排序。"
+        ]
+      },
+      "required_action_refs": [
+        {
+          "ref_id": "research_required_action_7d0f92fe20ade0270b3b7e0a",
+          "ref_type": "research_required_action",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "loopback_target": "evidence_landscape",
+      "loopback_refs": [
+        {
+          "ref_type": "evidence_map",
+          "ref_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ]
+    },
+    "decision": {
+      "research_checkpoint_decision_id": "research_checkpoint_decision_4b7278aa-b0ce-483a-97e0-6f83c782cd27",
+      "decision_key": "t148-phase4-20260908-evidence-recheck-loopback",
+      "research_checkpoint_id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+      "human_confirmed_decision_id": "human_decision_57aee7db-15ce-431b-af81-fea4dd354cce",
+      "workspace_id": null,
+      "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+      "checkpoint_kind": "evidence_landscape",
+      "decision_kind": "evidence_landscape_confirmation",
+      "decision": "loopback",
+      "actor": {
+        "actor_type": "human",
+        "actor_id": "researcher"
+      },
+      "confirmed_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
+      "rationale": "回环补强证据：当前冻结包尚未纳入 2026 年 8 月的校准迁移与停止风险反例；先通过现有来源准入补齐可核查材料，区分直接冻结路由器替换证据与相邻方法，并明确同语料 BM25→稠密检索器的最小配对协议、固定基线回退及预算/覆盖定义。保留两项缺失覆盖义务，再提交新的证据包供人工审阅。本次不接受覆盖缺口，不推进问题生成，也不授权实验或付费 provider 执行。",
+      "review_payload": {
+        "limitations": [
+          "本轮补查是外部原始来源研究，新增文献尚未成为当前冻结包的已准入证据。",
+          "没有找到直接验证冻结原路由器、检索器替换及小标签修复完整链条的研究；这不是不存在该研究的证明。",
+          "可构建基准仍是草案，现有公开示例缓存不符合真实配对实验输入要求。",
+          "路由器回退与最终拒答不同；严格递增校准不改变精确预算下的排序。"
+        ],
+        "review_kind": "evidence_landscape",
+        "nearest_work_reviewed": false,
+        "source_quality_reviewed": false,
+        "disconfirming_evidence_reviewed": false
+      },
+      "required_action_refs": [
+        {
+          "ref_id": "research_required_action_7d0f92fe20ade0270b3b7e0a",
+          "ref_type": "research_required_action",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "loopback_target": "evidence_landscape",
+      "loopback_refs": [
+        {
+          "ref_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+          "ref_type": "evidence_map",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "created_at": "2026-09-08T03:02:14.129Z"
+    },
+    "packet_hash": "61b86b691cc6b4223bbe4462785f90ba818c8a85f130c91e6daf301406747856",
+    "envelope": {
+      "schema_version": "TopicSelectionResearchContinuationEnvelope@v1",
+      "intent": "advance_to_next_human_decision",
+      "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+      "manifest_hash": "88fbbd14a65ddf7231497ebf9bc72d371e15ddd8a4eea409f102bbce9118372d",
+      "environment_scope": "selected_local_backend",
+      "target_human_decision_stage": "evidence_landscape",
+      "boundary_reached": true,
+      "routine_effect_classes": [
+        "local_read",
+        "deterministic_local_write",
+        "bounded_non_provider_job",
+        "verification",
+        "recoverable_retry",
+        "selected_local_backend_lifecycle"
+      ],
+      "confirmation_required_effect_classes": [
+        "research_meaning_change",
+        "human_authority_write",
+        "material_risk_acceptance",
+        "provider_or_material_cost",
+        "external_acquisition",
+        "destructive_or_control_sensitive",
+        "target_environment_change",
+        "material_scope_expansion",
+        "ambiguous_recovery"
+      ],
+      "reason_codes": [
+        "HUMAN_DECISION_BOUNDARY_REACHED"
+      ],
+      "envelope_hash": "b5aa9cb4d9627dd6646ea0ad44df7ed216c3ed6b2def2ea05e06922e9ef72ef3"
+    },
+    "recovery_note": "Initial POST output exceeded capture budget; read owner before any retry. Exact decision content verified; no second POST sent."
+  },
+  "operation_receipts": [
+    {
+      "at": "2026-09-08T03:08:09.518152+00:00",
+      "operation": "/literature/collections/import",
+      "method": "POST",
+      "http_status": 200,
+      "result": {
+        "imported": [
+          {
+            "literature_id": "LIT-2320",
+            "canonical_work_key": "arxiv:2608.26846",
+            "is_new": true,
+            "matched_by": "none",
+            "title": "Evaluating Confidence-Gated Retrieval with Matched Trajectory Replay",
+            "source_provider": "arxiv",
+            "source_url": "https://arxiv.org/abs/2608.26846",
+            "request_index": 0
+          },
+          {
+            "literature_id": "LIT-2321",
+            "canonical_work_key": "arxiv:2608.13237",
+            "is_new": true,
+            "matched_by": "none",
+            "title": "When Should Multi-Round RAG Stop? Structured Stopping Judgments and Retrieval Reduction in Search-R1",
+            "source_provider": "arxiv",
+            "source_url": "https://arxiv.org/abs/2608.13237",
+            "request_index": 1
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:10:18.384444+00:00",
+      "operation": "/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/evidence-basket",
+      "method": "PATCH",
+      "http_status": 200,
+      "result": {
+        "item_count": 16
+      }
+    },
+    {
+      "at": "2026-09-08T03:10:44.362168+00:00",
+      "operation": "/topic-selection/v1a/literature-resource-pool-snapshots",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "literature_resource_pool_snapshot_id": "literature_snapshot_2505a9ec-cfa7-4478-9ed4-824b73b6ff61",
+        "snapshot_version": "t148-phase4-abstract-strengthening-20260908",
+        "snapshot_hash": "07b0ea6b88fdf7a36f4cda9bd4c55b3251f70bbac96bd2ddb234e6ba489078ac",
+        "source_health_summary": {
+          "stale_count": 3,
+          "source_count": 17,
+          "blocked_count": 0,
+          "warning_codes": [
+            "INCOMPLETE_KEY_CONTENT_READY",
+            "INCOMPLETE_PIPELINE_READY",
+            "STALE_OR_DUPLICATE_PIPELINE_STATUS",
+            "INCOMPLETE_FULLTEXT_READY"
+          ],
+          "rights_class_counts": {
+            "OA": 11,
+            "UNKNOWN": 5
+          },
+          "abstract_ready_count": 16,
+          "fulltext_ready_count": 14,
+          "pipeline_ready_count": 14,
+          "missing_literature_ids": [],
+          "total_literature_count": 16,
+          "key_content_ready_count": 14
+        }
+      }
+    },
+    {
+      "at": "2026-09-08T03:11:01.475544+00:00",
+      "operation": "/topic-selection/v1a/search-plans",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "search_plan_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+        "parent_search_plan_ref": {
+          "ref_id": "search_plan_f819e58e-e994-4e18-acfb-6c6f59c14008",
+          "ref_type": "search_plan",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "coverage_rows": [
+          {
+            "coverage_row_intent_id": "coverage_intent_f079b735-dadc-4992-97ed-b0821cef443d",
+            "search_plan_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+            "workspace_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+            "coverage_key": "context-retriever-replacement-benchmark",
+            "intent_type": "context",
+            "query": "benchmark dataset for retriever replacement or index migration measuring routing calibration, harmful retrieval, OOD behavior, and matched retrieval budgets",
+            "rationale": "Find or falsify the availability of an evaluation asset that directly models retriever or index replacement.",
+            "required": true,
+            "priority": 1,
+            "target_source_types": [],
+            "expected_evidence_role": "context",
+            "refs": [],
+            "created_at": "2026-09-08T03:11:01.467Z"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_8885bab4-baff-4389-b8dd-f5f68c833ba5",
+            "search_plan_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+            "workspace_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+            "coverage_key": "support-direct-frozen-router-transfer",
+            "intent_type": "support",
+            "query": "frozen retrieval-utility router calibration drift after explicit retriever replacement or index rebuild with low-label recalibration and abstaining fallback",
+            "rationale": "Find direct conceptual or empirical evidence for the exact frozen-router transfer mechanism rather than adjacent adaptive routing.",
+            "required": true,
+            "priority": 1,
+            "target_source_types": [],
+            "expected_evidence_role": "support",
+            "refs": [],
+            "created_at": "2026-09-08T03:11:01.467Z"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:11:43.433025+00:00",
+      "operation": "/topic-selection/v1a/search-runs",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "search_run_id": "search_run_51efac8b-047d-4f3f-90d0-4318a32781fb",
+        "search_plan_ref": {
+          "ref_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+          "ref_type": "search_plan",
+          "version_id": "t148-phase4-abstract-strengthening-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "result_accounting": {
+          "total_result_count": 11,
+          "failed_source_count": 0,
+          "skipped_source_count": 0,
+          "duplicate_result_count": 1,
+          "unique_literature_count": 10
+        },
+        "source_health_summary": {
+          "mode": "retained_fulltext_plus_two_new_abstracts",
+          "provider_calls": 0,
+          "new_source_count": 2,
+          "retriever_operations": 0,
+          "new_fulltext_admission": false,
+          "direct_gap_coverage_verified": false,
+          "new_sources_network_verified": true
+        },
+        "coverage_assessments": [
+          {
+            "coverage_assessment_id": "coverage_assessment_c2950867-76fd-4585-8d98-c556f000203a",
+            "search_plan_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+            "coverage_row_intent_id": "coverage_intent_f079b735-dadc-4992-97ed-b0821cef443d",
+            "verdict": "missing",
+            "issue_codes": [
+              "RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND"
+            ],
+            "confidence": 0.9,
+            "assessed_by": "llm",
+            "created_at": "2026-09-08T03:11:43.410Z"
+          },
+          {
+            "coverage_assessment_id": "coverage_assessment_9e59cf13-0f3e-4fef-aa88-6200b1c023f1",
+            "search_plan_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+            "coverage_row_intent_id": "coverage_intent_8885bab4-baff-4389-b8dd-f5f68c833ba5",
+            "verdict": "missing",
+            "issue_codes": [
+              "DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND"
+            ],
+            "confidence": 0.92,
+            "assessed_by": "llm",
+            "created_at": "2026-09-08T03:11:43.410Z"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:13:19.708392+00:00",
+      "operation": "/topic-selection/v1a/evidence-maps",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "evidence_map": {
+          "evidence_map_id": "evidence_map_b97f4d87-7466-427a-922e-3dc87ae18b56",
+          "evidence_map_version": "t148-phase4-abstract-strengthening-20260908",
+          "search_run_ref": {
+            "ref_id": "search_run_51efac8b-047d-4f3f-90d0-4318a32781fb",
+            "ref_type": "search_run",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "unit_count": 11
+        },
+        "units": [
+          {
+            "evidence_unit_id": "evidence_unit_29a6dbec-cb73-4654-9f73-9b08d7428d1d",
+            "evidence_role": "support",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_cbb1c5d4-13c3-41fd-8a54-1c983a2b53cc",
+            "evidence_role": "support",
+            "literature_ref": {
+              "ref_id": "LIT-2297",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_b224d6b3-aacb-4e34-a537-54496309ddec",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-0333",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_c25bb18b-1f19-4c64-9258-adbb34b292e5",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-0302",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_79221f22-b269-42e7-9d34-82173b4369e9",
+            "evidence_role": "baseline",
+            "literature_ref": {
+              "ref_id": "LIT-2296",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_38891f8d-e6cc-43cd-a5b8-d2c812bed6f5",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_2ab53c3c-15f8-4253-af97-4d2e043245bb",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2254",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_c9126cdf-6afb-4d45-b7e5-d89d2663cbb7",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-0190",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_51a00541-e0e9-41cc-a9b7-763c3750592b",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2295",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_5369ee74-30a2-47c4-b2a5-fbbd1a174ee3",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-2320",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": true
+          },
+          {
+            "evidence_unit_id": "evidence_unit_1c794f82-04fa-4779-ad7c-4cd16b0b0bf8",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-2321",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": true
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:14:21.546105+00:00",
+      "operation": "/literature/fulltext-acquisition/dry-runs",
+      "method": "POST",
+      "http_status": 200,
+      "result": {
+        "estimate": {
+          "dry_run_id": "f076f154-82a3-4888-864c-a4aca8873d82",
+          "generated_at": "2026-09-08T03:14:21.545Z",
+          "workset": {
+            "literature_ids": [
+              "LIT-2320",
+              "LIT-2321"
+            ],
+            "only_missing_assets": true,
+            "explicit_urls": [
+              {
+                "literature_id": "LIT-2320",
+                "source_url": "https://arxiv.org/pdf/2608.26846v1"
+              },
+              {
+                "literature_id": "LIT-2321",
+                "source_url": "https://arxiv.org/pdf/2608.13237v1"
+              }
+            ]
+          },
+          "options": {
+            "max_parallel_downloads": 1,
+            "provider_call_budget": 2,
+            "max_byte_size": 5242880,
+            "force_refresh": false
+          },
+          "downloader_policy": {
+            "configured": {
+              "max_byte_size": 104857600,
+              "timeout_ms": 60000,
+              "max_redirects": 5,
+              "require_pdf_signature": true
+            },
+            "repository_defaults": {
+              "max_byte_size": 104857600,
+              "timeout_ms": 60000,
+              "max_redirects": 5,
+              "require_pdf_signature": true
+            },
+            "field_sources": {
+              "max_byte_size": "persisted_setting",
+              "timeout_ms": "persisted_setting",
+              "max_redirects": "persisted_setting",
+              "require_pdf_signature": "persisted_setting"
+            },
+            "settings_updated_at": "2026-09-01T03:25:46.204Z",
+            "requested_max_byte_size": 5242880,
+            "effective_max_byte_size": 5242880,
+            "network_verified": false
+          },
+          "total_literatures": 2,
+          "selected_count": 2,
+          "planned_item_count": 2,
+          "skipped_existing_asset_count": 0,
+          "blocked_count": 0,
+          "source_counts": [
+            {
+              "source_kind": "explicit_url",
+              "count": 2
+            }
+          ],
+          "estimated_provider_calls": {
+            "unpaywall_calls": 0,
+            "download_calls": 2
+          },
+          "blockers": [],
+          "plan_items": [
+            {
+              "literature_id": "LIT-2320",
+              "title": "Evaluating Confidence-Gated Retrieval with Matched Trajectory Replay",
+              "rights_class": "OA",
+              "selected_source_kind": "explicit_url",
+              "source_url": "https://arxiv.org/pdf/2608.26846v1",
+              "candidates": [
+                {
+                  "source_kind": "explicit_url",
+                  "source_url": "https://arxiv.org/pdf/2608.26846v1",
+                  "requires_resolution": false,
+                  "provenance": {
+                    "source": "workset.explicit_urls"
+                  }
+                },
+                {
+                  "source_kind": "arxiv",
+                  "source_url": "https://arxiv.org/pdf/2608.26846",
+                  "requires_resolution": false,
+                  "provenance": {
+                    "arxiv_id": "2608.26846"
+                  }
+                }
+              ],
+              "blocked": false,
+              "blocker_code": null,
+              "blocker_message": null,
+              "retryable": true
+            },
+            {
+              "literature_id": "LIT-2321",
+              "title": "When Should Multi-Round RAG Stop? Structured Stopping Judgments and Retrieval Reduction in Search-R1",
+              "rights_class": "OA",
+              "selected_source_kind": "explicit_url",
+              "source_url": "https://arxiv.org/pdf/2608.13237v1",
+              "candidates": [
+                {
+                  "source_kind": "explicit_url",
+                  "source_url": "https://arxiv.org/pdf/2608.13237v1",
+                  "requires_resolution": false,
+                  "provenance": {
+                    "source": "workset.explicit_urls"
+                  }
+                },
+                {
+                  "source_kind": "arxiv",
+                  "source_url": "https://arxiv.org/pdf/2608.13237",
+                  "requires_resolution": false,
+                  "provenance": {
+                    "arxiv_id": "2608.13237"
+                  }
+                }
+              ],
+              "blocked": false,
+              "blocker_code": null,
+              "blocker_message": null,
+              "retryable": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "at": "2026-09-08T03:14:36.168205+00:00",
+      "operation": "/literature/fulltext-acquisition/jobs",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "job_id": "8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+        "status": "QUEUED",
+        "totals": {
+          "total": 2,
+          "queued": 2,
+          "running": 0,
+          "succeeded": 0,
+          "partial": 0,
+          "blocked": 0,
+          "failed": 0,
+          "skipped": 0,
+          "canceled": 0
+        },
+        "items": [
+          {
+            "item_id": "53578f10-f656-4879-b94f-b00df2c16afa",
+            "job_id": "8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+            "literature_id": "LIT-2320",
+            "title": "Evaluating Confidence-Gated Retrieval with Matched Trajectory Replay",
+            "status": "QUEUED",
+            "selected_source_kind": "explicit_url",
+            "source_url": "https://arxiv.org/pdf/2608.26846v1",
+            "final_url": null,
+            "content_asset_id": null,
+            "attempt_count": 0,
+            "error_code": null,
+            "error_message": null,
+            "blocker_code": null,
+            "retryable": true,
+            "resolution_candidates": [
+              {
+                "source_kind": "explicit_url",
+                "source_url": "https://arxiv.org/pdf/2608.26846v1",
+                "requires_resolution": false,
+                "provenance": {
+                  "source": "workset.explicit_urls"
+                }
+              },
+              {
+                "source_kind": "arxiv",
+                "source_url": "https://arxiv.org/pdf/2608.26846",
+                "requires_resolution": false,
+                "provenance": {
+                  "arxiv_id": "2608.26846"
+                }
+              }
+            ],
+            "checkpoint": {},
+            "created_at": "2026-09-08T03:14:36.152Z",
+            "started_at": null,
+            "finished_at": null,
+            "updated_at": "2026-09-08T03:14:36.152Z"
+          },
+          {
+            "item_id": "9347538c-e991-4a1a-9bc0-64cd911eef69",
+            "job_id": "8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+            "literature_id": "LIT-2321",
+            "title": "When Should Multi-Round RAG Stop? Structured Stopping Judgments and Retrieval Reduction in Search-R1",
+            "status": "QUEUED",
+            "selected_source_kind": "explicit_url",
+            "source_url": "https://arxiv.org/pdf/2608.13237v1",
+            "final_url": null,
+            "content_asset_id": null,
+            "attempt_count": 0,
+            "error_code": null,
+            "error_message": null,
+            "blocker_code": null,
+            "retryable": true,
+            "resolution_candidates": [
+              {
+                "source_kind": "explicit_url",
+                "source_url": "https://arxiv.org/pdf/2608.13237v1",
+                "requires_resolution": false,
+                "provenance": {
+                  "source": "workset.explicit_urls"
+                }
+              },
+              {
+                "source_kind": "arxiv",
+                "source_url": "https://arxiv.org/pdf/2608.13237",
+                "requires_resolution": false,
+                "provenance": {
+                  "arxiv_id": "2608.13237"
+                }
+              }
+            ],
+            "checkpoint": {},
+            "created_at": "2026-09-08T03:14:36.153Z",
+            "started_at": null,
+            "finished_at": null,
+            "updated_at": "2026-09-08T03:14:36.152Z"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:14:49.789953+00:00",
+      "operation": "/literature/fulltext-acquisition/jobs/8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+      "method": "GET",
+      "http_status": 200,
+      "result": {
+        "job_id": "8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+        "status": "SUCCEEDED",
+        "totals": {
+          "total": 2,
+          "queued": 0,
+          "running": 0,
+          "succeeded": 2,
+          "partial": 0,
+          "blocked": 0,
+          "failed": 0,
+          "skipped": 0,
+          "canceled": 0
+        },
+        "items": [
+          {
+            "item_id": "53578f10-f656-4879-b94f-b00df2c16afa",
+            "job_id": "8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+            "literature_id": "LIT-2320",
+            "title": "Evaluating Confidence-Gated Retrieval with Matched Trajectory Replay",
+            "status": "SUCCEEDED",
+            "selected_source_kind": "explicit_url",
+            "source_url": "https://arxiv.org/pdf/2608.26846v1",
+            "final_url": "https://arxiv.org/pdf/2608.26846v1",
+            "content_asset_id": "7ad85f35-9ebc-4434-8082-4bb77895a55f",
+            "attempt_count": 1,
+            "error_code": null,
+            "error_message": null,
+            "blocker_code": null,
+            "retryable": true,
+            "resolution_candidates": [
+              {
+                "provenance": {
+                  "source": "workset.explicit_urls"
+                },
+                "source_url": "https://arxiv.org/pdf/2608.26846v1",
+                "source_kind": "explicit_url",
+                "requires_resolution": false
+              },
+              {
+                "provenance": {
+                  "arxiv_id": "2608.26846"
+                },
+                "source_url": "https://arxiv.org/pdf/2608.26846",
+                "source_kind": "arxiv",
+                "requires_resolution": false
+              }
+            ],
+            "checkpoint": {
+              "checksum": "ff85acfc639fde5bbae84cceda320727d5d3b4fcfac271356e80093ec83c7d93",
+              "byte_size": 617294,
+              "mime_type": "application/pdf"
+            },
+            "created_at": "2026-09-08T03:14:36.152Z",
+            "started_at": "2026-09-08T03:14:36.171Z",
+            "finished_at": "2026-09-08T03:14:37.613Z",
+            "updated_at": "2026-09-08T03:14:37.613Z"
+          },
+          {
+            "item_id": "9347538c-e991-4a1a-9bc0-64cd911eef69",
+            "job_id": "8bec7a0a-8a3b-4bc3-96ec-57e1a6bc232c",
+            "literature_id": "LIT-2321",
+            "title": "When Should Multi-Round RAG Stop? Structured Stopping Judgments and Retrieval Reduction in Search-R1",
+            "status": "SUCCEEDED",
+            "selected_source_kind": "explicit_url",
+            "source_url": "https://arxiv.org/pdf/2608.13237v1",
+            "final_url": "https://arxiv.org/pdf/2608.13237v1",
+            "content_asset_id": "477b94d7-e9cf-444e-b04c-563385c4c056",
+            "attempt_count": 1,
+            "error_code": null,
+            "error_message": null,
+            "blocker_code": null,
+            "retryable": true,
+            "resolution_candidates": [
+              {
+                "provenance": {
+                  "source": "workset.explicit_urls"
+                },
+                "source_url": "https://arxiv.org/pdf/2608.13237v1",
+                "source_kind": "explicit_url",
+                "requires_resolution": false
+              },
+              {
+                "provenance": {
+                  "arxiv_id": "2608.13237"
+                },
+                "source_url": "https://arxiv.org/pdf/2608.13237",
+                "source_kind": "arxiv",
+                "requires_resolution": false
+              }
+            ],
+            "checkpoint": {
+              "checksum": "eb8f1fd89df72b12630a85aa22ea4974598f8381fd6ad38e77318ca9e243ceaa",
+              "byte_size": 221662,
+              "mime_type": "application/pdf"
+            },
+            "created_at": "2026-09-08T03:14:36.153Z",
+            "started_at": "2026-09-08T03:14:37.619Z",
+            "finished_at": "2026-09-08T03:14:37.937Z",
+            "updated_at": "2026-09-08T03:14:37.937Z"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:15:14.615189+00:00",
+      "operation": "/settings/literature-content-processing/fulltext-parser/health",
+      "method": "GET",
+      "http_status": 200,
+      "result": {
+        "status": "ready",
+        "provider": "grobid",
+        "checked_at": "2026-09-08T03:15:14.596Z"
+      }
+    },
+    {
+      "at": "2026-09-08T03:15:14.629948+00:00",
+      "operation": "/literature/LIT-2320/content-processing/runs",
+      "method": "POST",
+      "http_status": 200,
+      "result": {
+        "run": {
+          "run_id": "66837d2f-8d64-439b-a5b5-3394b7d8723e",
+          "literature_id": "LIT-2320",
+          "trigger_source": "CONTENT_PROCESSING_ACTION",
+          "status": "PENDING",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": null,
+          "error_message": null,
+          "created_at": "2026-09-08T03:15:14.618Z",
+          "started_at": null,
+          "finished_at": null,
+          "updated_at": "2026-09-08T03:15:14.618Z"
+        }
+      }
+    },
+    {
+      "at": "2026-09-08T03:15:14.637021+00:00",
+      "operation": "/literature/LIT-2321/content-processing/runs",
+      "method": "POST",
+      "http_status": 200,
+      "result": {
+        "run": {
+          "run_id": "4b04e65e-942a-4d39-afa8-d56fc10233c8",
+          "literature_id": "LIT-2321",
+          "trigger_source": "CONTENT_PROCESSING_ACTION",
+          "status": "PENDING",
+          "requested_stages": [
+            "CITATION_NORMALIZED",
+            "ABSTRACT_READY",
+            "FULLTEXT_PREPROCESSED"
+          ],
+          "error_code": null,
+          "error_message": null,
+          "created_at": "2026-09-08T03:15:14.633Z",
+          "started_at": null,
+          "finished_at": null,
+          "updated_at": "2026-09-08T03:15:14.633Z"
+        }
+      }
+    },
+    {
+      "at": "2026-09-08T03:16:50.377016+00:00",
+      "operation": "/topic-selection/v1a/literature-resource-pool-snapshots",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "literature_resource_pool_snapshot_id": "literature_snapshot_ef711c5b-f433-4337-9b33-eb41d743191e",
+        "snapshot_version": "t148-phase4-fulltext-strengthening-20260908",
+        "snapshot_hash": "07b0ea6b88fdf7a36f4cda9bd4c55b3251f70bbac96bd2ddb234e6ba489078ac",
+        "source_health_summary": {
+          "stale_count": 3,
+          "source_count": 17,
+          "blocked_count": 0,
+          "warning_codes": [
+            "INCOMPLETE_KEY_CONTENT_READY",
+            "INCOMPLETE_PIPELINE_READY",
+            "STALE_OR_DUPLICATE_PIPELINE_STATUS",
+            "INCOMPLETE_FULLTEXT_READY"
+          ],
+          "rights_class_counts": {
+            "OA": 11,
+            "UNKNOWN": 5
+          },
+          "abstract_ready_count": 16,
+          "fulltext_ready_count": 14,
+          "pipeline_ready_count": 14,
+          "missing_literature_ids": [],
+          "total_literature_count": 16,
+          "key_content_ready_count": 14
+        }
+      }
+    },
+    {
+      "at": "2026-09-08T03:17:24.692453+00:00",
+      "operation": "/topic-selection/v1a/search-plans",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "search_plan_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+        "parent_search_plan_ref": {
+          "ref_id": "search_plan_e71cc43a-1d77-4b1a-9c48-b3318d33a3b3",
+          "ref_type": "search_plan",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "coverage_rows": [
+          {
+            "coverage_row_intent_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+            "search_plan_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+            "workspace_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+            "coverage_key": "context-retriever-replacement-benchmark",
+            "intent_type": "context",
+            "query": "benchmark dataset for retriever replacement or index migration measuring routing calibration, harmful retrieval, OOD behavior, and matched retrieval budgets",
+            "rationale": "Find or falsify the availability of an evaluation asset that directly models retriever or index replacement.",
+            "required": true,
+            "priority": 1,
+            "target_source_types": [],
+            "expected_evidence_role": "context",
+            "refs": [],
+            "created_at": "2026-09-08T03:17:24.684Z"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_c729a679-d165-47a9-b91b-2ac644031118",
+            "search_plan_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+            "workspace_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+            "coverage_key": "support-direct-frozen-router-transfer",
+            "intent_type": "support",
+            "query": "frozen retrieval-utility router calibration drift after explicit retriever replacement or index rebuild with low-label recalibration and abstaining fallback",
+            "rationale": "Find direct conceptual or empirical evidence for the exact frozen-router transfer mechanism rather than adjacent adaptive routing.",
+            "required": true,
+            "priority": 1,
+            "target_source_types": [],
+            "expected_evidence_role": "support",
+            "refs": [],
+            "created_at": "2026-09-08T03:17:24.684Z"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:17:56.321294+00:00",
+      "operation": "/topic-selection/v1a/search-runs",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "search_run_id": "search_run_cc0eaea0-2242-4eb7-84cc-214d8eca57b4",
+        "search_plan_ref": {
+          "ref_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+          "ref_type": "search_plan",
+          "version_id": "t148-phase4-fulltext-strengthening-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "result_accounting": {
+          "total_result_count": 11,
+          "failed_source_count": 0,
+          "skipped_source_count": 0,
+          "duplicate_result_count": 1,
+          "unique_literature_count": 10
+        },
+        "source_health_summary": {
+          "mode": "manual_fulltext_admission",
+          "provider_calls": 0,
+          "retriever_operations": 0,
+          "new_fulltext_admission": true,
+          "arxiv_downloads_in_loopback": 2,
+          "indexed_for_new_literatures": false,
+          "direct_gap_coverage_verified": false,
+          "local_parser_runs_in_loopback": 2,
+          "key_content_ready_for_new_literatures": false
+        },
+        "coverage_assessments": [
+          {
+            "coverage_assessment_id": "coverage_assessment_9a3b94be-0271-4abb-b5bd-abd5bb2e1a66",
+            "search_plan_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+            "coverage_row_intent_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+            "verdict": "missing",
+            "issue_codes": [
+              "RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND"
+            ],
+            "confidence": 0.9,
+            "assessed_by": "llm",
+            "created_at": "2026-09-08T03:17:56.301Z"
+          },
+          {
+            "coverage_assessment_id": "coverage_assessment_e1852eb8-03ea-47a4-8d2b-89f6d7897401",
+            "search_plan_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+            "coverage_row_intent_id": "coverage_intent_c729a679-d165-47a9-b91b-2ac644031118",
+            "verdict": "missing",
+            "issue_codes": [
+              "DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND"
+            ],
+            "confidence": 0.92,
+            "assessed_by": "llm",
+            "created_at": "2026-09-08T03:17:56.301Z"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-09-08T03:18:40.033280+00:00",
+      "operation": "/topic-selection/v1a/evidence-maps",
+      "method": "POST",
+      "http_status": 201,
+      "result": {
+        "evidence_map": {
+          "evidence_map_id": "evidence_map_9d29ce53-0f40-4af7-862a-c2822126424f",
+          "evidence_map_version": "t148-phase4-fulltext-strengthening-20260908",
+          "search_run_ref": {
+            "ref_id": "search_run_cc0eaea0-2242-4eb7-84cc-214d8eca57b4",
+            "ref_type": "search_run",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "unit_count": 11
+        },
+        "units": [
+          {
+            "evidence_unit_id": "evidence_unit_28097ff4-2cd2-4fcf-a1c7-ed79704e652d",
+            "evidence_role": "support",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_28559218-52b0-4de7-8fd3-8d94d82679d2",
+            "evidence_role": "support",
+            "literature_ref": {
+              "ref_id": "LIT-2297",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_9914cd95-641a-4f5b-904e-85be78078684",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-0333",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_79b522f4-1a33-4b54-88df-7173254ba95c",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-0302",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_2a1f621a-b62c-46b7-9470-481e1f975079",
+            "evidence_role": "baseline",
+            "literature_ref": {
+              "ref_id": "LIT-2296",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_87049b8c-f900-4c07-b838-49456ba5c9f7",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_ef0739a5-387e-4104-9a66-aa65e5b6fc33",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2254",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_5567f9d7-260d-46ce-ac7b-0a0612b7489e",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-0190",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_466931c0-84ba-40a7-b1b5-976936b1ce9d",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2295",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_189b1321-7efa-4643-9a38-3cee32ce3d60",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-2320",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          },
+          {
+            "evidence_unit_id": "evidence_unit_923e73fc-8989-4e06-a7d2-d7de4cf3803e",
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-2321",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "abstract_only": false
+          }
+        ]
+      }
+    }
+  ],
+  "final_evidence_map_input": {
+    "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+    "search_run_id": "search_run_cc0eaea0-2242-4eb7-84cc-214d8eca57b4",
+    "evidence_map_version": "t148-phase4-fulltext-strengthening-20260908",
+    "evidence_units": [
+      {
+        "client_unit_key": "0",
+        "coverage_row_intent_id": "coverage_intent_c729a679-d165-47a9-b91b-2ac644031118",
+        "evidence_role": "support",
+        "literature_ref": {
+          "ref_id": "LIT-2253",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_Xuqx2Ap",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-2268",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 14277,
+          "source_ref": {
+            "ref_id": "LSRC-2268",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_Xuqx2Ap",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 13892,
+          "paragraph_ref": {
+            "ref_id": "_Xuqx2Ap",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-2253",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "Adaptive retrieval can reduce unnecessary computation and encourage abstention, but calibrated confidence can be unsafe outside its validation domain and may skip retrieval when evidence is needed.",
+        "normalized_statement": "OOD calibration failure can turn adaptive retrieval decisions into harmful skips.",
+        "interpretation_payload": {
+          "limitation": "The paper does not directly test retriever replacement.",
+          "relevance_to_topic": "Supports shift-aware recalibration and conservative fallback after a retriever change."
+        },
+        "extraction_confidence": 0.93,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "1",
+        "coverage_row_intent_id": "coverage_intent_c729a679-d165-47a9-b91b-2ac644031118",
+        "evidence_role": "support",
+        "literature_ref": {
+          "ref_id": "LIT-2297",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_HHASBrE",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-2312",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 1379,
+          "source_ref": {
+            "ref_id": "LSRC-2312",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_HHASBrE",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 609,
+          "paragraph_ref": {
+            "ref_id": "_HHASBrE",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-2297",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "Relevance-biased retrievers can ignore passage utility and become misaligned with downstream generation; learning utility-aware retrieval remains an open challenge.",
+        "normalized_statement": "Retriever utility signals can diverge from semantic relevance and generator needs.",
+        "interpretation_payload": {
+          "limitation": "This work trains the retriever rather than testing router transfer safety.",
+          "relevance_to_topic": "A changed retriever can shift the utility signal seen by a frozen router."
+        },
+        "extraction_confidence": 0.94,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "2",
+        "coverage_row_intent_id": null,
+        "evidence_role": "challenge",
+        "literature_ref": {
+          "ref_id": "LIT-0333",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_zWDAw8V",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-0346",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 13015,
+          "source_ref": {
+            "ref_id": "LSRC-0346",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_zWDAw8V",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 12820,
+          "paragraph_ref": {
+            "ref_id": "_zWDAw8V",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-0333",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "counter_evidence",
+        "source_statement": "RAGRouter explicitly accounts for knowledge shifts introduced by document retrieval when estimating model capability in RAG settings.",
+        "normalized_statement": "Existing RAG routing already models retrieval-induced capability shift.",
+        "interpretation_payload": {
+          "novelty_effect": "Narrows novelty; replacement-specific calibration safety must be shown beyond generic retrieval-induced shift."
+        },
+        "extraction_confidence": 0.96,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "3",
+        "coverage_row_intent_id": null,
+        "evidence_role": "challenge",
+        "literature_ref": {
+          "ref_id": "LIT-0302",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_Ku7MbYy",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-0306",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 19851,
+          "source_ref": {
+            "ref_id": "LSRC-0306",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_Ku7MbYy",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 19199,
+          "paragraph_ref": {
+            "ref_id": "_Ku7MbYy",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-0302",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "counter_evidence",
+        "source_statement": "Retriever-routing methods dynamically select the most suitable retriever from a candidate pool for each query and are evaluated against sequential, conditional, and iterative retrieval paradigms.",
+        "normalized_statement": "Per-query retriever selection and broad adaptive retrieval baselines already exist.",
+        "interpretation_payload": {
+          "novelty_effect": "The topic must study post-replacement transfer of a frozen utility router, not retriever selection itself."
+        },
+        "extraction_confidence": 0.96,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "4",
+        "coverage_row_intent_id": null,
+        "evidence_role": "baseline",
+        "literature_ref": {
+          "ref_id": "LIT-2296",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_PQRNhnV",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-2311",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 2379,
+          "source_ref": {
+            "ref_id": "LSRC-2311",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_PQRNhnV",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 1432,
+          "paragraph_ref": {
+            "ref_id": "_PQRNhnV",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-2296",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "Supervised query routing depends on costly paired annotations and suffers from distribution mismatch between public datasets and real queries, limiting OOD generalization.",
+        "normalized_statement": "Low-label and OOD routing are credible baseline constraints.",
+        "interpretation_payload": {
+          "baseline_use": "Compare low-label recalibration against unsupervised routing and from-scratch adaptation under matched annotation budgets."
+        },
+        "extraction_confidence": 0.94,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "5",
+        "coverage_row_intent_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+        "evidence_role": "context",
+        "literature_ref": {
+          "ref_id": "LIT-2253",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_5GNYScY",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-2268",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 3122,
+          "source_ref": {
+            "ref_id": "LSRC-2268",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_5GNYScY",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 2150,
+          "paragraph_ref": {
+            "ref_id": "_5GNYScY",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-2253",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "Calibration improves probability quality while preserving ranking, graded allocation changes passage and context budget frontiers, and held-out thresholds approach diagnostic operating points.",
+        "normalized_statement": "Evaluation should separate calibration quality, ranking, operating thresholds, and budget frontiers.",
+        "interpretation_payload": {
+          "evaluation_use": "Separate ranking, threshold selection and actual budget. Strictly increasing maps preserve ordering; nondecreasing plateaus can alter ties and available threshold splits. Signed utility uses MSE; Brier requires a specified probability target."
+        },
+        "extraction_confidence": 0.95,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "6",
+        "coverage_row_intent_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+        "evidence_role": "context",
+        "literature_ref": {
+          "ref_id": "LIT-2254",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "sec-5",
+            "ref_type": "fulltext_section",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-2269",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 11074,
+          "source_ref": {
+            "ref_id": "LSRC-2269",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "sec-5",
+            "ref_type": "fulltext_section",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "section_ref": {
+            "ref_id": "sec-5",
+            "ref_type": "fulltext_section",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "section",
+          "start_offset": 9599,
+          "literature_ref": {
+            "ref_id": "LIT-2254",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "The cross-dataset evaluation fixes model families, example counts, retrieval depth, and retrieval method so that utility, calibration, and cost comparisons remain budget-aware.",
+        "normalized_statement": "Matched model and retrieval budgets are necessary for utility and calibration comparison.",
+        "interpretation_payload": {
+          "evaluation_use": "Adapt the protocol to before-versus-after retriever replacement and low-label recalibration."
+        },
+        "extraction_confidence": 0.87,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "7",
+        "coverage_row_intent_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+        "evidence_role": "context",
+        "literature_ref": {
+          "ref_id": "LIT-0190",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "sec-30",
+            "ref_type": "fulltext_section",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-0194",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 44471,
+          "source_ref": {
+            "ref_id": "LSRC-0194",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "sec-30",
+            "ref_type": "fulltext_section",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "section_ref": {
+            "ref_id": "sec-30",
+            "ref_type": "fulltext_section",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "section",
+          "start_offset": 43286,
+          "literature_ref": {
+            "ref_id": "LIT-0190",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "RAGRouter-Bench characterizes retrieval environments using structural-topology and semantic-space metrics to delineate where different RAG paradigms apply.",
+        "normalized_statement": "Retriever-shift evaluation can quantify both corpus topology and semantic-space change.",
+        "interpretation_payload": {
+          "evaluation_use": "Use environment-shift descriptors alongside calibration and routing-harm metrics."
+        },
+        "extraction_confidence": 0.86,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "8",
+        "coverage_row_intent_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+        "evidence_role": "context",
+        "literature_ref": {
+          "ref_id": "LIT-2295",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_id": "_AG7MxS6",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "LSRC-2310",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "end_offset": 18801,
+          "source_ref": {
+            "ref_id": "LSRC-2310",
+            "ref_type": "literature_source",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_ref": {
+            "ref_id": "_AG7MxS6",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "locator_type": "paragraph",
+          "start_offset": 18209,
+          "paragraph_ref": {
+            "ref_id": "_AG7MxS6",
+            "ref_type": "fulltext_paragraph",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_id": "LIT-2295",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        "source_attribution_kind": "source_claim",
+        "source_statement": "Retrieval-utility prediction is evaluated on Natural Questions using answer F1 and Spearman correlation between predicted scores and ground-truth context utility or answer quality.",
+        "normalized_statement": "Context utility and answer quality can be evaluated separately with ranking correlations and task metrics.",
+        "interpretation_payload": {
+          "evaluation_use": "Track whether post-shift calibration preserves utility ranking and avoids harmful routing."
+        },
+        "extraction_confidence": 0.94,
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "9",
+        "evidence_role": "challenge",
+        "literature_ref": {
+          "ref_type": "literature_record",
+          "ref_id": "LIT-2320",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_8nk4CNP",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_uQCyS9q",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "locator_type": "paragraph",
+          "locator_ref": {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_8nk4CNP",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_type": "literature_record",
+            "ref_id": "LIT-2320",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_ref": {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_8nk4CNP",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "paragraph_ref": {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_8nk4CNP",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "start_offset": 25059,
+          "end_offset": 25664,
+          "quote_hash": "074faae32bc1bccabea934a27cfd7e6e4ba95611db3bbfc8ae8792b912288855"
+        },
+        "source_attribution_kind": "counter_evidence",
+        "source_statement": "在固定回答、证据和成本的轨迹回放中，校准改变固定阈值的决策而非已保存的答案；它提高已回答样本的准确率，但整体准确率与检索成本的效果随数据集和模型变化。检索前拟合的校准在前两层有效，在第三层过度校正高置信状态。",
+        "normalized_statement": "静态校准不能保证沿检索轨迹持续有效；更高的选择性回答准确率不等于整体收益。",
+        "interpretation_payload": {
+          "limitation": "研究的是置信度及固定证据轨迹，不是冻结效用路由器的检索器替换。",
+          "admission_scope": "arXiv v1 PDF downloaded and parsed by local GROBID; paragraph identifiers, offsets and checksums read from the canonical curation bundle. Key-content and embedding/index stages were not run."
+        },
+        "review_status": "machine_checked"
+      },
+      {
+        "client_unit_key": "10",
+        "evidence_role": "challenge",
+        "literature_ref": {
+          "ref_type": "literature_record",
+          "ref_id": "LIT-2321",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "source_refs": [
+          {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_tAWYBeU",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_AtRyNdA",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "locator": {
+          "locator_type": "paragraph",
+          "locator_ref": {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_tAWYBeU",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "literature_ref": {
+            "ref_type": "literature_record",
+            "ref_id": "LIT-2321",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_ref": {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_tAWYBeU",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "paragraph_ref": {
+            "ref_type": "fulltext_paragraph",
+            "ref_id": "_tAWYBeU",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "start_offset": 21679,
+          "end_offset": 22422,
+          "quote_hash": "19b3fff2897e1e9154724b594e912d5c18f0ad0ca1509627ce780438b9dc0908"
+        },
+        "source_attribution_kind": "counter_evidence",
+        "source_statement": "停止判断器的答案准确率略低于原系统；整体准确率损失在容许范围内仍可能包含不安全的提前停止。验证集上的精度约束未迁移到最终评估。更少的检索调用也未计入判断器的推理、内存和延迟成本。",
+        "normalized_statement": "整体质量、提前停止的条件风险、以及总成本是不同的评估目标。",
+        "interpretation_payload": {
+          "limitation": "该论文改变停止判断，检索器保持不变；不能据此断言冻结路由器在检索器替换后的表现。",
+          "admission_scope": "arXiv v1 PDF downloaded and parsed by local GROBID; paragraph identifiers, offsets and checksums read from the canonical curation bundle. Key-content and embedding/index stages were not run."
+        },
+        "review_status": "machine_checked"
+      }
+    ],
+    "conflict_sets": [
+      {
+        "conflict_type": "claim_conflict",
+        "severity": "material",
+        "support_unit_keys": [
+          "0",
+          "1"
+        ],
+        "challenge_unit_keys": [
+          "2",
+          "3",
+          "9",
+          "10"
+        ],
+        "baseline_unit_keys": [
+          "4"
+        ],
+        "context_unit_keys": [
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "issue_codes": [
+          "RETRIEVER_SHIFT_NOVELTY_BOUNDARY",
+          "REPLACEMENT_BENCHMARK_REQUIRED"
+        ]
+      }
+    ],
+    "digest_payload": {
+      "mechanism": "在相同语料、查询、生成器和预算定义下比较替换前后表现；先检验冻结路由器是否失效，再比较同标注预算的阈值重调、校准和固定基线回退。",
+      "falsifiers": [
+        "替换后未观察到有实际影响的失准；小样本阴性结果只记为尚无定论。",
+        "简单阈值重调已匹配校准收益。",
+        "收益在同标注预算或同实际使用预算下消失。",
+        "固定基线回退只有通过降低覆盖才得到表面安全收益。"
+      ],
+      "claim_ceiling": "目前是研究候选问题，尚无实验结果。后续结论仅限实际测试的检索器替换、语料、生成器和预算；路由器回退不是最终答案拒答。",
+      "working_claim": "待检验：只替换检索器，是否足以使冻结的检索效用路由器出现有实际影响的失准；如果有，简单重调阈值是否已经足够？",
+      "support_summary": "现有证据支持关注效用、分布变化和校准，但仍缺直接验证“冻结路由器后仅替换检索器”的研究。",
+      "baseline_summary": "优先比较冻结原阈值与使用全部目标标注预算的阈值重调；再比较校准、同一固定基线回退、随机同回退率、无标注规则、始终/从不检索和同预算重训。",
+      "challenge_summary": "已有路由工作限制了宽泛的新颖性主张。新增两篇全文反例表明：校准可能随检索深度失效，整体准确率容许范围与提前停止安全不同，减少检索也不证明总成本降低。它们属于相邻干预。",
+      "evaluation_context": "分别报告回答质量、检索收益预测、实际检索与推理成本、路由器覆盖及回答覆盖。带符号效用用 MSE；只有明确概率目标才用 Brier。严格递增校准不改变精确预算下的排序，非递减平台需另查并列。",
+      "unresolved_requirements": [
+        "仍缺直接冻结路由器、只替换检索器的证据。",
+        "仍缺合格的现成配对基准；已检查的公开示例缓存不能作真实实验数据。",
+        "同语料 BM25→稠密检索器的最小配对协议仍为草案，数据划分、预算与覆盖定义尚未批准执行。",
+        "有限文献补查不构成新颖性证明，文献时效与近重复风险仍需审阅。"
+      ],
+      "historical_bounded_recheck": {
+        "total_hits": 16,
+        "duplicate_hits": 6,
+        "provider_calls": 2,
+        "context_verdict": "missing",
+        "support_verdict": "missing",
+        "stop_rule_reached": true,
+        "unique_literature": 10,
+        "retriever_operations": 2,
+        "source_search_run_id": "search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697"
+      },
+      "materialization_accounting": {
+        "mode": "manual_fulltext_admission",
+        "retriever_operations": 0,
+        "provider_calls": 0,
+        "new_retrieval_hits": 0,
+        "retained_original_units": 9,
+        "new_paragraph_located_challenges_since_original": 2,
+        "arxiv_downloads_in_loopback": 2,
+        "local_parser_runs_in_loopback": 2,
+        "source_evidence_map_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+        "superseded_abstract_draft_map_id": "evidence_map_b97f4d87-7466-427a-922e-3dc87ae18b56"
+      },
+      "recommendation": "已按用户决定补充证据。建议继续评估这个更窄的问题；是否接受仍未补齐的两项证据缺口并进入问题细化，由用户在新证据包上决定。",
+      "confirmed_loopback_decision_ref": {
+        "ref_type": "human_confirmed_decision",
+        "ref_id": "human_decision_57aee7db-15ce-431b-af81-fea4dd354cce",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "source_processing_limitations": [
+        "两篇新论文已完成本地全文解析和本轮段落证据准入，尚未完成关键内容整理、向量化和检索索引；本轮不据此宣称检索就绪。"
+      ]
+    },
+    "created_by": "llm"
+  },
+  "current_checkpoint": {
+    "research_checkpoint_id": "research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13",
+    "target_ref": {
+      "ref_type": "evidence_map",
+      "ref_id": "evidence_map_9d29ce53-0f40-4af7-862a-c2822126424f",
+      "version_id": "t148-phase4-fulltext-strengthening-20260908",
+      "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+    },
+    "target_snapshot_hash": "c7affc0d643bf7dddf359e6b2301b5d2e2ba43617dfbb3a722a2d68f36e9fb6e",
+    "packet_hash": "7f531cc5632049c4d8683e255736c0907a7f4de314773a351e3653a466efe756",
+    "status": "pending",
+    "allowed_actions": [
+      "advance",
+      "hold",
+      "loopback",
+      "reject"
+    ],
+    "required_action_refs": [
+      {
+        "ref_id": "research_required_action_6f4e57dda1f2f2b3527ddfc0",
+        "ref_type": "research_required_action",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    ],
+    "supersedes_checkpoint_id": "research_checkpoint_8c65a4a3-06de-4474-b926-d9ce7c18002c"
+  },
+  "checkpoint_chain": [
+    {
+      "id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+      "status": "superseded",
+      "supersedes": null,
+      "superseded_by": "research_checkpoint_8c65a4a3-06de-4474-b926-d9ce7c18002c",
+      "decision_ref": {
+        "ref_id": "research_checkpoint_decision_4b7278aa-b0ce-483a-97e0-6f83c782cd27",
+        "ref_type": "research_checkpoint_decision",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    },
+    {
+      "id": "research_checkpoint_8c65a4a3-06de-4474-b926-d9ce7c18002c",
+      "status": "superseded",
+      "supersedes": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+      "superseded_by": "research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13",
+      "decision_ref": null
+    },
+    {
+      "id": "research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13",
+      "status": "pending",
+      "supersedes": "research_checkpoint_8c65a4a3-06de-4474-b926-d9ce7c18002c",
+      "superseded_by": null,
+      "decision_ref": null
+    }
+  ],
+  "final_packet_summary": {
+    "policy_result": "human_acceptance_required",
+    "policy_issues": [
+      {
+        "code": "REQUIRED_COVERAGE_MISSING",
+        "refs": [
+          {
+            "ref_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+            "ref_type": "coverage_row_intent",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "coverage_intent_c729a679-d165-47a9-b91b-2ac644031118",
+            "ref_type": "coverage_row_intent",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "message": "Every required missing coverage row needs exact Human acceptance before advancement."
+      }
+    ],
+    "latest_coverage_assessments": [
+      {
+        "verdict": "missing",
+        "confidence": 0.9,
+        "created_at": "2026-09-08T03:17:56.301Z",
+        "assessed_by": "llm",
+        "issue_codes": [
+          "RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND"
+        ],
+        "coverage_assessment_ref": {
+          "ref_id": "coverage_assessment_9a3b94be-0271-4abb-b5bd-abd5bb2e1a66",
+          "ref_type": "coverage_assessment",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "coverage_row_intent_ref": {
+          "ref_id": "coverage_intent_2be2c335-9d25-4b41-8b2c-48f0c5d73c8f",
+          "ref_type": "coverage_row_intent",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      {
+        "verdict": "missing",
+        "confidence": 0.92,
+        "created_at": "2026-09-08T03:17:56.301Z",
+        "assessed_by": "llm",
+        "issue_codes": [
+          "DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND"
+        ],
+        "coverage_assessment_ref": {
+          "ref_id": "coverage_assessment_e1852eb8-03ea-47a4-8d2b-89f6d7897401",
+          "ref_type": "coverage_assessment",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "coverage_row_intent_ref": {
+          "ref_id": "coverage_intent_c729a679-d165-47a9-b91b-2ac644031118",
+          "ref_type": "coverage_row_intent",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      }
+    ],
+    "literature_coverage_limitations": [
+      {
+        "code": "RECENT_LITERATURE_COVERAGE_UNVERIFIED",
+        "refs": [
+          {
+            "ref_id": "literature_snapshot_ef711c5b-f433-4337-9b33-eb41d743191e",
+            "ref_type": "literature_resource_pool_snapshot",
+            "version_id": "t148-phase4-fulltext-strengthening-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+            "ref_type": "search_plan",
+            "version_id": "t148-phase4-fulltext-strengthening-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "search_run_cc0eaea0-2242-4eb7-84cc-214d8eca57b4",
+            "ref_type": "search_run",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "message": "当前证据快照未验证近期直接重叠研究的覆盖情况；请核对检索时段、来源范围及相关工作。"
+      },
+      {
+        "code": "NEAR_DUPLICATE_RISK_UNRESOLVED",
+        "refs": [
+          {
+            "ref_id": "literature_snapshot_ef711c5b-f433-4337-9b33-eb41d743191e",
+            "ref_type": "literature_resource_pool_snapshot",
+            "version_id": "t148-phase4-fulltext-strengthening-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "search_plan_62bfd49d-9626-4a19-b6f2-1e5f7261bb2a",
+            "ref_type": "search_plan",
+            "version_id": "t148-phase4-fulltext-strengthening-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "search_run_cc0eaea0-2242-4eb7-84cc-214d8eca57b4",
+            "ref_type": "search_run",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "message": "已有基线与反证不能排除遗漏近重复工作；选题的新颖性仍需结合近期相关研究判断。"
+      }
+    ]
+  },
+  "final_units": [
+    {
+      "evidence_unit_id": "evidence_unit_28097ff4-2cd2-4fcf-a1c7-ed79704e652d",
+      "literature_ref": {
+        "ref_id": "LIT-2253",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "support",
+      "locator": {
+        "end_offset": 14277,
+        "source_ref": {
+          "ref_id": "LSRC-2268",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_Xuqx2Ap",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 13892,
+        "paragraph_ref": {
+          "ref_id": "_Xuqx2Ap",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2253",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_Xuqx2Ap",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-2268",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_28559218-52b0-4de7-8fd3-8d94d82679d2",
+      "literature_ref": {
+        "ref_id": "LIT-2297",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "support",
+      "locator": {
+        "end_offset": 1379,
+        "source_ref": {
+          "ref_id": "LSRC-2312",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_HHASBrE",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 609,
+        "paragraph_ref": {
+          "ref_id": "_HHASBrE",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2297",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_HHASBrE",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-2312",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_9914cd95-641a-4f5b-904e-85be78078684",
+      "literature_ref": {
+        "ref_id": "LIT-0333",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "challenge",
+      "locator": {
+        "end_offset": 13015,
+        "source_ref": {
+          "ref_id": "LSRC-0346",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_zWDAw8V",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 12820,
+        "paragraph_ref": {
+          "ref_id": "_zWDAw8V",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-0333",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_zWDAw8V",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-0346",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_79b522f4-1a33-4b54-88df-7173254ba95c",
+      "literature_ref": {
+        "ref_id": "LIT-0302",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "challenge",
+      "locator": {
+        "end_offset": 19851,
+        "source_ref": {
+          "ref_id": "LSRC-0306",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_Ku7MbYy",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 19199,
+        "paragraph_ref": {
+          "ref_id": "_Ku7MbYy",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-0302",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_Ku7MbYy",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-0306",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_2a1f621a-b62c-46b7-9470-481e1f975079",
+      "literature_ref": {
+        "ref_id": "LIT-2296",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "baseline",
+      "locator": {
+        "end_offset": 2379,
+        "source_ref": {
+          "ref_id": "LSRC-2311",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_PQRNhnV",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 1432,
+        "paragraph_ref": {
+          "ref_id": "_PQRNhnV",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2296",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_PQRNhnV",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-2311",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_87049b8c-f900-4c07-b838-49456ba5c9f7",
+      "literature_ref": {
+        "ref_id": "LIT-2253",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "context",
+      "locator": {
+        "end_offset": 3122,
+        "source_ref": {
+          "ref_id": "LSRC-2268",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_5GNYScY",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 2150,
+        "paragraph_ref": {
+          "ref_id": "_5GNYScY",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2253",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_5GNYScY",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-2268",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_ef0739a5-387e-4104-9a66-aa65e5b6fc33",
+      "literature_ref": {
+        "ref_id": "LIT-2254",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "context",
+      "locator": {
+        "end_offset": 11074,
+        "source_ref": {
+          "ref_id": "LSRC-2269",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "sec-5",
+          "ref_type": "fulltext_section",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "section_ref": {
+          "ref_id": "sec-5",
+          "ref_type": "fulltext_section",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "section",
+        "start_offset": 9599,
+        "literature_ref": {
+          "ref_id": "LIT-2254",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "sec-5",
+          "ref_type": "fulltext_section",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-2269",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_5567f9d7-260d-46ce-ac7b-0a0612b7489e",
+      "literature_ref": {
+        "ref_id": "LIT-0190",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "context",
+      "locator": {
+        "end_offset": 44471,
+        "source_ref": {
+          "ref_id": "LSRC-0194",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "sec-30",
+          "ref_type": "fulltext_section",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "section_ref": {
+          "ref_id": "sec-30",
+          "ref_type": "fulltext_section",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "section",
+        "start_offset": 43286,
+        "literature_ref": {
+          "ref_id": "LIT-0190",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "sec-30",
+          "ref_type": "fulltext_section",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-0194",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_466931c0-84ba-40a7-b1b5-976936b1ce9d",
+      "literature_ref": {
+        "ref_id": "LIT-2295",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "context",
+      "locator": {
+        "end_offset": 18801,
+        "source_ref": {
+          "ref_id": "LSRC-2310",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_AG7MxS6",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 18209,
+        "paragraph_ref": {
+          "ref_id": "_AG7MxS6",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2295",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_AG7MxS6",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "LSRC-2310",
+          "ref_type": "literature_source",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_189b1321-7efa-4643-9a38-3cee32ce3d60",
+      "literature_ref": {
+        "ref_id": "LIT-2320",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "challenge",
+      "locator": {
+        "end_offset": 25664,
+        "quote_hash": "074faae32bc1bccabea934a27cfd7e6e4ba95611db3bbfc8ae8792b912288855",
+        "source_ref": {
+          "ref_id": "_8nk4CNP",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_8nk4CNP",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 25059,
+        "paragraph_ref": {
+          "ref_id": "_8nk4CNP",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2320",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_8nk4CNP",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "_uQCyS9q",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    },
+    {
+      "evidence_unit_id": "evidence_unit_923e73fc-8989-4e06-a7d2-d7de4cf3803e",
+      "literature_ref": {
+        "ref_id": "LIT-2321",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "evidence_role": "challenge",
+      "locator": {
+        "end_offset": 22422,
+        "quote_hash": "19b3fff2897e1e9154724b594e912d5c18f0ad0ca1509627ce780438b9dc0908",
+        "source_ref": {
+          "ref_id": "_tAWYBeU",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_ref": {
+          "ref_id": "_tAWYBeU",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "locator_type": "paragraph",
+        "start_offset": 21679,
+        "paragraph_ref": {
+          "ref_id": "_tAWYBeU",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        "literature_ref": {
+          "ref_id": "LIT-2321",
+          "ref_type": "literature_record",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      },
+      "source_refs": [
+        {
+          "ref_id": "_AtRyNdA",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "_tAWYBeU",
+          "ref_type": "fulltext_paragraph",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "abstract_only": false
+    }
+  ],
+  "paragraph_verification": [
+    {
+      "literature_id": "LIT-2320",
+      "document": {
+        "id": "329a35ca-9f7d-4176-b639-37756463a32a",
+        "source_asset_id": "7ad85f35-9ebc-4434-8082-4bb77895a55f",
+        "normalized_text_checksum": "f25681c28ca4af57a9a24b9cd048be99e1322f14639215f94f2310e00a5f27c2",
+        "parser_name": "grobid-tei-v1",
+        "parser_version": "1",
+        "status": "READY",
+        "diagnostics": [
+          {
+            "code": "GROBID_TEI_PARSED",
+            "severity": "info",
+            "text_length": 35055,
+            "anchor_count": 135,
+            "endpoint_url": "http://localhost:8070",
+            "section_count": 30,
+            "paragraph_count": 70,
+            "parser_quality_score": 1,
+            "parser_quality_bucket": "high",
+            "parser_quality_inputs": {
+              "page_count": 17,
+              "text_length": 35055,
+              "anchor_count": 135,
+              "section_count": 30,
+              "paragraph_count": 70,
+              "average_paragraph_length": 487
+            }
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "paragraph_id": "_uQCyS9q",
+          "section_id": "sec-1",
+          "start_offset": 4872,
+          "end_offset": 5527,
+          "checksum": "bbede19a12e745c4caa7042886557c069c6e6d5a0abf9dd77c8f8e464eb4f246"
+        },
+        {
+          "paragraph_id": "_8nk4CNP",
+          "section_id": "sec-15",
+          "start_offset": 25059,
+          "end_offset": 25664,
+          "checksum": "074faae32bc1bccabea934a27cfd7e6e4ba95611db3bbfc8ae8792b912288855"
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-2321",
+      "document": {
+        "id": "36aec66f-7df8-481e-b611-d84920073c66",
+        "source_asset_id": "477b94d7-e9cf-444e-b04c-563385c4c056",
+        "normalized_text_checksum": "9bfd72644454b782818ce80785e1a17d7937a122c216d0a1750f2d5920145eff",
+        "parser_name": "grobid-tei-v1",
+        "parser_version": "1",
+        "status": "READY",
+        "diagnostics": [
+          {
+            "code": "GROBID_TEI_PARSED",
+            "severity": "info",
+            "text_length": 27915,
+            "anchor_count": 52,
+            "endpoint_url": "http://localhost:8070",
+            "section_count": 36,
+            "paragraph_count": 65,
+            "parser_quality_score": 1,
+            "parser_quality_bucket": "high",
+            "parser_quality_inputs": {
+              "page_count": 13,
+              "text_length": 27915,
+              "anchor_count": 52,
+              "section_count": 36,
+              "paragraph_count": 65,
+              "average_paragraph_length": 411
+            }
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "paragraph_id": "_tAWYBeU",
+          "section_id": "sec-24",
+          "start_offset": 21679,
+          "end_offset": 22422,
+          "checksum": "19b3fff2897e1e9154724b594e912d5c18f0ad0ca1509627ce780438b9dc0908"
+        },
+        {
+          "paragraph_id": "_AtRyNdA",
+          "section_id": "sec-24",
+          "start_offset": 22424,
+          "end_offset": 22805,
+          "checksum": "f375aff8ff90288f1339980331aed1b7ce57575e1de5b275846587eec816e1f1"
+        }
+      ]
+    }
+  ],
+  "source_processing": [
+    {
+      "literature_id": "LIT-2320",
+      "stages": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "66837d2f-8d64-439b-a5b5-3394b7d8723e"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "66837d2f-8d64-439b-a5b5-3394b7d8723e"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "66837d2f-8d64-439b-a5b5-3394b7d8723e"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        }
+      ]
+    },
+    {
+      "literature_id": "LIT-2321",
+      "stages": [
+        {
+          "stage_code": "CITATION_NORMALIZED",
+          "status": "SUCCEEDED",
+          "last_run_id": "4b04e65e-942a-4d39-afa8-d56fc10233c8"
+        },
+        {
+          "stage_code": "ABSTRACT_READY",
+          "status": "SUCCEEDED",
+          "last_run_id": "4b04e65e-942a-4d39-afa8-d56fc10233c8"
+        },
+        {
+          "stage_code": "FULLTEXT_PREPROCESSED",
+          "status": "SUCCEEDED",
+          "last_run_id": "4b04e65e-942a-4d39-afa8-d56fc10233c8"
+        },
+        {
+          "stage_code": "KEY_CONTENT_READY",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        },
+        {
+          "stage_code": "CHUNKED",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        },
+        {
+          "stage_code": "EMBEDDED",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        },
+        {
+          "stage_code": "INDEXED",
+          "status": "NOT_STARTED",
+          "last_run_id": null
+        }
+      ]
+    }
+  ],
+  "continuation_envelope": {
+    "schema_version": "TopicSelectionResearchContinuationEnvelope@v1",
+    "intent": "advance_to_next_human_decision",
+    "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+    "manifest_hash": "97fbc35a2fed37d0cfee9dae17b3ca90a5644cbf6b6203f67553e54b04e1d2d4",
+    "environment_scope": "selected_local_backend",
+    "target_human_decision_stage": "evidence_landscape",
+    "boundary_reached": true,
+    "routine_effect_classes": [
+      "local_read",
+      "deterministic_local_write",
+      "bounded_non_provider_job",
+      "verification",
+      "recoverable_retry",
+      "selected_local_backend_lifecycle"
+    ],
+    "confirmation_required_effect_classes": [
+      "research_meaning_change",
+      "human_authority_write",
+      "material_risk_acceptance",
+      "provider_or_material_cost",
+      "external_acquisition",
+      "destructive_or_control_sensitive",
+      "target_environment_change",
+      "material_scope_expansion",
+      "ambiguous_recovery"
+    ],
+    "reason_codes": [
+      "HUMAN_DECISION_BOUNDARY_REACHED"
+    ],
+    "envelope_hash": "7bbc1303dc20da337879fd8f9f947dd94311ad127b6c5a7fec4ed4b8c2b2cb0b"
+  },
+  "verified": [
+    "one_current_pending_checkpoint",
+    "new_fulltext_map_is_checkpoint_target",
+    "old_packet_hash_preserved",
+    "old_exact_loopback_decision_preserved",
+    "required_coverage_still_missing",
+    "abstract_only_core_issue_resolved",
+    "new_checkpoint_has_no_decision",
+    "both_local_fulltext_runs_succeeded",
+    "no_key_content_or_embedding_execution",
+    "all_four_new_paragraph_checksums_and_offsets_reread",
+    "nine_original_source_statements_preserved",
+    "final_unit_locator_count_9_paragraph_2_section",
+    "rendered_review_matches_current_product_view",
+    "scoped_and_global_governance_passed",
+    "git_diff_check_passed"
+  ],
+  "accounting": {
+    "scope": "This user-confirmed loopback only, excluding earlier bounded search and historical provider work",
+    "web_search_calls": 0,
+    "web_search_queries": 0,
+    "web_open_or_click_calls": 2,
+    "web_open_or_click_targets": 6,
+    "arxiv_metadata_reads_for_import": 2,
+    "product_retriever_operations": 0,
+    "product_llm_provider_calls": 0,
+    "unpaywall_resolutions": 0,
+    "arxiv_pdf_downloads": 2,
+    "local_grobid_parse_runs": 2,
+    "imported_literatures": 2,
+    "final_evidence_units": 11,
+    "retained_original_units": 9,
+    "added_challenge_units": 2,
+    "intermediate_abstract_draft_units": 11,
+    "final_fulltext_draft_units": 11,
+    "human_decision_posts": 1,
+    "human_decision_retries": 0,
+    "experiment_runs": 0
+  },
+  "limitations": [
+    "Initial abstract-only map was stored but its checkpoint correctly disallowed advancement; final fulltext checkpoint supersedes that draft. This is direct/manual API materialization, not a T-150 coordinator/CAS successor verification.",
+    "Both exact required coverage rows remain missing. No gap acceptance, new-stage approval or experimental authorization was inferred.",
+    "The new papers have parsed fulltext and admitted paragraph evidence, but no key-content dossier, embedding or retrieval index.",
+    "Snapshot aggregate fulltext_ready_count remains 14; the two source processing owners separately report FULLTEXT_PREPROCESSED=SUCCEEDED. These different readiness projections were not rewritten or conflated.",
+    "Existing settings route raw PDFs into a persisted temporary-directory override. The two PDF assets were downloaded there; this is not a durable archival/backup proof. Normalized text uses the existing persistent data root. No global settings were overwritten.",
+    "Plain user-facing decisions describe the unresolved research question rather than quoting internal authority rules."
+  ],
+  "backend_lifecycle": {
+    "initial_listener": false,
+    "session_owned_pid": 98626,
+    "background_work_enabled": false,
+    "stopped_signal": "SIGTERM",
+    "exit_code": 0,
+    "final_port_3000_listener": false
+  }
+}

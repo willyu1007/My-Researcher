@@ -1,6 +1,6 @@
 {
-  "status": "draft_loopback_not_submitted",
-  "instruction": "The earlier advance proposal is withdrawn after the bounded literature recheck. Submit this exact loopback only after the researcher confirms it. It accepts no missing coverage, asserts no completed semantic review, and authorizes no experiment or provider execution.",
+  "status": "confirmed_loopback_submitted_and_verified",
+  "instruction": "用户已确认“回环补强”，该决定已提交并核对，勿再次提交。它不接受证据缺口，也不批准实验。当前审阅对象已更新，见 phase4-human-review-2026-09-08.md。",
   "endpoint": "/topic-selection/checkpoints/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc/decisions",
   "payload": {
     "decision_key": "t148-phase4-20260908-evidence-recheck-loopback",
@@ -45,5 +45,11 @@
     "git_commit": "c339fc17",
     "reason": "New adjacent evidence and benchmark qualification change the advice; schema validation alone did not prove the earlier payload passed service semantics."
   },
-  "supporting_review": "phase4-evidence-recheck-2026-09-08.md"
+  "supporting_review": "phase4-evidence-recheck-2026-09-08.md",
+  "persisted_receipt": {
+    "research_checkpoint_decision_id": "research_checkpoint_decision_4b7278aa-b0ce-483a-97e0-6f83c782cd27",
+    "human_confirmed_decision_id": "human_decision_57aee7db-15ce-431b-af81-fea4dd354cce",
+    "created_at": "2026-09-08T03:02:14.129Z",
+    "verification_artifact": "phase4-loopback-strengthening-2026-09-08.json"
+  }
 }
