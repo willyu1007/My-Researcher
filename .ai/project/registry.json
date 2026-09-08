@@ -1253,8 +1253,8 @@
     {
       "id": "T-151",
       "slug": "codex-cli-execution-line",
-      "status": "in-progress",
-      "updated": "2026-09-08",
+      "status": "done",
+      "updated": "2026-09-09",
       "dev_docs_path": "dev-docs/active/codex-cli-execution-line",
       "feature_id": "F-003"
     }

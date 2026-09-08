@@ -75,12 +75,12 @@ Note the distinction from the compaction decision: `prompt_packet_hash` never cl
 the model's true input, so intra-attempt compaction breaks nothing; `delta_hash` does claim to
 describe cross-round carry-over, so cross-attempt thread reuse breaks it.
 
-Under a stdio transport Codex spawns one MCP server process per invocation, so process lifetime
-happens to equal attempt lifetime. That is a convenience, not the mechanism: MCP `2026-07-28`
-removes protocol-level sessions entirely and directs servers that need cross-call state to use
-explicit, server-minted handles passed as ordinary tool arguments. This line therefore scopes an
-attempt with such a handle, which holds across transports and survives a later move to Streamable
-HTTP.
+The tool surface is served over HTTP by the backend itself, so one server serves every attempt
+and nothing about a connection or a process can stand in for scope. That is why scope rides on a
+server-minted handle passed as an ordinary tool argument, which is also what MCP `2026-07-28`
+prescribes now that protocol-level sessions are gone: the handle is minted when the attempt
+starts, authored by the product into its own prompt, resolved on every call, and released in a
+finally when the attempt ends — on success, failure, or timeout alike.
 
 ### Budget enforcement point
 

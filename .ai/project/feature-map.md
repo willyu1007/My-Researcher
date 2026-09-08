@@ -61,7 +61,7 @@
 
 | Task | Status | Dev Docs |
 | --- | --- | --- |
-| T-151 codex-cli-execution-line | in-progress | dev-docs/active/codex-cli-execution-line |
+| T-151 codex-cli-execution-line | done | dev-docs/active/codex-cli-execution-line |
 
 ## M-001 LLM Research Lifecycle v1
 

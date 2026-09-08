@@ -6,11 +6,11 @@ product-owned, consumer-scoped MCP tool surface, and records the run's tool-call
 provenance of record.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 3 complete. A canary runs the real N6 question-candidate contract through the
-  product's orchestrator on the `codex_cli` line, and its trace lands in the control plane.
-- Next step: Close the task, or open a follow-up for routing a research node once the debate
-  dormancy gate is released.
+- State: done
+- Current phase: Complete. All three phases landed, a gpt-6-astra cross-model review's six findings
+  were confirmed and fixed, and the full suites and the four live checks are green.
+- Next step: Archive. Routing a real research node to the line is a separate follow-up that waits
+  on the `calibration_gate_release` sign-off which holds the debate dormancy gate closed.
 - Blocker: none. T-148 shares this worktree; stage explicit paths and preserve its changes.
 
 ## Done when

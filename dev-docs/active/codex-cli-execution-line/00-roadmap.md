@@ -108,7 +108,9 @@
   line is inert — no profile admits it and no node routes to it, which a test pins. The live check
   passed on 2026-09-08 against a product-owned authenticated `CODEX_HOME`, and it surfaced one more
   defect worth having found that way: the runner left a schema file per invocation in a long-lived
-  directory. Phase 1 is complete.
+  directory. Phase 1 is complete. One later change from the cross-model review (`64df4975`): the
+  per-invocation configuration no longer lands in the product home as a config.toml at all; it
+  travels as `-c` overrides, and a run works in its own scratch directory.
 
 ### Phase 2 — A scoped, budgeted tool surface Codex can actually reach
 - Outcome: a research-role tool scope that an agent can use to select rather than enumerate, that
@@ -185,7 +187,7 @@
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through phase 2
+- Authorized boundary: complete task
 - [x] Decisions: D-1 through D-9 are all decided; no user-owned choice blocks implementation.
 - [x] Design: the line's contract, trace shape, session rule, handle-based scoping and shim boundary are settled in `02-architecture.md`.
 - [x] Route: three phases reach the goal; Phase 1 is executable and dependency-free, and each phase carries exit, verification and recovery criteria.
