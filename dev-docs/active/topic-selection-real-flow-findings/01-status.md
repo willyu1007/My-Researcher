@@ -4,10 +4,10 @@
 Make topic selection trustworthy in real use by closing the decision-presentation, local gate, contract, and decision-support defects exposed by the 2026-09-01 end-to-end rehearsal while preserving strict-human authority.
 
 ## Progress
-- State: blocked
-- Current phase: Phase 4 user-confirmed evidence loopback completed; two new fulltext challenges admitted and updated evidence review prepared
-- Next step: Review artifacts/phase4-human-review-2026-09-08.md for checkpoint research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13. The next research judgment is whether to accept the two remaining evidence gaps and continue refining the question, request specific further evidence, hold, or reject. Do not ask again for or resubmit the already recorded loopback. Fresh downstream Debate/refinement/promotion verification remains after evidence acceptance; experiments remain outside this authorization.
-- Blocker: The new evidence packet still lacks direct frozen-router/retriever-replacement evidence and a qualified paired benchmark. Its source-inspectability gate passes, but advancing requires the researcher's decision on these exact current gaps. The original loopback decision and frozen packet remain intact. The local schema blocker FIND-033 is resolved (82/82 migrations applied).
+- State: in-progress
+- Current phase: Phase 4 current research candidate terminated by the researcher's explicit rejection; evidence and decision history preserved
+- Next step: Consolidate the remaining T-148 verification and closeout evidence without reopening this candidate. Assess unexecuted downstream acceptance checks separately from scientific topic value; do not invent a replacement research topic or advance this rejected lineage to complete a test. The user's exit is settled and needs no reconfirmation.
+- Blocker: No pending decision for this candidate. Checkpoint research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13 records reject and the product stops continuation. Two coverage gaps remain historical facts, not an invitation for more searching. Fresh downstream Debate/refinement/promotion checks were not executed on this candidate and are not claimed passed; T-148 task-level closure remains to be audited.
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.

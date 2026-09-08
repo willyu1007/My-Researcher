@@ -1,6 +1,6 @@
 {
   "status": "confirmed_loopback_submitted_and_verified",
-  "instruction": "用户已确认“回环补强”，该决定已提交并核对，勿再次提交。它不接受证据缺口，也不批准实验。当前审阅对象已更新，见 phase4-human-review-2026-09-08.md。",
+  "instruction": "历史回环已提交并核对，勿再次提交。用户随后在新的全文证据检查点决定退出当前候选方向；当前已无待确认决定。见 phase4-human-review-2026-09-08.md。",
   "endpoint": "/topic-selection/checkpoints/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc/decisions",
   "payload": {
     "decision_key": "t148-phase4-20260908-evidence-recheck-loopback",

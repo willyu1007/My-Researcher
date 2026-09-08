@@ -1229,7 +1229,7 @@
     {
       "id": "T-148",
       "slug": "topic-selection-real-flow-findings",
-      "status": "blocked",
+      "status": "in-progress",
       "updated": "2026-09-08",
       "dev_docs_path": "dev-docs/active/topic-selection-real-flow-findings",
       "feature_id": "F-001"

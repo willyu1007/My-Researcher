@@ -2759,5 +2759,156 @@
     "stopped_signal": "SIGTERM",
     "exit_code": 0,
     "final_port_3000_listener": false
+  },
+  "candidate_exit": {
+    "at": "2026-09-08T03:54:36.700945+00:00",
+    "operation": "/topic-selection/checkpoints/research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13/decisions",
+    "http_status": 201,
+    "input": {
+      "decision_key": "t148-phase4-20260908-reject-router-transfer",
+      "decision": "reject",
+      "actor": {
+        "actor_type": "human",
+        "actor_id": "researcher"
+      },
+      "confirmed_snapshot_hash": "c7affc0d643bf7dddf359e6b2301b5d2e2ba43617dfbb3a722a2d68f36e9fb6e",
+      "rationale": "用户决定：“我觉得这里可以退出了，不要强行找价值”。据此结束当前候选方向，不再围绕它继续补查或细化问题；保留已有证据、回环历史及两项未补齐的覆盖缺口。本决定不接受这些缺口，不推进晋升或实验。",
+      "review_payload": {
+        "review_kind": "evidence_landscape",
+        "nearest_work_reviewed": false,
+        "disconfirming_evidence_reviewed": false,
+        "source_quality_reviewed": false,
+        "limitations": [
+          "直接冻结路由器后替换检索器的机制证据仍未补齐。",
+          "合格的现成配对基准仍未确认。",
+          "退出当前候选方向是投入取舍，不据此断言该研究问题绝对没有价值。"
+        ]
+      },
+      "required_action_refs": [
+        {
+          "ref_id": "research_required_action_6f4e57dda1f2f2b3527ddfc0",
+          "ref_type": "research_required_action",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "loopback_refs": []
+    },
+    "decision": {
+      "research_checkpoint_decision_id": "research_checkpoint_decision_e294f54f-8dc8-4a36-a660-a8ac607f4c30",
+      "decision_key": "t148-phase4-20260908-reject-router-transfer",
+      "research_checkpoint_id": "research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13",
+      "human_confirmed_decision_id": "human_decision_bdc6028e-dcb5-485a-a0b9-701afdf77119",
+      "workspace_id": null,
+      "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+      "checkpoint_kind": "evidence_landscape",
+      "decision_kind": "evidence_landscape_confirmation",
+      "decision": "reject",
+      "actor": {
+        "actor_type": "human",
+        "actor_id": "researcher"
+      },
+      "confirmed_snapshot_hash": "c7affc0d643bf7dddf359e6b2301b5d2e2ba43617dfbb3a722a2d68f36e9fb6e",
+      "rationale": "用户决定：“我觉得这里可以退出了，不要强行找价值”。据此结束当前候选方向，不再围绕它继续补查或细化问题；保留已有证据、回环历史及两项未补齐的覆盖缺口。本决定不接受这些缺口，不推进晋升或实验。",
+      "review_payload": {
+        "limitations": [
+          "直接冻结路由器后替换检索器的机制证据仍未补齐。",
+          "合格的现成配对基准仍未确认。",
+          "退出当前候选方向是投入取舍，不据此断言该研究问题绝对没有价值。"
+        ],
+        "review_kind": "evidence_landscape",
+        "nearest_work_reviewed": false,
+        "source_quality_reviewed": false,
+        "disconfirming_evidence_reviewed": false
+      },
+      "required_action_refs": [
+        {
+          "ref_id": "research_required_action_6f4e57dda1f2f2b3527ddfc0",
+          "ref_type": "research_required_action",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "loopback_target": null,
+      "loopback_refs": [],
+      "created_at": "2026-09-08T03:54:36.625Z"
+    },
+    "packet_hash_before": "7f531cc5632049c4d8683e255736c0907a7f4de314773a351e3653a466efe756",
+    "packet_hash_after": "7f531cc5632049c4d8683e255736c0907a7f4de314773a351e3653a466efe756",
+    "research_rejection": {
+      "checkpoint_kind": "evidence_landscape",
+      "checkpoint_ref": {
+        "ref_type": "research_checkpoint",
+        "ref_id": "research_checkpoint_7662e626-bcf6-43e9-a214-a1f7b5110e13",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "decision_ref": {
+        "ref_id": "research_checkpoint_decision_e294f54f-8dc8-4a36-a660-a8ac607f4c30",
+        "ref_type": "research_checkpoint_decision",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "rationale": "用户决定：“我觉得这里可以退出了，不要强行找价值”。据此结束当前候选方向，不再围绕它继续补查或细化问题；保留已有证据、回环历史及两项未补齐的覆盖缺口。本决定不接受这些缺口，不推进晋升或实验。",
+      "rejected_at": "2026-09-08T03:54:36.625Z"
+    },
+    "management_status_before": "draft",
+    "management_status_after": "draft",
+    "continuation_envelope": {
+      "schema_version": "TopicSelectionResearchContinuationEnvelope@v1",
+      "intent": "advance_to_next_human_decision",
+      "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+      "manifest_hash": "a3257923349715a2e86d2afa3e048a605d5afe10ff047136c020e6aac949b6ba",
+      "environment_scope": "selected_local_backend",
+      "target_human_decision_stage": null,
+      "boundary_reached": true,
+      "routine_effect_classes": [
+        "local_read",
+        "deterministic_local_write",
+        "bounded_non_provider_job",
+        "verification",
+        "recoverable_retry",
+        "selected_local_backend_lifecycle"
+      ],
+      "confirmation_required_effect_classes": [
+        "research_meaning_change",
+        "human_authority_write",
+        "material_risk_acceptance",
+        "provider_or_material_cost",
+        "external_acquisition",
+        "destructive_or_control_sensitive",
+        "target_environment_change",
+        "material_scope_expansion",
+        "ambiguous_recovery"
+      ],
+      "reason_codes": [
+        "HUMAN_DECISION_BOUNDARY_REACHED"
+      ],
+      "envelope_hash": "6857d3d96599dace34941777347bb1afb8a52a62474ea320847d7bf78f8ce731"
+    },
+    "terminal_view_verified": true,
+    "accounting": {
+      "human_decision_posts": 1,
+      "human_decision_retries": 0,
+      "retriever_operations": 0,
+      "llm_provider_calls": 0,
+      "downloads": 0,
+      "parser_runs": 0,
+      "experiment_runs": 0
+    },
+    "verified": [
+      "persisted_exact_reject_decision",
+      "unchanged_frozen_packet",
+      "title_management_status_preserved",
+      "title_and_research_status_both_report_rejection",
+      "no_next_human_decision_stage",
+      "terminal_view_stops_and_has_no_pending_decision",
+      "historical_loopback_decision_preserved",
+      "one_current_decided_checkpoint"
+    ],
+    "backend_lifecycle": {
+      "initial_port_3000_listener": false,
+      "session_owned_pid": 37997,
+      "background_work_enabled": false,
+      "stopped_signal": "SIGTERM",
+      "exit_code": 0,
+      "final_port_3000_listener": false
+    }
   }
 }
