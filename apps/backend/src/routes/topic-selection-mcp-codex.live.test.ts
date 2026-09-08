@@ -20,9 +20,12 @@ import {
 import { createTopicSelectionCodexCliRunnerFromEnv } from '../services/topic-selection-codex-cli-runner-service.js';
 
 const live = createTopicSelectionCodexCliRunnerFromEnv();
-const skip = live
+// Live checks call a paid model, so presence of the deployment config is not enough to run
+// them: the default suite must stay fast, free and deterministic. Opt in explicitly.
+const liveOptIn = process.env.TOPIC_SELECTION_CODEX_LIVE === '1';
+const skip = live && liveOptIn
   ? false
-  : 'set TOPIC_SELECTION_CODEX_HOME and TOPIC_SELECTION_CODEX_MODEL to run the codex_cli MCP live check';
+  : 'set TOPIC_SELECTION_CODEX_LIVE=1 (with TOPIC_SELECTION_CODEX_HOME and TOPIC_SELECTION_CODEX_MODEL) to run this live check';
 
 // Only the three long-follow-up units bear on durability. A selective agent reads those and stops;
 // an agent given nothing to select on reads everything, which is what the flat-index probe did.

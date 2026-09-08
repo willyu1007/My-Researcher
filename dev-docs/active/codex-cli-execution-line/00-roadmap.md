@@ -50,7 +50,7 @@
 | D-5 Tool surface scoping | (a) one MCP server for every consumer; (b) separate scopes per consumer | (b) separate scopes | decided | User, this session | Design consequence of the authority boundary | A research role must never reach a workflow-advancing tool. Requires attempt and role identity in the tool-call context: spawn env under stdio, a per-attempt token under Streamable HTTP. |
 | D-6 How are product MCP tools authorized in non-interactive `codex exec`? | (a) `--approve-for-me`; (b) a per-server approval mode under a granular approval policy | (b) | decided | Empirical probe, 2026-09-08 | `approval_policy = { granular = { sandbox_approval, rules, mcp_elicitations } }` plus `mcp_servers.<name>.default_tools_approval_mode = "approve"` completed a tool call under `-s read-only` with no `--approve-for-me` | Strictly better than (a) on three axes: the sandbox stays read-only, no `codex-auto-review` call is added per approval, and the grant is scoped to one named server. Note the working value is `approve`, not `auto`; `auto` was observed to fail. |
 | D-7 Execution isolation | (a) `--ignore-user-config --ignore-rules`; (b) additionally a dedicated product-owned `CODEX_HOME` | (b) | decided | User, 2026-09-08 | Probe: the agent read `~/.codex/skills/research/SKILL.md` and changed behaviour despite `--ignore-user-config` | Without a product-owned `CODEX_HOME`, agent behaviour depends on files outside the product's control, and runs are not reproducible across machines. |
-| D-8 First slice | (a) an N6 divergent-debate role; (b) an N8 bounded-debate role; (c) a non-debate node | (a) an N6 divergent-debate role, after T-148 Phase 3 lands | decided | User, this session | User confirmation, 2026-09-07 | Determines which contracts move first and which frozen fixtures are touched. |
+| D-8 First slice | (a) an N6 divergent-debate role; (b) an N8 bounded-debate role; (c) a canary against a real node contract | (c) a canary exercising the N6 question-candidate contract | decided | User, 2026-09-09, superseding the earlier choice of (a) | (a) and (b) are both blocked by the T-128 W-14 dormancy gate, which is closed because the debate prompts are pre-calibration skeletons and opens only on a `calibration_gate_release` sign-off. That reason applies to this line exactly as it applies to `provider_llm`, so routing a debate role here would defeat the gate rather than satisfy it, and its upstream (T-129) is itself awaiting an external corpus. The canary exercises the real N6 question-candidate contract through the product's orchestrator without routing any research node, and grants admission only to itself, so the line stays inadmissible everywhere else. |
 
 | D-9 Which MCP revision does the product server target? | (a) only `2025-06-18`, matching Codex today; (b) `2026-07-28` with backward compatibility; (c) `2026-07-28` only | (b) `2026-07-28` natively, plus a removable compatibility shim | decided | User, 2026-09-08 | User instruction, after the consequence of a no-compatibility target was recorded | The server's own model is the current revision: stateless, `server/discover`, per-request version in `_meta`, and attempt scoping on a server-minted handle passed as a tool argument. The shim exists only to accept the `initialize` / `notifications/initialized` handshake from revisions Codex still speaks — 0.153.4 is the latest published build as of 2026-09-08 and negotiates `2025-06-18` — and maps those requests onto the same tool implementations. The shim **must not** reintroduce session state; handles are ordinary tool arguments and work unchanged in either revision. Remove the shim once the Codex build the product runs negotiates `2026-07-28`. |
 
@@ -157,23 +157,29 @@
   justified it. An attempt without evidence runs toolless rather than half-configured. Phase 2 is
   complete.
 
-### Phase 3 — One debate role runs on the line
-- Outcome: the D-8 slice — one N6 divergent-debate role — produces its artifact through the
-  `codex_cli` line, admitted by the existing deterministic gate.
-- Approach: swap the single role's source while leaving its siblings and the gate untouched, so the
-  comparison against the previous line is direct.
+### Phase 3 — The line runs inside the product against a real node contract
+- Outcome: a canary drives the real N6 question-candidate contract through the product's own
+  orchestrator on the `codex_cli` line, producing a provenance that satisfies the audit schema and a
+  trace that lands in the control plane.
+- Approach: a canary rather than a research node, because both debate paths are held closed by the
+  T-128 W-14 dormancy gate for a reason that applies to this line too. The canary grants admission
+  to itself alone, so the shipped registry keeps declaring the line ineligible.
 - Planned changes:
-  1. Route the chosen role's invocation through the new line, leaving the other roles as they are.
-  2. Record the run's cost and tool-call trace alongside the artifact.
-- Affected boundaries / entry points: the N6 divergent-debate runtime's role invocation path.
-- Dependencies: Phase 2. The N6 Debate contract this phase wires against settled in T-148's
-  `f829d9fe`; T-148's remaining Phase 3 work is on the v1c promotion surface and does not touch it.
-- Exit criteria: the deterministic gate still owns admission; the artifact and its trace persist;
-  the untouched roles produce unchanged results; and the run's cost is recorded for comparison with
-  the bundle-fed path.
-- Verification: the node's existing gate and admission tests, plus a new assertion that the role's
-  provenance carries the line's model identity and its trace.
-- Recovery: route the role back to its previous line; the line and its tool surface remain, unused.
+  1. Add a codex_cli canary beside the existing provider canaries, using the real N6 payload
+     contract, node id and output contract.
+  2. Prepare the output schema the way the gateway does before handing it to the CLI.
+- Affected boundaries / entry points: the provider canary service; the orchestrator's schema
+  preparation.
+- Dependencies: Phase 2.
+- Exit criteria: the canary run succeeds through the orchestrator path; its provenance carries the
+  runner identity; its trace is retrievable from the control plane with usage recorded.
+- Verification: a live-gated canary check, plus the existing suites unchanged.
+- Recovery: the canary is additive and reaches no research node, so removing it changes nothing.
+- Phase progress: complete. The canary passes live. It also surfaced a defect that would have hit
+  the first real node: the codex_cli branch prepared its output schema with the orchestrator's own
+  light transform and skipped the gateway's fail-closed guardrail and strict normalisation, so a
+  real product contract failed at the provider with `invalid_json_schema` on a nested anyOf branch.
+  Both gateway functions are now exported and reused rather than reimplemented.
 
 ## Kickoff gate
 

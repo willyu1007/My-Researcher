@@ -62,7 +62,18 @@ import {
   TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID,
   TOPIC_SELECTION_V1B_TOPIC_VALUE_ASSESSMENT_SINGLE_AGENT_PROFILE_ID,
   TopicSelectionModelProfileRegistryService,
+  createDefaultTopicSelectionModelProfileRegistry,
 } from './topic-selection-model-profile-registry-service.js';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type {
+  TopicSelectionCodexCliRunnerService,
+} from './topic-selection-codex-cli-runner-service.js';
+import type {
+  TopicSelectionMcpEvidenceUnit,
+  TopicSelectionMcpScopeStore,
+} from './topic-selection-mcp-tool-surface-service.js';
 import {
   TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_CANDIDATE_SCHEMA_VERSION,
   type TopicSelectionV1cDownstreamFeedbackCandidate,
@@ -119,6 +130,20 @@ export interface TopicSelectionProviderCanaryLiveRequiredEvidence {
   provider_response_cache_statuses: Array<string | null>;
   response_reuse_refs: Array<string | null>;
   telemetry: LlmCallTelemetry[];
+}
+
+/** What a codex_cli canary run establishes: the product path produced a provenance carrying an
+ *  authoritative runner identity and a persisted trace, not merely that the binary ran. */
+export interface TopicSelectionProviderCanaryCodexCliEvidence {
+  status: 'succeeded' | 'blocked' | 'failed' | 'require_human_review';
+  source_kind: string;
+  provider_id: string | null;
+  model_id: string | null;
+  runner_version: string | null;
+  thread_id: string | null;
+  trace_artifact_ref: TopicSelectionFunctionalRef | null;
+  structured_output_hash: string | null;
+  error_code: string | null;
 }
 
 export interface TopicSelectionProviderCanaryOverBudgetEvidence {
@@ -644,6 +669,76 @@ export class TopicSelectionProviderCanaryService {
       token_budget_gate_decision: result.token_budget_gate_result?.decision ?? null,
       blocker_codes: result.blocker_codes,
     };
+  }
+
+  /** T-151 Phase 3: a canary for the codex_cli line.
+   *
+   *  It runs the real N6 question-candidate contract — same node id, payload schema and output
+   *  contract a debate role produces — through the product's own orchestrator path, so what is
+   *  verified is the product path and not just the runner.
+   *
+   *  It does not route a research node to the line. The N6 and N8 debates keep their dormancy gate,
+   *  which is closed because the debate prompts are pre-calibration skeletons; that reason applies
+   *  to this line exactly as it applies to provider_llm, so opening it with a different execution
+   *  mode would defeat the gate rather than satisfy it. Admission is granted by this canary's own
+   *  profile registry, which is why the line stays inadmissible everywhere else.
+   */
+  async runV1bN6CodexCliCanary(input: {
+    codexCliRunner: TopicSelectionCodexCliRunnerService;
+    codexCliModelId: string;
+    mcpScopeStore?: TopicSelectionMcpScopeStore | null;
+    mcpEndpointUrl?: string | null;
+    mcpEvidence?: readonly TopicSelectionMcpEvidenceUnit[] | null;
+    mcpReadBudget?: number | null;
+  }): Promise<TopicSelectionProviderCanaryCodexCliEvidence> {
+    const orchestrator = new TopicSelectionAgentOrchestratorService({
+      controlPlane: this.controlPlane,
+      llmGateway: this.llmGateway,
+      modelProfileRegistry: this.codexCliCanaryRegistry(),
+      codexCliRunner: input.codexCliRunner,
+      codexCliModelId: input.codexCliModelId,
+      mcpScopeStore: input.mcpScopeStore,
+      mcpEndpointUrl: input.mcpEndpointUrl,
+      now: this.now,
+    });
+
+    const invocation = this.v1bN6ProviderInvocation('openai', { estimated_input_tokens_override: 1000 });
+    const result = await orchestrator
+      .invokeStructuredOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>({
+        ...invocation,
+        execution_mode: 'codex_cli',
+        // The line carries a runner identity, never a gateway model option.
+        model_option_id: null,
+        invocation_attempt_id: 'provider_canary_v1b_n6_codex_cli_initial_from_n5',
+        mcp_evidence: input.mcpEvidence ?? null,
+        mcp_read_budget: input.mcpReadBudget ?? null,
+      });
+
+    const provenance = result.provenance;
+    return {
+      status: result.status,
+      source_kind: provenance.source_kind,
+      provider_id: provenance.provider_id ?? null,
+      model_id: provenance.model_id ?? null,
+      runner_version: provenance.runner_version ?? null,
+      thread_id: provenance.thread_id ?? null,
+      trace_artifact_ref: provenance.trace_artifact_ref ?? null,
+      structured_output_hash: provenance.structured_output_hash,
+      error_code: result.error_code ?? null,
+    };
+  }
+
+  /** The shipped registry declares codex_cli ineligible everywhere, which is what keeps the line
+   *  inert. The canary opens it for the one profile it exercises and nothing else. */
+  private codexCliCanaryRegistry(): TopicSelectionModelProfileRegistryService {
+    const registry = createDefaultTopicSelectionModelProfileRegistry();
+    for (const profile of registry.profiles) {
+      if (profile.profile_id === TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID) {
+        profile.allowed_execution_modes = [...profile.allowed_execution_modes, 'codex_cli'];
+        profile.run_mode_eligibility.codex_cli = [this.canaryRunMode];
+      }
+    }
+    return new TopicSelectionModelProfileRegistryService({ registry });
   }
 
   private makeOrchestrator(

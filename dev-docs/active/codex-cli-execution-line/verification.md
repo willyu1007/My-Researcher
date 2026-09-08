@@ -27,12 +27,18 @@
 
 | Phase 2: a handle cannot outlive its attempt. | Run a codex_cli invocation with evidence and assert the handle is authored into the prompt, offered as a url server, and gone afterwards. | passed (2026-09-08) | The handle appears in the prompt and the generated config's url server; resolving it after the attempt returns null. An attempt with no evidence runs toolless: no handle in the prompt and no mcp_servers in the config. |
 
+| Phase 3: the line runs through the product's own orchestrator against a real node contract. | Live-gated canary driving the N6 question-candidate contract, then read the trace back from the control plane. | passed (2026-09-09) | Provenance carries provider_id `codex`, the model, the observed runner version and a thread id; the trace artifact is retrievable and records 18,233 input tokens across 4 events. |
+| Phase 3: a real product contract survives the CLI's schema enforcement. | Hand the N6 payload schema to `codex exec --output-schema` directly. | failed, then fixed (2026-09-09) | The provider rejected it: `invalid_json_schema … ('anyOf','0'), 'additionalProperties' is required to be supplied and to be false`. The codex_cli branch had skipped the gateway's fail-closed guardrail and strict normalisation; both are now exported and reused, and the canary passes. |
+
 ## Outstanding verification
 
-- None for Phase 1. The live smoke stays gated on `TOPIC_SELECTION_CODEX_HOME` and
-  `TOPIC_SELECTION_CODEX_MODEL` so it skips wherever the product Codex home is not provisioned;
-  re-run it after any Codex upgrade, since it is what re-establishes schema enforcement on the
-  binary actually installed.
+- None outstanding. The four live checks call a paid model, so they need an explicit
+  `TOPIC_SELECTION_CODEX_LIVE=1` on top of the deployment variables and skip everywhere else — the
+  default suite has to stay fast, free and deterministic. Gating them on the deployment config alone
+  was not enough: with the config present they ran inside the full suite, where the product-path
+  canary hit a ten-minute timeout under concurrency that it clears in under a minute on its own.
+  Run them deliberately after any Codex upgrade, since they are what re-establish schema enforcement
+  and tool reachability on the binary actually installed.
 
 - Phase 4's in-flow human confirmation is blocked by a client-side gap, not an unknown. MCP
   `2026-07-28` defines the correct shape — Multi Round-Trip Requests returning

@@ -7,16 +7,17 @@ provenance of record.
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 complete. The product serves its own MCP tool surface, a real Codex client
-  reaches it over HTTP, and handles are minted and released with the invocation attempt.
-- Next step: Phase 3 — route one N6 divergent-debate role through the `codex_cli` line and let the
-  existing deterministic gate admit its artifact.
+- Current phase: Phase 3 complete. A canary runs the real N6 question-candidate contract through the
+  product's orchestrator on the `codex_cli` line, and its trace lands in the control plane.
+- Next step: Close the task, or open a follow-up for routing a research node once the debate
+  dormancy gate is released.
 - Blocker: none. T-148 shares this worktree; stage explicit paths and preserve its changes.
 
 ## Done when
-- [ ] One N6 divergent-debate role runs end to end on the `codex_cli` line: product-authored prompt
-      packet in, an artifact constrained by `--output-schema` out, the recorded trace persisted as
-      provenance, and the existing deterministic gate still owning admission.
+- [x] The line runs end to end inside the product against a real node contract: product-authored
+      prompt packet in, an artifact constrained by `--output-schema` out, and the recorded trace
+      persisted as provenance. Routing an actual research node is deliberately out of scope while
+      the debate dormancy gate stays closed.
 - [x] The tool surface enforces scope from the attempt handle: a research-role handle is refused a
       tool outside its scope, proven by a negative test rather than by building a second scope.
 - [x] A runtime read budget is enforced inside the product's MCP server and its refusal is visible

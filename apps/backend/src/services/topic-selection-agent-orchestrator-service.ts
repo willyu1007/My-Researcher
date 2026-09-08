@@ -53,6 +53,8 @@ import {
 import {
   BackendLlmGateway,
   LlmGatewayError,
+  assertOpenAiStructuredOutputSchemaEncodable,
+  normalizeOpenAiStructuredOutputSchema,
   type LlmModelRef,
   type LlmPromptRef,
   type LlmRequestPolicy,
@@ -974,6 +976,14 @@ export class TopicSelectionAgentOrchestratorService {
       throw new AppError(500, 'INTERNAL_ERROR', 'The codex_cli line requires a control plane to persist its trace.');
     }
 
+    // The CLI enforces the schema through the same OpenAI structured-output subset the gateway
+    // targets, so it needs the same preparation: the fail-closed guardrail that rejects a schema
+    // which would degrade to an empty object, then the normalisation that makes every object node
+    // strict. Skipping it fails at the provider with `invalid_json_schema` on a nested anyOf branch.
+    const outputSchema = normalizeOpenAiStructuredOutputSchema(
+      this.assertEncodableSchema(this.providerCompatibleSchema(input.schema)),
+    ) as Record<string, unknown>;
+
     // The handle is minted for this attempt and released with it: one that outlived the attempt
     // would be a second, unaudited way into the product's data.
     const scope = this.mintCodexCliScope(input, invocationAttemptId);
@@ -981,7 +991,7 @@ export class TopicSelectionAgentOrchestratorService {
     try {
       outcome = await this.codexCliRunner.run({
         prompt: this.codexPromptText(input, scope?.handle ?? null),
-        output_schema: this.providerCompatibleSchema(input.schema) as unknown as Record<string, unknown>,
+        output_schema: outputSchema,
         invocation_attempt_id: invocationAttemptId,
         mcp_servers: this.codexCliMcpServers(scope !== null),
       });
@@ -1064,6 +1074,18 @@ export class TopicSelectionAgentOrchestratorService {
         ...this.debateExtensionProvenance(input),
       },
     };
+  }
+
+  /** A schema the provider cannot encode is a contract problem, not a run problem, so it throws
+   *  here rather than becoming a blocked invocation with no run behind it. */
+  private assertEncodableSchema(schema: Record<string, unknown>): Record<string, unknown> {
+    try {
+      assertOpenAiStructuredOutputSchemaEncodable(schema);
+    } catch (error) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `The codex_cli output contract is not encodable: ${
+        error instanceof Error ? error.message : String(error)}`);
+    }
+    return schema;
   }
 
   /** The CLI takes one prompt on stdin, so the packet's messages are flattened with their roles

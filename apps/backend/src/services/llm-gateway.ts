@@ -170,7 +170,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
-function normalizeOpenAiStructuredOutputSchema(schema: unknown): unknown {
+export function normalizeOpenAiStructuredOutputSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) {
     return schema.map((item) => normalizeOpenAiStructuredOutputSchema(item));
   }
@@ -244,7 +244,7 @@ function normalizeOpenAiStructuredOutputSchema(schema: unknown): unknown {
  * `propertyNames`; genuinely load-bearing free objects are wire-encoded as JSON
  * strings instead (see the P1/result-analysis/motive-evolution wire schemas).
  */
-function assertOpenAiStructuredOutputSchemaEncodable(schema: unknown, path = '$'): void {
+export function assertOpenAiStructuredOutputSchemaEncodable(schema: unknown, path = '$'): void {
   if (Array.isArray(schema)) {
     schema.forEach((item, index) => assertOpenAiStructuredOutputSchemaEncodable(item, `${path}[${index}]`));
     return;

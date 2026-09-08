@@ -18,9 +18,12 @@ import test from 'node:test';
 import { createTopicSelectionCodexCliRunnerFromEnv } from './topic-selection-codex-cli-runner-service.js';
 
 const live = createTopicSelectionCodexCliRunnerFromEnv();
-const skip = live
+// Live checks call a paid model, so presence of the deployment config is not enough to run
+// them: the default suite must stay fast, free and deterministic. Opt in explicitly.
+const liveOptIn = process.env.TOPIC_SELECTION_CODEX_LIVE === '1';
+const skip = live && liveOptIn
   ? false
-  : 'set TOPIC_SELECTION_CODEX_HOME and TOPIC_SELECTION_CODEX_MODEL to run the codex_cli live smoke';
+  : 'set TOPIC_SELECTION_CODEX_LIVE=1 (with TOPIC_SELECTION_CODEX_HOME and TOPIC_SELECTION_CODEX_MODEL) to run this live check';
 
 // The schema deliberately contradicts the prompt: --output-schema is claimed to be a hard
 // constraint, so the live check is what proves it on the binary actually installed.
