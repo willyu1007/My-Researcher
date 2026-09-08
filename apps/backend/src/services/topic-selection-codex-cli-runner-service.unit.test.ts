@@ -86,6 +86,12 @@ void test('codex_cli runner grants only its own MCP servers and keeps the sandbo
   assert.match(toml, /\[mcp_servers\.research\]/);
   assert.match(toml, /ATTEMPT = "a1"/);
   assert.doesNotMatch(toml, /"auto"/);
+
+  // The product's own surface is served over HTTP, not spawned.
+  const served = buildCodexConfigToml([{ name: 'research', url: 'http://127.0.0.1:3000/topic-selection/mcp' }]);
+  assert.match(served, /url = "http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
+  assert.match(served, /default_tools_approval_mode = "approve"/);
+  assert.doesNotMatch(served, /command =/);
 });
 
 void test('codex_cli runner pins one fresh thread per attempt and never resumes or forks', async () => {

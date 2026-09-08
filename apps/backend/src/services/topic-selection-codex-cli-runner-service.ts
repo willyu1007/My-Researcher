@@ -15,13 +15,14 @@ import { spawn } from 'node:child_process';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export interface TopicSelectionCodexCliMcpServer {
-  /** Server name as the model sees it; also the config.toml table key. */
-  name: string;
-  command: string;
-  args: readonly string[];
-  env?: Readonly<Record<string, string>>;
-}
+/** Server name is what the model sees and also the config.toml table key.
+ *
+ *  The url form is what the product uses: serving MCP from the backend lets the tools reach the
+ *  product's own repositories, where a spawned subprocess would have needed its own database
+ *  access. The command form stays for servers that genuinely are separate processes. */
+export type TopicSelectionCodexCliMcpServer =
+  | { name: string; command: string; args: readonly string[]; env?: Readonly<Record<string, string>> }
+  | { name: string; url: string };
 
 export interface TopicSelectionCodexCliUsage {
   input_tokens: number;
@@ -116,6 +117,11 @@ export function buildCodexConfigToml(servers: readonly TopicSelectionCodexCliMcp
   ];
   for (const server of servers) {
     lines.push('', `[mcp_servers.${server.name}]`);
+    if ('url' in server) {
+      lines.push(`url = ${JSON.stringify(server.url)}`);
+      lines.push('default_tools_approval_mode = "approve"');
+      continue;
+    }
     lines.push(`command = ${JSON.stringify(server.command)}`);
     lines.push(`args = [${server.args.map((arg) => JSON.stringify(arg)).join(', ')}]`);
     lines.push('default_tools_approval_mode = "approve"');

@@ -145,6 +145,14 @@
   native-versus-shim equivalence check named in `verification.md`.
 - Recovery: the surface is only reachable from the new line, so it can be withdrawn without
   affecting the other three.
+- Phase progress: the tool surface, the protocol edge with its shim, the two research tools and the
+  HTTP routes are implemented and verified, including against a real Codex client. The transport
+  question settled as HTTP served by the backend. Three findings are worth carrying forward: a
+  discriminating index produced perfect selection on a real agent (two tool calls for twelve units,
+  the three correct ids cited); the budget guarantee holds against what the model asks for rather
+  than what it should ask for; and refusal wording is functional — naming the remaining budget moved
+  a run from serving nothing to serving its full allowance. Remaining before the phase closes:
+  registering the routes in `app.ts` and minting the handle from the codex_cli invocation path.
 
 ### Phase 3 — One debate role runs on the line
 - Outcome: the D-8 slice — one N6 divergent-debate role — produces its artifact through the

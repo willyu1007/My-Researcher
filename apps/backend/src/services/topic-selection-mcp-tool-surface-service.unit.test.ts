@@ -90,7 +90,9 @@ void test('the server stops the loop when the read budget runs out', async () =>
   assert.equal(over.status, 'refused');
   if (over.status !== 'refused') { return; }
   assert.equal(over.refusal, 'READ_BUDGET_EXCEEDED');
-  assert.match(over.text, /Answer from what you already have/);
+  // The refusal must tell the model how to succeed on a retry, not merely that it failed.
+  assert.match(over.text, /only 1 of this task's read budget of 3 remain/);
+  assert.match(over.text, /Request at most 1/);
 
   // A refusal must not spend budget, or one over-large request would poison the rest of the task.
   const within = await service.call('read_evidence', { handle: scope.handle, ids: ['C'] });

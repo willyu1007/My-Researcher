@@ -19,6 +19,12 @@
 
 | Phase 1 live: a real `codex exec` runs the line end to end. | Run the gated live smoke against a product-owned, authenticated `CODEX_HOME`. | passed (2026-09-08) | 10-14s per run. The prompt demanded an out-of-enum verdict, an out-of-range number and an extra field; all three were refused, so `--output-schema` is a hard constraint on the installed binary, not only on the version originally probed. Thread id, trace events and non-zero usage all present. The product home's `skills` directory is empty and product-owned, which is the isolation fix working. |
 
+| Phase 2: a real Codex run reaches the product's own tool surface over HTTP. | Live-gated integration test: boot the MCP routes, mint a research handle over a 12-unit bundle, run the runner against the endpoint. | passed (2026-09-08) | Two tool calls — `list_evidence` then one batched `read_evidence` — and the three cited ids were exactly the three durable units. Selection, not enumeration, on a real agent. |
+| Phase 2: the server, not the model, stops the loop. | Same test with a read budget of 1 and a prompt demanding three units. | passed (2026-09-08) | The server served at most its budget whatever was asked. The trace reads `list_evidence:completed, read_evidence:failed, read_evidence:completed`: the refusal is legible, and the agent adapted and retried within budget. |
+| Phase 2: a refusal must be actionable, not merely a failure. | Compare served reads before and after the refusal text named the remaining budget. | passed (2026-09-08) | Before: 0 of 1 served — the agent asked for three, was refused, and gave up. After naming what remained: 1 of 1. Refusal wording is functional here, not cosmetic. |
+| Phase 2: a tool behaves identically natively and through the shim. | Same call with and without the native `_meta` protocol version. | passed (2026-09-08) | Content and error flag identical; only the envelope differs, `resultType` present natively and absent on the shimmed path. |
+| Phase 2: a research handle cannot reach a workflow-advancing tool. | Call an orchestration-scoped tool with a research handle. | passed (2026-09-08) | Refused as `SCOPE_MISMATCH` before the handler runs, so the tool never observes the attempt. |
+
 ## Outstanding verification
 
 - None for Phase 1. The live smoke stays gated on `TOPIC_SELECTION_CODEX_HOME` and

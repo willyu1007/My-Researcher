@@ -7,19 +7,19 @@ provenance of record.
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 complete, including the live check. The line exists as a contract, a
-  runner and a persisted trace, and one real invocation has run through it end to end.
-- Next step: Start Phase 2 by serving the MCP tool surface from the backend over HTTP, beginning
-  with the endpoint and the older-revision shim that Codex still needs.
+- Current phase: Phase 2. The tool surface, protocol edge, shim, research tools and HTTP routes are
+  implemented and verified against a real Codex client.
+- Next step: Register the MCP routes in `app.ts` and mint the handle from the codex_cli invocation
+  path, which closes Phase 2.
 - Blocker: none. T-148 shares this worktree; stage explicit paths and preserve its changes.
 
 ## Done when
 - [ ] One N6 divergent-debate role runs end to end on the `codex_cli` line: product-authored prompt
       packet in, an artifact constrained by `--output-schema` out, the recorded trace persisted as
       provenance, and the existing deterministic gate still owning admission.
-- [ ] The tool surface enforces scope from the attempt handle: a research-role handle is refused a
+- [x] The tool surface enforces scope from the attempt handle: a research-role handle is refused a
       tool outside its scope, proven by a negative test rather than by building a second scope.
-- [ ] A runtime read budget is enforced inside the product's MCP server and its refusal is visible
+- [x] A runtime read budget is enforced inside the product's MCP server and its refusal is visible
       in the recorded trace.
 - [x] The session rule holds in code: one fresh Codex thread per invocation attempt, with no reuse
       across roles, attempts, nodes or runs.

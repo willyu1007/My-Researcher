@@ -143,11 +143,16 @@ export class TopicSelectionMcpToolSurfaceService {
     }
 
     const reads = Math.max(0, handler.reads(args));
-    if (scope.reads_used + reads > scope.read_budget) {
+    const remaining = scope.read_budget - scope.reads_used;
+    if (reads > remaining) {
+      // The refusal has to be actionable: a model told only that it failed will either retry the
+      // same oversized call or give up, and neither is what the budget is for.
       return refuse(
         'READ_BUDGET_EXCEEDED',
-        `This task's read budget of ${scope.read_budget} is exhausted (${scope.reads_used} used). `
-        + 'Answer from what you already have.',
+        remaining > 0
+          ? `This call asks for ${reads} units but only ${remaining} of this task's read budget of `
+            + `${scope.read_budget} remain. Request at most ${remaining}, or answer from what you have.`
+          : `This task's read budget of ${scope.read_budget} is used up. Answer from what you have.`,
       );
     }
 
