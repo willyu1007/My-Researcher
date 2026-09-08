@@ -44,11 +44,7 @@
       "description": "Own how research-lifecycle agent invocations are executed: the execution lines (provider LLM, operator-assisted Codex, product-driven Codex CLI, mocked fixtures), the product-owned tool surfaces they may use, and the provenance, budget and isolation guarantees each line carries."
     }
   ],
-  "ideas": [
-    {
-      "idea": "After the API-first Codex-assisted rehearsal produces concrete operability evidence, productize a transport-neutral Codex operator adapter using Codex App Server or the Codex SDK, persist operator-run to Codex thread/turn and product workflow-attempt correlation, and keep product owner state—not conversation history—as research authority."
-    }
-  ],
+  "ideas": [],
   "tasks": [
     {
       "id": "T-001",
@@ -1256,6 +1252,14 @@
       "status": "archived",
       "updated": "2026-09-09",
       "dev_docs_path": "dev-docs/archive/codex-cli-execution-line",
+      "feature_id": "F-003"
+    },
+    {
+      "id": "T-152",
+      "slug": "codex-app-server-transport",
+      "status": "planned",
+      "updated": "2026-09-09",
+      "dev_docs_path": "dev-docs/active/codex-app-server-transport",
       "feature_id": "F-003"
     }
   ]

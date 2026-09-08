@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-152",
+  "slug": "codex-app-server-transport",
+  "keywords": [
+    "codex-app-server",
+    "app-server-transport",
+    "codex-cli-runner",
+    "thread-lifecycle",
+    "protocol-types",
+    "human-confirmation-channel"
+  ]
+}
