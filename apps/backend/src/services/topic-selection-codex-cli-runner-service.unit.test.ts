@@ -2,7 +2,7 @@
 // without a Codex installation and without credentials; a live check is a later phase.
 
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -123,6 +123,16 @@ void test('codex_cli runner isolates the invocation from the developer environme
 
   const written = await readFile(path.join(home, 'config.toml'), 'utf8');
   assert.match(written, /sandbox_mode = "read-only"/);
+});
+
+void test('codex_cli runner leaves no per-invocation schema files behind', async () => {
+  const { runner, home } = await makeRunner();
+  await runner.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_1' });
+  await runner.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_2' });
+
+  // The product home is long-lived; one file per invocation would accumulate there forever.
+  const left = (await readdir(home)).filter((entry) => entry.startsWith('output-schema-'));
+  assert.deepEqual(left, []);
 });
 
 void test('codex_cli runner returns the artifact, the usage and the trace on success', async () => {

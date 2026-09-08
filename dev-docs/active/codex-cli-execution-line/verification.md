@@ -17,15 +17,14 @@
 | Phase 1: the line runs end to end and its trace persists, without disturbing the other three lines. | Full suites plus targeted contract, runner and orchestrator tests, with the Codex invocation injected. | passed (2026-09-08) | shared 455/455; backend 3004 tests with 2930 passing. The two failures are not this task's: `FIND-028` is T-148's in-flight uncommitted work, and `T-054 Prisma HTTP smoke` is pre-existing and reproduces at HEAD. Replay-identity golden hash guards stayed green, so the new optional provenance fields changed no frozen hash. |
 | Phase 1: the line is inert until a profile admits it. | Invoke `codex_cli` against the shipped registry. | passed (2026-09-08) | Rejected; a companion test passes only with a registry that explicitly opens the line. |
 
+| Phase 1 live: a real `codex exec` runs the line end to end. | Run the gated live smoke against a product-owned, authenticated `CODEX_HOME`. | passed (2026-09-08) | 10-14s per run. The prompt demanded an out-of-enum verdict, an out-of-range number and an extra field; all three were refused, so `--output-schema` is a hard constraint on the installed binary, not only on the version originally probed. Thread id, trace events and non-zero usage all present. The product home's `skills` directory is empty and product-owned, which is the isolation fix working. |
+
 ## Outstanding verification
 
-- The Phase 1 live check is written and gated:
-  `topic-selection-codex-cli-runner.live.test.ts` skips unless `TOPIC_SELECTION_CODEX_HOME` and
-  `TOPIC_SELECTION_CODEX_MODEL` are set. It re-proves schema enforcement on the installed binary by
-  asking for three violations at once, and asserts a thread id, a trace and non-zero usage.
-  Enabling it needs one operator action — `CODEX_HOME=<product dir> codex login` — because that
-  directory holds the Codex credential and nothing may be copied into it. The pattern comes from
-  a sibling project that runs Codex with per-account homes.
+- None for Phase 1. The live smoke stays gated on `TOPIC_SELECTION_CODEX_HOME` and
+  `TOPIC_SELECTION_CODEX_MODEL` so it skips wherever the product Codex home is not provisioned;
+  re-run it after any Codex upgrade, since it is what re-establishes schema enforcement on the
+  binary actually installed.
 
 - Phase 4's in-flow human confirmation is blocked by a client-side gap, not an unknown. MCP
   `2026-07-28` defines the correct shape — Multi Round-Trip Requests returning

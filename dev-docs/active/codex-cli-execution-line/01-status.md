@@ -7,10 +7,10 @@ provenance of record.
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 is implemented and deterministically verified. The line exists as a
-  contract, a runner and a persisted trace; no node routes to it and no profile admits it.
-- Next step: Decide whether to open Phase 2 (the scoped tool surface) or first provision an
-  authenticated product CODEX_HOME so the Phase 1 live check can run.
+- Current phase: Phase 1 complete, including the live check. The line exists as a contract, a
+  runner and a persisted trace, and one real invocation has run through it end to end.
+- Next step: Start Phase 2 by serving the MCP tool surface from the backend over HTTP, beginning
+  with the endpoint and the older-revision shim that Codex still needs.
 - Blocker: none. T-148 shares this worktree; stage explicit paths and preserve its changes.
 
 ## Done when

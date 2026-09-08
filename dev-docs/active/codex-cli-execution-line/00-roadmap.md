@@ -105,9 +105,10 @@
   that actually ran rather than declared, so it cannot drift from reality. Two latent problems
   surfaced and were fixed on the way: a hardcoded execution-mode allowlist in the orchestrator that
   had drifted from the enum beside it, and a stale committed SlotParameterManifest snapshot. The
-  line is inert — no profile admits it and no node routes to it, which a test pins. The remaining
-  Phase 1 item is the live check, which needs an authenticated product `CODEX_HOME` that only an
-  operator can provision.
+  line is inert — no profile admits it and no node routes to it, which a test pins. The live check
+  passed on 2026-09-08 against a product-owned authenticated `CODEX_HOME`, and it surfaced one more
+  defect worth having found that way: the runner left a schema file per invocation in a long-lived
+  directory. Phase 1 is complete.
 
 ### Phase 2 — A scoped, budgeted tool surface Codex can actually reach
 - Outcome: a research-role tool scope that an agent can use to select rather than enumerate, that

@@ -12,7 +12,7 @@
 // path at all, which is what enforces it.
 
 import { spawn } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export interface TopicSelectionCodexCliMcpServer {
@@ -256,12 +256,18 @@ export class TopicSelectionCodexCliRunnerService {
       '-',
     ];
 
-    const result = await this.spawnCodex(args, {
-      cwd: home,
-      env: this.buildEnv(),
-      stdin: input.prompt,
-      timeoutMs: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS,
-    });
+    let result: TopicSelectionCodexCliSpawnResult;
+    try {
+      result = await this.spawnCodex(args, {
+        cwd: home,
+        env: this.buildEnv(),
+        stdin: input.prompt,
+        timeoutMs: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+      });
+    } finally {
+      // One schema file per invocation would otherwise accumulate in the product home forever.
+      await rm(schemaPath, { force: true });
+    }
 
     const runnerVersion = await this.runnerVersion();
     const parsed = parseCodexEventStream(result.stdout);
