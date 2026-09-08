@@ -48,9 +48,10 @@
 
 | Assumption | Risk if wrong | Validation |
 |---|---|---|
-| The App Server enforces an output schema per turn the way `exec --output-schema` does. | Schema enforcement moves product-side and the first Done-when item weakens. | Spike: drive one turn with the T-151 live-smoke schema and demand the same three violations. |
-| The App Server's `turn/completed` usage and `thread/tokenUsage/updated` carry the same five fields the trace records today. | Cost accounting changes shape. | Spike: compare against the `exec --json` usage object. |
-| `codex app-server generate-ts` emits bindings that match what the same binary actually speaks. | Generated types drift from the binary despite coming from it. | The spike drives a turn with the generated bindings; the regeneration check runs against the installed binary. |
+| `turn/start.outputSchema` enforces the final message the way `exec --output-schema` does. The parameter exists in the installed binary's schema; enforcement is not yet observed. | Schema enforcement moves product-side and the first Done-when item weakens. | Spike: one turn with the T-151 live-smoke schema demanding three violations. |
+| `thread/start.config` accepts `mcp_servers` overrides in the shape the runner already emits as `-c`. `config` is typed as a free object. | The product tool surface is unreachable from a thread and the spike must find the right key. | Spike: a turn that calls `list_evidence` on the product endpoint. |
+| The bindings the binary emits (`generate-json-schema`: 41 files, 622 definitions) match what the same binary speaks. | Generated types drift from the running server despite coming from it. | Spike: drive the handshake and a turn using only generated shapes. |
+| Closing a thread is `thread/archive` or `thread/delete`; which one satisfies D-3 is unknown. | The wrong choice keeps threads recoverable, or destroys a trace source before it is persisted. | Spike: close both ways and read `thread/list` and disk afterwards. |
 
 ## Task relationships
 
@@ -62,30 +63,47 @@
 ## Implementation plan
 
 ### Phase 1 — Spike: what the App Server actually gives a product runner
-- Outcome: one real turn driven end to end through a dedicated `codex app-server` child from a
-  product-owned `CODEX_HOME`, with generated types at the pinned version, and a written comparison
-  of what `exec --json` gave the trace against what the App Server gives.
-- Approach: reproduce the t3code client's spawn and handshake in the smallest form, then answer the
-  three assumptions above and the D-3 close semantics before any runner code moves.
+- Outcome: one real turn driven end to end through a dedicated `codex app-server` child from the
+  product-owned `CODEX_HOME`, using only bindings generated from that binary, with the four
+  assumptions above answered by evidence and a written mapping of `exec --json` events to App
+  Server notifications for the trace.
+- Approach: reproduce the smallest possible client — newline-delimited JSON-RPC over the child's
+  stdio, the `initialize` / `initialized` handshake, then `thread/start` → `turn/start` →
+  notifications until `turn/completed` — and keep it under the backend test tree as a live-gated
+  spike, not a production path. Answer server requests by refusing, so the spike cannot hang.
 - Planned changes:
-  1. Generate protocol types from the installed binary (`codex app-server generate-ts`) and record
-     the binary version they came from.
-  2. A spike client that starts the server, opens a thread, runs one turn with an output schema
-     and one MCP server, and captures every notification.
-  3. Record the answers to the schema, usage and thread-close questions in `verification.md`.
-- Affected boundaries / entry points: a new generated-types module and a spike under the backend
-  test tree; no production path changes.
-- Dependencies: the product Codex home already provisioned for T-151's live checks.
-- Exit criteria: the three assumptions are each confirmed or refuted with evidence, and D-1 through
-  D-6 are closable.
-- Verification: a live-gated spike run under `TOPIC_SELECTION_CODEX_LIVE=1`.
-- Recovery: the spike is additive and touches no production path; deleting it restores the tree.
+  1. A generation script that runs `codex app-server generate-json-schema` for the installed binary,
+     records that binary's version beside the output, and a check that regenerating yields no diff.
+  2. A spike client: spawn `codex app-server` (default `stdio://`) with `CODEX_HOME` set to the
+     product home and the same minimal environment the runner uses; `initialize` with
+     `clientInfo`, and record the response's `codexHome` as the isolation proof; `thread/start` with
+     `cwd`, `model`, `approvalPolicy` (granular), `sandbox: read-only`, `ephemeral`, and `config`
+     carrying the product MCP server; `turn/start` with `input`, `outputSchema` and `effort`;
+     collect every notification until `turn/completed`; then close the thread.
+  3. Three live-gated cases on that client: the schema-violation prompt from the T-151 smoke; a
+     turn that must call the product's `list_evidence`; and two concurrent threads on one child.
+     Close one thread with `thread/archive` and the other with `thread/delete`, then observe
+     `thread/list` and the home directory.
+  4. Record in `verification.md`: whether the schema was enforced, the `TokenUsageBreakdown` values
+     seen per turn, which close removes the thread, and which notifications carry what the trace
+     needs (`item/*`, `item/mcpToolCall/progress`, `thread/tokenUsage/updated`,
+     `thread/compacted`, `turn/completed.turn.status`).
+- Affected boundaries / entry points: a new generated-bindings directory with its generation
+  script, and a spike under `apps/backend/src/services/` gated on `TOPIC_SELECTION_CODEX_LIVE=1`.
+  No production path changes.
+- Dependencies: the product Codex home provisioned for T-151 (`~/.codex-my-researcher`).
+- Exit criteria: the four assumptions each hold or are refuted with evidence; the trace mapping is
+  written; D-3 through D-6 are closable on that evidence.
+- Verification: the three live-gated cases plus the regeneration check.
+- Recovery: everything is additive and unreachable from production; deleting the spike and the
+  bindings restores the tree.
 
 ### Phase 2 — Runner swap behind a switch (provisional)
 - Outcome: the runner drives the App Server when configured, builds the trace from its events,
   records the thread id, and the four existing live checks pass unchanged.
 - Exit criteria: live checks green on the App Server path; D-3 pinned by a test; the `exec` path
-  still selectable per D-6.
+  still selectable per D-6; the `initialize` response's `codexHome` recorded in every trace as the
+  isolation proof.
 
 ### Phase 3 — Capability proofs and transition exit (provisional)
 - Outcome: compaction and `requestUserInput` observed and governed in the trace; usage and
@@ -94,12 +112,12 @@
 
 ## Kickoff gate
 
-- Status: pending
-- Authorized boundary: none
-- [ ] Decisions: D-1 and D-2 are decided; D-3 through D-6 are confirmed or explicitly deferred to the spike.
-- [ ] Design: the process model, type generation and trace mapping are settled in `02-architecture.md`.
-- [ ] Route: Phase 1 is executable with exit, verification and recovery criteria.
-- [ ] Verification: the spike's checks are identified in `verification.md`.
+- Status: ready
+- Authorized boundary: complete task
+- [x] Decisions: D-1 and D-2 are decided; D-3 through D-6 are explicitly deferred to the spike, which is built to close them.
+- [x] Design: the process model, type generation, invocation mapping and trace mapping are settled in `02-architecture.md` at the level the installed binary's schema supports.
+- [x] Route: Phase 1 is executable with named methods, exit, verification and recovery criteria.
+- [x] Verification: the spike's checks are identified in `verification.md`.
 
 ## Risks and recovery
 

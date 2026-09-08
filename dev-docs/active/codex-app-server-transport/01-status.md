@@ -7,11 +7,11 @@ human-confirmation channel and account usage reads — without changing the line
 provenance shape or MCP tool surface.
 
 ## Progress
-- State: planned
-- Current phase: Opened under F-003 with the process model (dedicated stdio child) and type
-  generation (from the installed binary) decided.
-- Next step: Plan the spike that establishes what the App Server actually gives a product runner
-  at the pinned Codex version, then decide D-3 through D-6 on its evidence.
+- State: in-progress
+- Current phase: Planned. The installed binary's own schema settled the invocation and trace
+  mappings on paper; Phase 1 is the live spike that turns them into evidence.
+- Next step: Run the Phase 1 spike — generate bindings from the binary, drive one real turn from
+  the product Codex home, and answer the four recorded assumptions.
 - Blocker: none
 
 ## Done when

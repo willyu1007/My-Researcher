@@ -31,9 +31,27 @@ Inherited and not reopened here:
 - Product owner state, not conversation history, is the research authority. Threads are transient
   execution detail; what the product keeps is the artifact and the trace.
 
-Not yet settled — the spike exists to settle them: the process model (D-1), type generation (D-2),
-what closing a thread means (archive or delete), whether the server enforces an output schema per
-turn, and the exact usage fields.
+Settled by decision at opening: a dedicated `codex app-server` child per backend process over its
+default `stdio://`, spawned from the product-owned `CODEX_HOME` with the runner's minimal
+environment (D-1); protocol bindings generated from that binary with `codex app-server
+generate-json-schema` / `generate-ts` and checked for drift by regeneration (D-2).
+
+Settled by the installed binary's schema (2026-09-09), pending live confirmation in the spike:
+
+| Today's `codex exec` invocation | App Server equivalent |
+|---|---|
+| process spawn per attempt | `initialize` (`clientInfo`) once per child; the response's `codexHome` proves which home it runs from |
+| `-c approval_policy={granular=…}` | `thread/start.approvalPolicy` (`AskForApproval`: `untrusted` / `on-request` / `never` / granular) |
+| `-s read-only` | `thread/start.sandbox` (`SandboxMode`: `read-only` / `workspace-write` / `danger-full-access`) |
+| `-c mcp_servers.<name>.url=…` | `thread/start.config` (free object; exact key shape is a spike question) |
+| `--ephemeral`, `-m`, cwd | `thread/start.ephemeral`, `.model`, `.cwd` |
+| prompt on stdin | `turn/start.input` |
+| `--output-schema` | `turn/start.outputSchema` |
+| `-c model_reasoning_effort=…` | `turn/start.effort` |
+| one process exits | `thread/archive` or `thread/delete` (`threadId`) — which one satisfies D-3 is a spike question |
+
+Not yet settled: whether `outputSchema` is enforced as strictly as the flag, the `config` key shape
+for MCP servers, and archive-versus-delete semantics.
 
 ## Interfaces and contracts
 
@@ -42,7 +60,14 @@ turn, and the exact usage fields.
   injection point so the unit tests keep running without a Codex installation.
 - Trace: `topic-selection-codex-cli-trace-v1` keeps its shape; the `events` array carries App Server
   notifications instead of `exec --json` lines, and gains `thread/compacted`, usage updates and any
-  server requests with the policy answer the product gave.
+  server requests with the policy answer the product gave. Field mapping from the binary's schema:
+  `thread_id` ← `thread/started`; final message ← the last `item/completed` agent message, or
+  `turn/completed.turn.items`; `usage` ← `thread/tokenUsage/updated.tokenUsage.total`
+  (`TokenUsageBreakdown`: `inputTokens`, `cachedInputTokens`, `cacheWriteInputTokens`,
+  `outputTokens`, `reasoningOutputTokens`, plus `totalTokens` and `modelContextWindow`); tool calls
+  ← `item/started` / `item/completed` for `mcpToolCall` items and `item/mcpToolCall/progress`;
+  outcome ← `turn/completed.turn.status` (`completed` / `interrupted` / `failed` / `inProgress`)
+  with `turn.error` on failure.
 - Server requests the product must answer: at minimum `item/tool/requestUserInput`,
   `item/commandExecution/requestApproval`, `item/fileChange/requestApproval` and
   `mcpServer/elicitation/request`. This task answers them by policy (refuse, record); a later task
