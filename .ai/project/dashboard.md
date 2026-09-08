@@ -18,13 +18,13 @@ next step here.
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 151 (planned: 2, in-progress: 0, blocked: 0, done: 3, archived: 146)
+- Tasks: 151 (planned: 2, in-progress: 0, blocked: 0, done: 2, archived: 147)
 
 ## Recently registered or status-changed tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
-| T-151 codex-cli-execution-line | done | F-003 | dev-docs/active/codex-cli-execution-line |
+| T-151 codex-cli-execution-line | archived | F-003 | dev-docs/archive/codex-cli-execution-line |
 | T-148 topic-selection-real-flow-findings | done | F-001 | dev-docs/active/topic-selection-real-flow-findings |
 | T-149 literature-embedding-vector-persistence | archived | F-000 | dev-docs/archive/literature-embedding-vector-persistence |
 | T-150 topic-selection-evidence-convergence-core | done | F-001 | dev-docs/active/topic-selection-evidence-convergence-core |
