@@ -1,5 +1,59 @@
 # Verification
 
+## Phase 4 closeout audit — 2026-09-08
+
+**Decision: keep T-148 `in-progress`.** TSRF-04 and TSRF-07 can now be checked from the executed record, with the limits below. The remaining Phase 4 outcome is verification of the repaired downstream composition. Six independently seeded checks are useful evidence but do not establish one fresh combined downstream execution. The researcher's rejection remains final; no new research candidate or scientific decision is needed for a test fixture.
+
+### Acceptance evidence
+
+| References | Decisive evidence | Scope / result |
+|---|---|---|
+| TSRF-01/02/06/08 | Evidence-view and coverage-gate repair checkpoints; Phase 4 fresh packet, fulltext replacement and exact reject receipts | Passed for truthful evidence/risk presentation, required-missing blocking and exact Human authority. Both missing rows stay missing and unaccepted. |
+| TSRF-03 | FIND-003 public contract checkpoint and Phase 4 manual EvidenceMap HTTP admission | Passed; public shape and nullable metadata remain covered by the recorded parity/HTTP checks. |
+| TSRF-04 | Historical PASS-007 reject/replacement and Phase 4 owner rereads; fresh evidence receipt; exact loopback and exit receipts | Passed for the five stated facets, detailed below. This does not certify downstream promotion. |
+| TSRF-05 | FIND-004/005/006/008/019/029–031/033 dispositions | Classified, separately owned or repaired as recorded. No backup, benchmark or new convergence scenario is implied. |
+| TSRF-07 | RET-001–037, including the two added summaries of existing loopback/exit receipts | Passed for the executed sequence with explicit historical unknowns; no invented telemetry or retrieval delta. |
+| TSRF-09/12 | Projection repair checkpoint; Phase 4 current question/value owner rereads | Question, metrics and 25 current material risks are visible. Exact refined-warning behavior retains its focused fixture evidence. |
+| TSRF-10/11/13 | Regular N6, N9→N7 and delta-Debate repair checkpoints; selected current checks below | Independent boundaries pass. Their combined use with the latest warning-resolution path still needs the remaining composition check. |
+| TSRF-14 | Shared N10 narrative-gate repair and historical corrected package/publication receipts | Passed for corrected titles, non-goals, punctuation and supersession; those owners were reread in Phase 4. |
+| TSRF-15/16 | FIND-027/028 review and service/HTTP evidence; selected current checks below | Material-risk Debate, complete groups, exact edited conditions and zero-partial-write rejection pass in isolated fixtures. Historical deterministic promotion is not evidence for these new paths. |
+| TSRF-22 | Phase 4 entry copy audit, five rendered surfaces and desktop typecheck | Passed; no layout or authority changes. |
+
+TSRF-04 closes on specific evidence rather than the candidate's scientific merit:
+
+- **Reject/replacement and fresh lineage:** PASS-007 records a new title and seed with zero inherited downstream owners. The Phase 4 local reread retains both rejected predecessors independently of the historical replacement. The fresh Phase 4 title has its own IDs and a pending packet with no inherited decision.
+- **Paragraph locators:** the initial fresh packet has seven paragraph/two section units; the final map has nine paragraph/two section units. The loopback receipt preserves four reread paragraph checksums/offsets from two locally parsed papers, including both newly admitted challenge locators.
+- **Strict Human blocking:** the fresh packet returns `stop_for_human` with both required rows missing. The abstract-only intermediate packet fails its core-source gate. Neither adjacent evidence nor packet replacement accepts the coverage gaps.
+- **Decision recovery:** the loopback's incomplete tool capture was followed by owner reads that matched every submitted field, with no second POST. The later reject matches its exact input, preserves the frozen packet and prior decision, and ends continuation. Earlier clean-restart rereads preserve historical packets/bundle; they do not diagnose the original backend exit.
+
+TSRF-07 covers actual execution through the final reject, not hypothetical later steps. RET-001 retains an unknown exact query/provider count; RET-004 retains four observed retriever operations, only three saved responses and 3–4 provider calls. Those missing historical values cannot be reconstructed by replay and remain unknown. RET-008 has complete two-query telemetry. RET-009–034 distinguish source reuse, deterministic transitions and non-provider drafting. RET-035 separates six external Web searches/19 queries from product calls and admitted evidence. RET-036 records two downloads, two local parser runs and two added challenge units; its two 11-unit materializations are not 22 discoveries. RET-037 records one exact reject and zero retrieval/provider work. No aggregate total conceals the unknown historical telemetry or external authoring cost.
+
+### Current bounded checks
+
+- Baseline: clean `main` at `9ba90493`; full task-trailer history contains 40 linked commits. Governance query resolves this worktree as authoritative and the old detached copy as stale, with no conflict or invalid metadata. Existing review/typecheck/full-suite results below retain their original code boundary; they were not rerun as a blanket certification of HEAD.
+- Nine inline artifact-consistency groups passed: historical/fresh lineage separation, fresh Human stop, exact loopback recovery, preserved packet/checkpoint chain, locator counts and offsets, two zero-call SearchRuns with missing coverage, separate external/local accounting, exact rejection without acceptance, and terminal packet/management/continuation consistency. This validates saved HTTP receipts, not a new live reread. No temporary script was retained.
+- Six selected existing checks passed, **6 passed / 0 failed / 0 skipped**, at the current source: regular N6 product HTTP/replay, N8 product HTTP/checkpoint blocking, material-risk promotion HTTP, complete Human-edited condition mapping HTTP, N9→N7 coordinator recovery, and question-loopback delta-Debate frontier. The last two use coordinator test doubles; promotion uses seeded native checkpoints. These tests do not form a connected real-database downstream run.
+
+- Record checks pass: 17 checked acceptance references, 37 unique RET rows and local artifact links; scoped task sync preview/apply/lint, global sync dry-run/lint and `git diff --check`. Scoped sync produced no unrelated or generated changes.
+
+Reproduce the selected checks from `apps/backend`:
+
+```sh
+DATABASE_URL= BACKEND_TEST_PRESERVE_REAL_ENV=0 pnpm exec node --import tsx --test --test-reporter=spec --test-name-pattern='FIND-018 N6|material-risk HTTP support|FIND-028: HTTP|coordinator consumes N9 refinement|question-contract loopback replaces|N8 Codex-assisted product route' src/routes/topic-selection-v1b-routes.integration.test.ts src/routes/topic-selection-v1c-routes.integration.test.ts src/services/topic-selection-v1b-run-coordinator-service.unit.test.ts
+```
+
+No live product backend was started and no researcher decision, live provider, search, download, migration, build, new test file or runtime source change was needed for this audit. Only task records and any derived governance projections belong to this checkpoint.
+
+### Completion contract assessment
+
+| Claim | Assessment |
+|---|---|
+| Outcome closure | **Not yet established.** The real candidate terminated correctly, but the planned downstream checks have only historical execution plus independently seeded post-fix evidence. Verify the minimum repaired composition on isolated test data before claiming Phase 4 complete. |
+| Implementation/artifact quality | Recorded repairs have Clear reviews and relevant checks; the six selected checks and nine artifact groups pass. This audit identified stale finding dispositions and two missing accounting summaries, corrected in this checkpoint. No new material code defect was found by these bounded checks. |
+| Semantic convergence | The settled architecture remains unchanged. Task status, roadmap and findings now distinguish verified references, final research rejection and outstanding downstream composition. Task-level convergence remains open with that verification outcome. |
+
+Earlier checkpoint sections below preserve their evidence-time state; their pending decisions and future-work wording are historical. The current remaining work is listed under **Outstanding verification** and in `01-status.md`.
+
 ## Phase 4 candidate exit — 2026-09-08
 
 - The researcher explicitly chose to end this direction rather than force a value proposition. One canonical decision POST returned 201 and persisted `research_checkpoint_decision_e294f54f-8dc8-4a36-a660-a8ac607f4c30` / `human_decision_bdc6028e-dcb5-485a-a0b9-701afdf77119`, with stable key `t148-phase4-20260908-reject-router-transfer` and the exact current snapshot. No semantic-review completion or gap acceptance was inferred.
@@ -233,20 +287,8 @@
 
 ## Outstanding verification
 
-- FIND-004 remains unproven; reopen a stability correction only with a captured recurrence and process-exit evidence.
-- FIND-005/006 have explicit operations/experiment-owner follow-up proposals; their implementation is outside T-148.
-- Re-read FIND-007's repaired literature-risk visibility during bounded live evidence review; deterministic implementation checks are complete, and full-library retrieval/admission remain T-150 work.
-- Re-read FIND-009 policy provenance and local blockers during the later bounded real-flow rehearsal; local implementation, HTTP admission and job-history preservation are verified. Unknown remote size, latency and redirects are not preflight proof.
-- Re-read FIND-010 optional title-scope compatibility during the later bounded real-flow rehearsal; local reference identity, current-run provenance and HTTP diagnostics are verified.
-- Re-read FIND-011's separate terminal research disposition in the later bounded live rejection/replacement flow; owner inspection and deterministic implementation checks are complete.
-- Re-read the repaired FIND-017 native/backfilled Human question projections in the later bounded real-flow phase; deterministic implementation checks are complete.
-- Re-read FIND-018 during Phase 4 real-flow acceptance; regular N6 routing, product admission, frozen cost/provenance and completed replay are locally verified. Keep the provider path dormant and Human decisions exact.
-- Re-read FIND-016’s direct N5-to-N6 composition during the later bounded real-flow rehearsal; local implementation and identity/replay checks are complete.
-- Re-read the documented coordinator frontier and exact recovery route in the later bounded rehearsal; FIND-014 checkpoint-grant semantics are classified and FIND-015/022 local contract repairs are verified.
-- Continue explicit RET accounting under FIND-012; T-150 owns durable retrieval execution at its bounded kernel. No second ledger or generic endpoint correction is included here.
-- Re-read the repaired FIND-021 current-value projection during the later value-refinement replay; deterministic implementation checks are complete.
-- Verify FIND-023 during a later bounded live refinement with exact Human trigger confirmations; preserve historical replay and independent risks rather than auto-resolving the old records.
-- Re-read FIND-027 in Phase 4 real-flow acceptance: local risk-trigger, four-role support, N3 provenance, replay and cost/contract alignment are verified; provider activation and external DB concurrency are not implied.
-- Re-read FIND-028 during Phase 4 real-flow acceptance: complete candidate coverage, Human editing and native N4 unmapped-risk rejection are locally verified; no real Human decision is inferred from test fixtures.
-- Keep FIND-029 through FIND-031 retrieval-native implementation out of this task and verify that T-148's concrete coverage gate composes cleanly with T-150's later evidence-landscape pilot without depending on it.
-- FIND-032 copy is complete and verified; preserve exact technical API/node identities and historical packets.
+- **Remaining in-scope outcome:** verify the repaired downstream composition on isolated fixtures, reusing existing helpers and canonical HTTP routes. Carry canonical N5 selection refs into regular N6 Debate and the N7 Human boundary; exercise exact refinement/trigger resolution and its delta Debate; then carry the resulting package/risk lineage into material-risk promotion support, complete condition groups and exact test-Human editing/replay. Retain only assertions that check the repaired joins and authority boundaries. The six independently seeded checks above are not this combined result.
+- Keep fixture decisions explicit test inputs and account for their calls separately. Do not reopen the rejected candidate, manufacture scientific value, infer actual researcher acceptance or issue external retrieval/provider work to complete the test.
+- **Already satisfied live boundaries:** FIND-007/009/010/011 evidence visibility, preflight, optional scope and terminal rejection; FIND-017/021 current question/value reads. Historical exact decisions and packets remain preserved. No blanket rerun of these paths is required without a new failure.
+- **Known limits, not new task work:** FIND-004 exit cause is unproven; reopen only on captured recurrence. FIND-005 backup/restore and FIND-006 benchmark implementation remain outside T-148. RET-001/004 missing telemetry stays unknown. FIND-029–031 retain T-150 ownership; live providers and external PostgreSQL concurrency are not claimed by this audit.
+- After the combined check, reassess all three task completion claims and synchronize the task. All checked acceptance references alone do not authorize a `done` claim or archive transition.
