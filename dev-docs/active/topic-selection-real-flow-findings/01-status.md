@@ -4,10 +4,10 @@
 Make topic selection trustworthy in real use by closing the decision-presentation, local gate, contract, and decision-support defects exposed by the 2026-09-01 end-to-end rehearsal while preserving strict-human authority.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 4 closeout audit completed; TSRF-04/07 evidence reconciled, with downstream composition verification still outstanding
-- Next step: Verify the remaining repaired downstream composition with isolated test fixtures: canonical selection refs and regular question Debate, exact refinement and warning resolution with delta Debate, then package and material-risk promotion with complete Human-edited condition mappings. Reuse existing test helpers and HTTP boundaries; record fixture decisions as test inputs, not researcher decisions. This requires no new research topic, literature search or advancement of the rejected candidate. Reassess task completion after that check.
-- Blocker: No external blocker or pending researcher decision. The current candidate's reject is final and its two missing coverage rows remain historical and unaccepted. Six selected downstream checks pass independently, but no fresh combined execution of the repaired downstream route is recorded. All 17 acceptance references now have evidence; that checklist does not by itself close the remaining Phase 4 outcome check.
+- State: done
+- Current phase: Phase 4 complete; real-flow exit evidence and the repaired downstream HTTP composition are verified
+- Next step: None within T-148. Keep the completed task active until an authorized archive transition. Any new research candidate, live model validation, PostgreSQL concurrency check or broader convergence adoption requires its own scope.
+- Blocker: None. The current candidate's reject is final; both missing coverage rows remain historical and unaccepted. One connected fixture verifies the repaired selection/refinement/package/promotion joins with explicit test decisions. Related HTTP suites pass 33 tests with two environment-gated Prisma skips; backend typecheck and independent review are clear. Completion evidence and material limits are recorded in verification.md.
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.

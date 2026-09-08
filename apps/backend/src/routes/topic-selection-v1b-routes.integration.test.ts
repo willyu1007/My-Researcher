@@ -41,6 +41,7 @@ import {
 import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION,
   type TopicSelectionV1bAcceptedConstraintProfilePayload,
   type TopicSelectionV1bAcceptedSliceSelectionPayload,
   type TopicSelectionV1bN1HarnessFrozenInputPayload,
@@ -48,6 +49,7 @@ import {
   type TopicSelectionV1bN4HarnessFrozenInputPayload,
   type TopicSelectionV1bN5HarnessFrozenInputPayload,
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
+  type TopicSelectionV1bN6DivergentDebateRoleSlotId,
   type TopicSelectionV1bN7HarnessFrozenInputPayload,
   type TopicSelectionV1bN8HarnessFrozenInputPayload,
   type TopicSelectionV1bN9HarnessFrozenInputPayload,
@@ -60,9 +62,26 @@ import {
   type TopicSelectionV1bWorkflowHarnessHandoff,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
   type TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
+  type TopicSelectionV1bN9QuestionRefinementPayload,
+  type TopicSelectionV1bWorkflowHarnessTracePayload,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
+import type { TopicSelectionPromotionInputSnapshotRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-input-contracts';
+import type { TopicSelectionPromotionConditionCandidate } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import { buildApp } from '../app.js';
+import type {
+  AdvanceTopicSelectionV1bRunInput,
+  TopicSelectionV1bRunAdvanceReport,
+} from '../services/topic-selection-v1b-run-coordinator-service.js';
+import { promotionDebateRoleOutputs } from '../services/test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
+import type {
+  TopicSelectionV1cPromotionDecisionSupportCreationResult,
+  TopicSelectionV1cPromotionGateCheckCreationResult,
+} from '../services/topic-selection-v1c-promotion-gate-service.js';
+import type {
+  RecordHumanPromotionDecisionInput,
+  TopicSelectionV1cHumanPromotionDecisionCreationResult,
+} from '../services/topic-selection-v1c-human-promotion-decision-service.js';
 import type { LlmCallTelemetry, LlmStructuredOutputRequest } from '../services/llm-gateway.js';
 import {
   sha256Text,
@@ -675,8 +694,9 @@ async function v1bHarnessN6Request(
 }
 
 function n6CodexDebateRoles(draft: ReturnType<typeof v1bHarnessN6Draft>) {
-  const codexRole = (role: string, output: Record<string, unknown>, index = 0) => ({
+  const codexRole = (role: TopicSelectionV1bN6DivergentDebateRoleSlotId, output: Record<string, unknown>, index = 0) => ({
     instance_index: index,
+    mocked_output: null,
     codex_response: {
       operator_label: 'route-integration-codex',
       output: { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: role, ...output },
@@ -2466,6 +2486,269 @@ test('FIND-018 N6 Codex-assisted product route admits one regular Debate and rep
     const drift = await app.inject({ method: 'POST', url: routeUrl, payload: { request, role_outputs: changed } });
     assertStatus(drift, 409);
 
+  } finally {
+    await app.close();
+  }
+});
+
+test('T-148 repaired downstream HTTP lineage carries exact refinement into conditional promotion', async () => {
+  // Role outputs and Human choices are test inputs; every authority is created through HTTP.
+  const gateway = new FakeTopicSelectionV1aLlmGateway();
+  const app = buildApp({ backgroundWorkEnabled: false, topicSelectionV1aLlmGateway: gateway });
+  try {
+    const suffix = uniqueId('t148-downstream');
+    const { v1bInputBundle: bundle } = await createV1bInputBundle(app, suffix);
+    assert.equal(gateway.calls.length, 1, 'Upstream setup uses one fake adjudication call, not a live provider.');
+    const n1Input = v1bHarnessN1Request(bundle, suffix);
+    const runId = n1Input.workflow_run_id;
+    const N6 = 'topic-selection.v1b.generate-topic-question-candidates.v1';
+    const N7 = 'topic-selection.v1b.materialize-topic-question-contract.v1';
+    const N8 = 'topic-selection.v1b.assess-topic-value.v1';
+    const N9 = 'topic-selection.v1b.decide-value-disposition.v1';
+    const N10 = 'topic-selection.v1b.create-draft-topic-package.v1';
+    const N11 = 'topic-selection.v1b.publish-v1c-input-bundle.v1';
+    const advance = async (input: Omit<AdvanceTopicSelectionV1bRunInput, 'workflow_run_id'> = {}) => {
+      const response = await app.inject({ method: 'POST', url: `/topic-selection/v1b/workflow-runs/${runId}/advance`, payload: input });
+      assertStatus(response, 200);
+      return response.json<TopicSelectionV1bRunAdvanceReport>();
+    };
+    const nodeResult = (report: TopicSelectionV1bRunAdvanceReport, nodeId: string): WorkflowHarnessHttpResult => {
+      const latest = report.run_state.nodes.find((node) => node.node_id === nodeId)?.latest;
+      assert.ok(latest, `Missing HTTP node result: ${nodeId}`);
+      return {
+        ...latest, failure_class: null, transition_attempt_ref: null,
+        hashes: { authority_hash: latest.authority_hash, handoff_hash: latest.handoff_hash },
+      };
+    };
+    const humanView = async () => {
+      const response = await app.inject({ method: 'GET', url: `/topic-selection/title-cards/${bundle.title_card_id}/stage-views/research_question?audience=human` });
+      assertStatus(response, 200);
+      return response.json<{ markdown: string }>().markdown;
+    };
+    const packet = async (id: string) => {
+      const response = await app.inject({ method: 'GET', url: `/topic-selection/checkpoints/${id}/packet` });
+      assertStatus(response, 200);
+      return response.json<{ packet_hash: string; decision: { decision: string } | null }>();
+    };
+    const artifacts = async () => {
+      const response = await app.inject({ method: 'GET', url: `/topic-selection/v1b/workflow-runs/${runId}/artifacts` });
+      assertStatus(response, 200);
+      return response.json<{ items: TopicSelectionArtifactRefRecord[] }>().items;
+    };
+
+    const n1 = await invokeV1bHarnessNode(app, n1Input);
+    const n2 = await invokeV1bHarnessNode(app, v1bHarnessN2Request(bundle, n1, suffix, acceptedConstraintProfilePayload()));
+    const n3 = await invokeV1bHarnessNode(app, v1bHarnessN3Request(n1, n2, suffix));
+    const n4Input = v1bHarnessN4Request(n1, n2, n3, suffix);
+    const n4 = await invokeV1bHarnessNode(app, { ...n4Input, semantic_artifacts: [
+      await recordWorkflowHarnessSemanticArtifact(app, n4Input, {
+        slot_id: 'n4_research_slice_option_draft', allowed_effect: 'model_draft_for_gate',
+        output_contract: 'ResearchSliceOptionSetDraft@v1',
+        profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent,
+      }, v1bHarnessN4Draft(bundle) as unknown as Record<string, unknown>),
+    ] });
+    const option = await selectedV1bHarnessOption(app, n4);
+    const n5 = await invokeV1bHarnessNode(app, v1bHarnessN5Request(n4, acceptedV1bHarnessSliceSelectionPayload(option), suffix));
+    const n6Input = await v1bHarnessN6Request(app, n5, suffix);
+    const trigger = 'Choose the primary paired replay metric before value assessment.';
+    const independentRisk = 'Live model quality remains outside the deterministic evidence boundary.';
+    const draft = v1bHarnessN6Draft(bundle, n6Input);
+    draft.candidates[0]!.human_review_triggers = [trigger];
+    draft.candidates[0]!.risk_notes = [independentRisk];
+    const initial = await advance({ node_inputs: { [N6]: { debate: {
+      kind: 'n6_divergent', generation_mode: 'initial_from_n5', execution_mode: 'codex_assisted',
+      role_outputs: n6CodexDebateRoles(draft),
+    } } } });
+    assert.deepEqual(initial.steps.map((step) => step.node_id), [N6, N7]);
+    const n6Trace = (await artifacts()).find((artifact) => artifact.artifact_kind === 'trace' && artifact.payload?.node_id === N6);
+    assert.ok(n6Trace);
+    const n6Sources = (n6Trace.payload as unknown as TopicSelectionV1bWorkflowHarnessTracePayload).request.frozen_input.source_refs;
+    assert.deepEqual(n6Sources.find((source) => source.ref_id === n5.authority_ref!.ref_id), n5.authority_ref);
+    assert.equal(n6Sources.some((source) => source.ref_type === 'research_slice_selection_decision'), false);
+    const originalN7 = nodeResult(initial, N7);
+    const initialCheckpoint = await researchCheckpoint(app, bundle.title_card_id, 'question_contract');
+    const initialPacket = await packet(initialCheckpoint.research_checkpoint_id);
+    assert.equal(initialPacket.decision, null);
+    assert.ok((await humanView()).includes(trigger));
+    const n8Input = await v1bHarnessN8Request(app, originalN7, suffix);
+    const value = v1bHarnessN8ValueDraft(n8Input);
+    const needsRefinement = { ...value, total_score: 58, readiness_status: 'needs_refinement',
+      recommended_disposition: 'refine_question', reasoning_memo: { ...value.reasoning_memo,
+        recommendation: 'refine_question', disposition_bridge: 'Specify the paired replay metric before packaging.' },
+    };
+    const beforeHuman = await advance({ node_inputs: { [N8]: { draft_payload: needsRefinement } } });
+    assert.equal(beforeHuman.halt.reason, 'no_frontier');
+    assert.equal(beforeHuman.steps.length, 0);
+    assert.equal(beforeHuman.run_state.nodes.find((node) => node.node_id === N8)?.attempt_count, 0);
+    assert.deepEqual(await packet(initialCheckpoint.research_checkpoint_id), initialPacket);
+    await advanceQuestionCheckpoint(app, bundle.title_card_id);
+    const stopped = await advance({ node_inputs: { [N8]: { draft_payload: needsRefinement } } });
+    assert.deepEqual(stopped.steps.map((step) => step.node_id), [N8, N9]);
+    assert.equal(nodeResult(stopped, N9).gate_status, 'terminal_no_advance');
+    assert.equal(stopped.run_state.nodes.find((node) => node.node_id === N10)?.attempt_count, 0);
+
+    const refinement: TopicSelectionV1bN9QuestionRefinementPayload = {
+      schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1', refinement_id: `refinement_${suffix}`,
+      actor: { actor_type: 'human', actor_id: 't148-isolated-test-reviewer' },
+      rationale: 'Test input: freeze one paired replay metric within the original evidence boundary.',
+      resolved_review_triggers: [{ trigger, resolved_by_fields: ['metrics'], rationale: 'The metric is explicitly chosen by this test decision.' }],
+      updates: { metrics: ['paired replay success rate'], expected_claim: 'The gate preserves paired replay success on deterministic trace fixtures.' },
+    };
+    const refined = await advance({ retry_node_id: N7, node_inputs: { [N7]: { refinement_payload: { ...refinement } } } });
+    assert.deepEqual(refined.steps.map((step) => step.node_id), [N7]);
+    const refinedN7 = nodeResult(refined, N7);
+    assert.notEqual(refinedN7.authority_ref?.ref_id, originalN7.authority_ref?.ref_id);
+    const refinedCheckpoint = await researchCheckpoint(app, bundle.title_card_id, 'question_contract');
+    assert.notEqual(refinedCheckpoint.research_checkpoint_id, initialCheckpoint.research_checkpoint_id);
+    assert.equal((await packet(refinedCheckpoint.research_checkpoint_id)).decision, null);
+    const refinedView = await humanView();
+    assert.ok(refinedView.includes('paired replay success rate'));
+    assert.ok(refinedView.includes(independentRisk));
+    assert.equal(refinedView.includes(trigger), false);
+    assert.equal((await packet(initialCheckpoint.research_checkpoint_id)).packet_hash, initialPacket.packet_hash);
+
+    const loopbackPayload = {
+      decision_key: `delta_review_${suffix}`, decision: 'loopback', actor: refinement.actor,
+      confirmed_snapshot_hash: refinedCheckpoint.target_snapshot_hash,
+      rationale: 'Test input: review the exact metric and claim delta before reassessment.',
+      loopback_target: 'question_contract', loopback_refs: [refinedN7.authority_ref],
+      review_payload: { review_kind: 'question_contract', mechanism_identifiable: true,
+        proxy_operationalized: true, confounds_reviewed: true, falsification_reviewed: true,
+        claim_ceiling_reviewed: true, objections_reviewed: true, review_notes: ['Retain the independent live-model limitation.'] },
+    };
+    const loopbackResponse = await app.inject({ method: 'POST',
+      url: `/topic-selection/checkpoints/${refinedCheckpoint.research_checkpoint_id}/decisions`, payload: loopbackPayload });
+    assertStatus(loopbackResponse, 201);
+    const frozenLoopbackPacket = await packet(refinedCheckpoint.research_checkpoint_id);
+    const missingDelta = await advance();
+    assert.equal(missingDelta.halt.reason, 'delta_debate_required');
+    assert.equal(missingDelta.steps.length, 0);
+    const reviewed = await advance({ node_inputs: { [N7]: { debate: {
+      kind: 'n6_refinement_delta', execution_mode: 'codex_assisted', role_outputs: {
+        n6_refinement_delta_explorer: { mocked_output: null, codex_response: { operator_label: 't148-test-explorer', output: {
+          schema_version: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1', role_slot: 'n6_refinement_delta_explorer',
+          review_points: (['expected_claim', 'metrics'] as const).map((field) => ({ field, statement: 'The field is explicit and bounded to paired trace fixtures.' })),
+        } } },
+        n6_refinement_delta_critic: { mocked_output: null, codex_response: { operator_label: 't148-test-critic', output: {
+          schema_version: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1', role_slot: 'n6_refinement_delta_critic',
+          critic_findings: [{ finding_code: 'paired_scope', severity: 'note', field: 'metrics', statement: 'The metric does not establish live model quality.' }],
+        } } },
+        n6_refinement_delta_arbiter: { mocked_output: null, codex_response: { operator_label: 't148-test-arbiter', output: {
+          schema_version: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1', role_slot: 'n6_refinement_delta_arbiter',
+          decision: 'admit_unchanged', findings: [], summary: 'Keep the exact fixture refinement and its independent limitation.',
+        } } },
+      },
+    } } } });
+    assert.deepEqual(reviewed.steps.map((step) => step.node_id), [N7]);
+    const reviewedN7 = nodeResult(reviewed, N7);
+    assert.deepEqual(reviewedN7.authority_ref, refinedN7.authority_ref);
+    assert.equal(reviewedN7.hashes.authority_hash, refinedN7.hashes.authority_hash);
+    const reviewedCheckpoint = await researchCheckpoint(app, bundle.title_card_id, 'question_contract');
+    assert.notEqual(reviewedCheckpoint.research_checkpoint_id, refinedCheckpoint.research_checkpoint_id);
+    assert.equal((await packet(reviewedCheckpoint.research_checkpoint_id)).decision, null);
+    assert.deepEqual(await packet(refinedCheckpoint.research_checkpoint_id), frozenLoopbackPacket);
+    assert.ok((await humanView()).includes(independentRisk));
+    assert.equal((await humanView()).includes(trigger), false);
+    const afterDeltaArtifacts = await artifacts();
+    const deltaAdmissions = afterDeltaArtifacts.filter((artifact) =>
+      artifact.payload?.schema_version === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION);
+    assert.equal(deltaAdmissions.length, 1);
+    const noRepeat = await advance();
+    assert.equal(noRepeat.steps.length, 0);
+    assert.deepEqual(await artifacts(), afterDeltaArtifacts);
+
+    await advanceQuestionCheckpoint(app, bundle.title_card_id);
+    const finalInput = await v1bHarnessN8Request(app, reviewedN7, `${suffix}_refined`);
+    const finalValue = v1bHarnessN8ValueDraft(finalInput);
+    finalValue.hard_gates = finalValue.hard_gates.map((gate) => gate.gate_key === 'feasibility_sanity'
+      ? { ...gate, verdict: 'pass_with_risk', severity: 'warning', overridable_with_risk: true, rationale: independentRisk }
+      : gate);
+    const completed = await advance({ node_inputs: { [N8]: { draft_payload: finalValue as unknown as Record<string, unknown> } } });
+    assert.deepEqual(completed.steps.map((step) => step.node_id), [N8, N9, N10, N11]);
+    assert.equal(completed.run_state.run_complete, true);
+    assert.equal((await advance()).steps.length, 0);
+
+    const publication = nodeResult(completed, N11);
+    const snapshotResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-input-snapshots',
+      payload: { v1b_to_v1c_input_bundle_id: publication.authority_ref!.ref_id } });
+    assertStatus(snapshotResponse, 201);
+    const snapshot = snapshotResponse.json<TopicSelectionPromotionInputSnapshotRecord>();
+    assert.equal(snapshot.closure_status, 'ready_for_gate');
+    assert.deepEqual(snapshot.topic_question_contract_ref, reviewedN7.authority_ref);
+    assert.equal(snapshot.topic_package_ref.ref_id, nodeResult(completed, N10).authority_ref!.ref_id);
+    assert.ok(snapshot.package_snapshot.evaluation_plan.includes('paired replay success rate'));
+    assert.ok(snapshot.package_snapshot.title_candidates.length > 0);
+    assert.ok(snapshot.package_snapshot.title_candidates.every((title) => !/[?？]$/.test(title)));
+    const findings = snapshot.risk_finding_refs ?? [];
+    assert.ok(findings.length > 1, 'The actual N8/package lineage must carry material findings into promotion.');
+    const ordinary = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decision-support',
+      payload: { promotion_input_snapshot_id: snapshot.promotion_input_snapshot_id } });
+    assertStatus(ordinary, 409);
+    const ordinaryError = ordinary.json<{ error: { code: string; details: { blocker_code: string } } }>().error;
+    assert.equal(ordinaryError.code, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(ordinaryError.details.blocker_code, 'PROMOTION_SUPPORT_DEBATE_REQUIRED');
+
+    // Build advisory role input from the public snapshot; no package, risk or checkpoint is seeded here.
+    const outputs = promotionDebateRoleOutputs({ ...snapshot, closure_status: 'ready_for_gate', snapshot,
+      snapshot_hashes: { bundle_hash: snapshot.bundle_hash, package_snapshot_hash: snapshot.package_snapshot_hash,
+        package_draft_input_snapshot_hash: snapshot.package_draft_input_snapshot_hash,
+        promotion_input_snapshot_hash: snapshot.promotion_input_snapshot_hash },
+    });
+    const conditionRefs = uniqueRefs([...findings, ...snapshot.accepted_risk_refs, ...snapshot.memory_suggestion_refs, ...snapshot.recheck_request_refs]);
+    const groups: TopicSelectionPromotionConditionCandidate[] = [conditionRefs.slice(0, 1), conditionRefs.slice(1)].map((refs, index) => ({
+      condition_id: `verify_group_${index}`, condition_code: `verify_group_${index}`, refs,
+      required_action: { action_code: `verify_group_${index}`, severity: 'warning', loopback_target: 'none', refs,
+        reason: 'Verify the carried finding against the paired trace evidence.' },
+      early_check_obligations: ['Check the evidence boundary before relying on this result.'],
+    }));
+    const final = outputs['n2_bounded_micro_debate.synthesizer_final'];
+    final.condition_candidates = groups;
+    final.n3_semantic_layer = { ...final.n3_semantic_layer as Record<string, unknown>,
+      material_risk_acknowledgements: { status: 'addressed', risk_refs: findings } };
+    const supportPayload = { promotion_input_snapshot_id: snapshot.promotion_input_snapshot_id,
+      workflow_run_id: `promotion_${suffix}`, node_attempt_id: `promotion_debate_${suffix}`, debate_role_outputs: outputs };
+    const supportResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decision-support/bounded-debate', payload: supportPayload });
+    assertStatus(supportResponse, 201);
+    const support = supportResponse.json<TopicSelectionV1cPromotionDecisionSupportCreationResult>();
+    assert.deepEqual(support.promotion_dossier.dossier_payload.condition_candidates, groups);
+    const gateResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-gate-checks',
+      payload: { promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id } });
+    assertStatus(gateResponse, 201);
+    const { promotion_gate_check: gate } = gateResponse.json<TopicSelectionV1cPromotionGateCheckCreationResult>();
+    assert.equal(gate.disposition, 'ready_for_human_decision');
+    const decisions = async () => {
+      const response = await app.inject({ method: 'GET', url: `/topic-selection/v1c/title-cards/${bundle.title_card_id}/promotion-decisions` });
+      assertStatus(response, 200);
+      return response.json<{ items: unknown[] }>().items;
+    };
+    assert.deepEqual(await decisions(), []);
+    const decisionInput: RecordHumanPromotionDecisionInput = {
+      promotion_gate_check_id: gate.promotion_gate_check_id, decision: 'promote_with_conditions', human_actor: refinement.actor,
+      rationale: 'Test input: confirm exact findings with edited checks and assigned owners.',
+      confirmed_snapshot_hash: gate.promotion_input_snapshot_hash,
+      conditions: groups.map((group) => ({ ...group, owner: refinement.actor,
+        early_check_obligations: ['Human test edit: review these refs before the first paired replay.'] })),
+    };
+    const incomplete = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions',
+      payload: { ...decisionInput, conditions: decisionInput.conditions!.slice(1) } });
+    assertStatus(incomplete, 422);
+    assert.ok(incomplete.json<{ error: { details: { policy_issue_codes: string[] } } }>()
+      .error.details.policy_issue_codes.includes('UNMAPPED_PASS_WITH_RISK_FINDING'));
+    assert.deepEqual(await decisions(), []);
+    const decisionResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions', payload: decisionInput });
+    assertStatus(decisionResponse, 201);
+    const decision = decisionResponse.json<TopicSelectionV1cHumanPromotionDecisionCreationResult>();
+    assert.ok(decision.promotion_commitment_profile);
+    assert.deepEqual(decision.promotion_commitment_profile.conditions, decisionInput.conditions);
+    assert.equal((await decisions()).length, 1);
+    const replay = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions', payload: decisionInput });
+    assertStatus(replay, 201);
+    assert.deepEqual(replay.json(), decision);
+    const supportReplay = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decision-support/bounded-debate', payload: supportPayload });
+    assertStatus(supportReplay, 201);
+    assert.deepEqual(supportReplay.json(), support);
+    assert.deepEqual(await packet(refinedCheckpoint.research_checkpoint_id), frozenLoopbackPacket);
+    assert.equal(gateway.calls.length, 1, 'Downstream work and replay must not add a provider invocation.');
   } finally {
     await app.close();
   }
