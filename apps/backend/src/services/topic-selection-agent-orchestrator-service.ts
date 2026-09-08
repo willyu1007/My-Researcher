@@ -1008,7 +1008,6 @@ export class TopicSelectionAgentOrchestratorService {
       promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
       promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
       codexCli: {
-        model_id: this.codexCliModelId,
         runner_version: outcome.runner_version,
         thread_id: outcome.thread_id,
         trace_artifact_ref: trace.ref,
@@ -1552,7 +1551,6 @@ export class TopicSelectionAgentOrchestratorService {
       promptPacketCacheResultRef?: TopicSelectionFunctionalRef | null;
       promptPacketCacheResultHash?: string | null;
       codexCli?: {
-        model_id: string;
         runner_version: string;
         thread_id: string | null;
         trace_artifact_ref: TopicSelectionFunctionalRef;
@@ -1615,13 +1613,16 @@ export class TopicSelectionAgentOrchestratorService {
           fixture_hash: input.mocked_output.fixture_hash?.trim() || mockResponseHash,
           mock_profile: input.mocked_output.mock_profile ?? null,
         } : {}),
-        ...(sourceKind === 'codex_cli_response' && options.codexCli ? {
+        ...(sourceKind === 'codex_cli_response' ? {
+          // Identity is known before any run; the run fields exist only if a run happened.
           provider_id: 'codex',
-          model_id: options.codexCli.model_id,
-          runner_version: options.codexCli.runner_version,
-          thread_id: options.codexCli.thread_id,
-          trace_artifact_ref: options.codexCli.trace_artifact_ref,
-          trace_artifact_hash: options.codexCli.trace_artifact_hash,
+          model_id: this.codexCliModelId,
+          ...(options.codexCli ? {
+            runner_version: options.codexCli.runner_version,
+            thread_id: options.codexCli.thread_id,
+            trace_artifact_ref: options.codexCli.trace_artifact_ref,
+            trace_artifact_hash: options.codexCli.trace_artifact_hash,
+          } : {}),
         } : {}),
         ...(sourceKind === 'codex_response' && input.codex_response ? {
           operator_label: input.codex_response.operator_label,
@@ -2045,6 +2046,9 @@ export class TopicSelectionAgentOrchestratorService {
     if (input.execution_mode === 'codex_assisted') {
       return 'codex_response';
     }
+    if (input.execution_mode === 'codex_cli') {
+      return 'codex_cli_response';
+    }
     return 'provider_response';
   }
 
@@ -2059,6 +2063,11 @@ export class TopicSelectionAgentOrchestratorService {
     }
     if (input.execution_mode === 'codex_assisted' && !input.codex_response) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'codex_response is required for codex_assisted.');
+    }
+    // Checked here, before any gate can block, so that a pre-run block on this line can always
+    // record the model identity the schema requires of it.
+    if (input.execution_mode === 'codex_cli' && (!this.codexCliRunner || !this.codexCliModelId)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The codex_cli execution line is not configured in this deployment.');
     }
   }
 

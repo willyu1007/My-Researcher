@@ -129,7 +129,8 @@
   1. The server core on revision `2026-07-28`, served over HTTP by the backend: `server/discover`,
      per-request version and capabilities in `_meta`, no session state, plus the origin health
      endpoint Codex requires.
-  0. Teach the runner's generated config the `url` server form alongside the existing command form.
+  0. Teach the runner the `url` server form alongside the command form, as `-c` overrides rather
+     than a generated config file.
   2. The compatibility shim: accept the `initialize` handshake, translate the request envelope, and
      dispatch into the same tool implementations.
   3. Two research-role tools — a discriminating index and a batch fetch — where the index carries

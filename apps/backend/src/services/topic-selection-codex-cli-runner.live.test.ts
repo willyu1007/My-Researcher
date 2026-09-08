@@ -9,8 +9,8 @@
 //   export TOPIC_SELECTION_CODEX_HOME=~/.codex-my-researcher
 //   export TOPIC_SELECTION_CODEX_MODEL=gpt-6-astra
 //
-// The runner regenerates config.toml in that directory at every invocation; auth.json is the
-// operator's and is never touched.
+// The runner never writes into that directory: everything per-invocation travels as `-c`
+// overrides, and auth.json stays the operator's.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

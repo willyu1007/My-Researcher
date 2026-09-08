@@ -151,7 +151,9 @@ environment under stdio, or carried as a per-attempt token under Streamable HTTP
   `approval_policy = { granular = { sandbox_approval = false, rules = false, mcp_elicitations = false } }`
   and `mcp_servers.<name>.default_tools_approval_mode = "approve"`. The sandbox stays `read-only`
   and no `codex-auto-review` call is added. The working value is `approve`; `auto` was observed to
-  fail, so do not infer the mode from its name.
+  fail, so do not infer the mode from its name. Both travel as per-invocation `-c` overrides — a
+  run never writes into the product home, so concurrent runs cannot overwrite each other's
+  configuration and the home stays the operator's, holding only the credential.
 - **Cost**: every invocation carries roughly 17K tokens of Codex scaffolding before any content.
   Prompt caching was observed only *within* a turn, never across separate invocations. Even with a
   perfectly selective agent and batched reads, the line cost about 2.5x the equivalent bundle-fed

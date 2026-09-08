@@ -421,15 +421,16 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
         required: ['source_kind'],
       },
       then: {
-        required: ['provider_id', 'model_id', 'runner_version', 'trace_artifact_ref'],
+        // Identity is known before any run; the run fields (runner_version, thread_id, trace) exist
+        // only when a run happened. An invocation blocked by a pre-run gate legitimately has none,
+        // so they stay optional here and the success path is what always sets them.
+        required: ['provider_id', 'model_id'],
         properties: {
           // `non_provider` means "not the provider_llm gateway path", which this line is not,
           // even though the product did run a live model through the Codex CLI.
           non_provider: { const: true },
           provider_id: { const: 'codex' },
           model_id: stringId,
-          runner_version: stringId,
-          trace_artifact_ref: topicSelectionFunctionalRefSchema,
           model_option_id: { const: null },
           normalized_params_hash: { const: null },
         },

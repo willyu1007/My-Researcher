@@ -228,6 +228,25 @@ default `CODEX_HOME` with `--ignore-user-config`, which skips the config but kee
 The practical consequence is good news for sequencing: the tool surface can be built and verified
 end to end without provisioning any credential. Only the model call needs one.
 
+## 9. Per-invocation configuration as `-c` overrides, and two process-lifecycle facts
+
+Everything a run needs can be passed as `-c` overrides — the granular approval policy, the
+per-server `approve` mode, and the server itself in either form, including
+`mcp_servers.<name>.url="…"` — confirmed live on 2026-09-09 with the product tool surface reached
+over HTTP. No `config.toml` is needed, so a run never has to write into the product home. The
+earlier finding that `-c` could not express the granular policy was only ever about its three
+required fields; with all three supplied it works.
+
+Two facts about driving the CLI from Node that a cross-model review surfaced and a real-subprocess
+test now pins:
+
+- A prompt larger than the pipe buffer, written to a child that exits before reading it, raises
+  `EPIPE` on the child's stdin. With no error listener on that stream this is an uncaught
+  exception in the parent process, not a failed invocation.
+- Sending `SIGTERM` on timeout and then waiting for `close` can wait forever: the child may ignore
+  the signal, or a descendant may keep the stdout pipe open. The timeout has to settle the caller
+  itself, signal the process group rather than the one pid, and escalate to `SIGKILL`.
+
 ## Reproduction
 
 The probe MCP server was ~110 lines of dependency-free Node implementing JSON-RPC over stdio

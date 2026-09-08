@@ -90,11 +90,20 @@ export class TopicSelectionMcpScopeStore {
     return this.scopes.get(handle) ?? null;
   }
 
-  /** Called only after a handler succeeds, so a refused call never spends budget. */
+  /** Reserved before the handler runs and refunded if it throws. Charging afterwards would let two
+   *  concurrent calls both pass the same check and both be served. A refused call never reaches
+   *  here, so it spends nothing. */
   charge(handle: string, reads: number): void {
     const scope = this.scopes.get(handle);
     if (scope) {
       scope.reads_used += reads;
+    }
+  }
+
+  refund(handle: string, reads: number): void {
+    const scope = this.scopes.get(handle);
+    if (scope) {
+      scope.reads_used = Math.max(0, scope.reads_used - reads);
     }
   }
 
@@ -156,8 +165,16 @@ export class TopicSelectionMcpToolSurfaceService {
       );
     }
 
-    const text = await handler.run(args, { ...scope });
+    // Reserve before awaiting anything, or two concurrent calls that both passed the check above
+    // would both be served against a budget that only covers one of them.
     this.scopes.charge(handle, reads);
+    let text: string;
+    try {
+      text = await handler.run(args, { ...scope });
+    } catch (error) {
+      this.scopes.refund(handle, reads);
+      throw error;
+    }
     return { status: 'ok', text, reads_charged: reads };
   }
 }

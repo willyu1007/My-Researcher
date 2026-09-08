@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -1322,7 +1322,7 @@ function registryOpeningCodexCli(): TopicSelectionModelProfileRegistryService {
   for (const profile of registry.profiles) {
     if (profile.profile_id === TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID) {
       profile.allowed_execution_modes = [...profile.allowed_execution_modes, 'codex_cli'];
-      profile.run_mode_eligibility.codex_cli = ['acceptance'];
+      profile.run_mode_eligibility.codex_cli = ['acceptance', 'product'];
     }
   }
   return new TopicSelectionModelProfileRegistryService({ registry });
@@ -1378,17 +1378,17 @@ const MCP_EVIDENCE: TopicSelectionMcpEvidenceUnit[] = [
 /** Captures what the runner was actually told, which is where the handle has to show up. */
 function capturingCodexRunner(): {
   runner: TopicSelectionCodexCliRunnerService;
-  seen: { prompt: string; config: string }[];
+  seen: { prompt: string; argv: string }[];
 } {
   const home = mkdtempSync(join(tmpdir(), 'orchestrator-mcp-'));
-  const seen: { prompt: string; config: string }[] = [];
+  const seen: { prompt: string; argv: string }[] = [];
   const runner = new TopicSelectionCodexCliRunnerService(
     { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' },
     async (args, opts) => {
       if (args[0] === '--version') {
         return { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false };
       }
-      seen.push({ prompt: opts.stdin, config: readFileSync(join(home, 'config.toml'), 'utf8') });
+      seen.push({ prompt: opts.stdin, argv: args.join(' ') });
       return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
     },
   );
@@ -1417,8 +1417,8 @@ void test('a codex_cli attempt gets a handle that is offered to the model and di
   assert.equal(seen.length, 1);
   // The product authors the handle into its own prompt; without it the model reaches no tool.
   assert.match(seen[0]!.prompt, /handle_under_test/);
-  assert.match(seen[0]!.config, /url = "http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
-  assert.match(seen[0]!.config, /default_tools_approval_mode = "approve"/);
+  assert.match(seen[0]!.argv, /mcp_servers\.research\.url="http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
+  assert.match(seen[0]!.argv, /mcp_servers\.research\.default_tools_approval_mode="approve"/);
   // Released with the attempt: a handle that outlived it would be an unaudited way back in.
   assert.equal(scopes.resolve('handle_under_test'), null);
 });
@@ -1441,5 +1441,36 @@ void test('a codex_cli attempt without evidence runs toolless rather than half-c
 
   assert.equal(result.status, 'succeeded');
   assert.doesNotMatch(seen[0]!.prompt, /handle/);
-  assert.doesNotMatch(seen[0]!.config, /mcp_servers/);
+  assert.doesNotMatch(seen[0]!.argv, /mcp_servers/);
+});
+
+void test('a codex_cli invocation blocked before it runs keeps its identity and reports the blocker', async () => {
+  const { runner, seen } = capturingCodexRunner();
+  const { orchestrator } = makeOrchestrator({
+    modelProfileRegistry: registryOpeningCodexCli(),
+    codexCliRunner: runner,
+    codexCliModelId: 'gpt-6-astra',
+  });
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'codex_cli',
+    run_mode: 'product',
+    messages: [
+      { role: 'system', content: 'Return JSON only.' },
+      { role: 'user', content: 'raw_provider_log includes api_key=local-secret and must be blocked.' },
+    ],
+    runtime_token_budget: runtimeTokenBudgetInput({ estimated_input_tokens_override: 1000 }),
+  });
+
+  // Blocked by the prompt-quality gate before any run: the blocker is reported, not swallowed by an
+  // audit-schema failure, and the provenance is honest about there having been no run.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.error_code, 'PROMPT_QUALITY_GATE_BLOCKED');
+  assert.equal(result.provenance.source_kind, 'codex_cli_response');
+  assert.equal(result.provenance.provider_id, 'codex');
+  assert.equal(result.provenance.model_id, 'gpt-6-astra');
+  assert.equal(result.provenance.trace_artifact_ref ?? null, null);
+  assert.equal(result.provenance.runner_version ?? null, null);
+  assert.equal(seen.length, 0);
 });

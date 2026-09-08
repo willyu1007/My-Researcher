@@ -2,15 +2,17 @@
 // without a Codex installation and without credentials; a live check is a later phase.
 
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
   TopicSelectionCodexCliRunnerService,
+  buildCodexConfigOverrides,
   createTopicSelectionCodexCliRunnerFromEnv,
-  buildCodexConfigToml,
+  defaultCodexCliSpawn,
   parseCodexEventStream,
   type TopicSelectionCodexCliSpawn,
   type TopicSelectionCodexCliSpawnResult,
@@ -74,24 +76,24 @@ async function makeRunner(result?: Partial<TopicSelectionCodexCliSpawnResult>) {
   return { runner, calls, home };
 }
 
-void test('codex_cli runner grants only its own MCP servers and keeps the sandbox read-only', () => {
-  const toml = buildCodexConfigToml([
-    { name: 'research', command: 'node', args: ['/srv/research.mjs'], env: { ATTEMPT: 'a1' } },
-  ]);
+void test('codex_cli runner grants only its own MCP servers, as overrides rather than a config file', () => {
+  const overrides = buildCodexConfigOverrides([
+    { name: 'research', url: 'http://127.0.0.1:3000/topic-selection/mcp' },
+    { name: 'local', command: 'node', args: ['/srv/local.mjs'], env: { ATTEMPT: 'a1' } },
+  ]).join(' ');
 
   // The empirically verified shape: `approve`, not `auto`, is what lets a tool call through.
-  assert.match(toml, /default_tools_approval_mode = "approve"/);
-  assert.match(toml, /approval_policy = \{ granular = \{ sandbox_approval = false, rules = false, mcp_elicitations = false \} \}/);
-  assert.match(toml, /sandbox_mode = "read-only"/);
-  assert.match(toml, /\[mcp_servers\.research\]/);
-  assert.match(toml, /ATTEMPT = "a1"/);
-  assert.doesNotMatch(toml, /"auto"/);
+  assert.match(overrides, /approval_policy=\{granular=\{sandbox_approval=false,rules=false,mcp_elicitations=false\}\}/);
+  assert.match(overrides, /mcp_servers\.research\.url="http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
+  assert.match(overrides, /mcp_servers\.research\.default_tools_approval_mode="approve"/);
+  assert.match(overrides, /mcp_servers\.local\.command="node"/);
+  assert.match(overrides, /mcp_servers\.local\.args=\["\/srv\/local\.mjs"\]/);
+  assert.match(overrides, /mcp_servers\.local\.env=\{ATTEMPT="a1"\}/);
+  assert.doesNotMatch(overrides, /"auto"/);
 
-  // The product's own surface is served over HTTP, not spawned.
-  const served = buildCodexConfigToml([{ name: 'research', url: 'http://127.0.0.1:3000/topic-selection/mcp' }]);
-  assert.match(served, /url = "http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
-  assert.match(served, /default_tools_approval_mode = "approve"/);
-  assert.doesNotMatch(served, /command =/);
+  // Names become dotted TOML keys, so anything that is not a bare key is refused up front.
+  assert.throws(() => buildCodexConfigOverrides([{ name: 'bad.name]', url: 'http://x' }]), /bare TOML key/);
+  assert.throws(() => buildCodexConfigOverrides([{ name: 'ok', command: 'node', args: [], env: { 'A B': 'x' } }]), /bare TOML key/);
 });
 
 void test('codex_cli runner pins one fresh thread per attempt and never resumes or forks', async () => {
@@ -110,8 +112,10 @@ void test('codex_cli runner pins one fresh thread per attempt and never resumes 
     assert.ok(!call.args.includes('fork'));
     // The prompt travels on stdin, never as an argv element.
     assert.ok(call.args.includes('-'));
+    assert.ok(call.args.includes('read-only'));
     assert.equal(call.env.CODEX_HOME, home);
-    assert.equal(call.cwd, home);
+    // Runs work in their own scratch directory; the home is never a working directory.
+    assert.notEqual(call.cwd, home);
   }
   assert.equal(calls[0]!.stdin, 'first');
   assert.equal(calls[1]!.stdin, 'second');
@@ -127,18 +131,20 @@ void test('codex_cli runner isolates the invocation from the developer environme
   assert.equal(env.CODEX_HOME, home);
   assert.notEqual(env.CODEX_HOME, process.env.HOME);
 
-  const written = await readFile(path.join(home, 'config.toml'), 'utf8');
-  assert.match(written, /sandbox_mode = "read-only"/);
+  // The home holds the credential; a run never writes into it. Everything per-invocation travels
+  // as -c overrides, so two concurrent runs cannot overwrite each other's configuration.
+  assert.deepEqual(await readdir(home), []);
 });
 
 void test('codex_cli runner leaves no per-invocation schema files behind', async () => {
-  const { runner, home } = await makeRunner();
+  const { runner, calls, home } = await makeRunner();
   await runner.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_1' });
   await runner.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_2' });
 
-  // The product home is long-lived; one file per invocation would accumulate there forever.
-  const left = (await readdir(home)).filter((entry) => entry.startsWith('output-schema-'));
-  assert.deepEqual(left, []);
+  // The product home is long-lived and never written; the per-run scratch directory is gone.
+  assert.deepEqual(await readdir(home), []);
+  assert.ok(!existsSync(calls[0]!.cwd));
+  assert.ok(!existsSync(calls[1]!.cwd));
 });
 
 void test('codex_cli runner returns the artifact, the usage and the trace on success', async () => {
@@ -204,4 +210,33 @@ void test('codex_cli deployment config stays unavailable rather than half-config
     TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
     TOPIC_SELECTION_CODEX_TIMEOUT_MS: '0',
   }), /TIMEOUT_MS/);
+});
+
+// The two process-lifecycle guarantees can only be established against a real subprocess.
+const realEnv = { PATH: process.env.PATH ?? '', CODEX_CLI_BINARY: process.execPath };
+
+void test('a child that exits before reading its prompt is a failed result, not a crash', async () => {
+  // Node's own pattern for this is an EPIPE on stdin; unhandled, it takes the backend down.
+  const result = await defaultCodexCliSpawn(['-e', 'process.exit(3)'], {
+    cwd: tmpdir(),
+    env: realEnv,
+    stdin: 'x'.repeat(1 << 20),
+    timeoutMs: 10_000,
+  });
+  assert.equal(result.exit_code, 3);
+  assert.equal(result.timed_out, false);
+});
+
+void test('a timeout settles even when the child never exits, so the caller can release its handle', async () => {
+  const started = Date.now();
+  const result = await defaultCodexCliSpawn(['-e', 'setTimeout(() => {}, 60_000)'], {
+    cwd: tmpdir(),
+    env: realEnv,
+    stdin: '',
+    timeoutMs: 300,
+  });
+  assert.equal(result.timed_out, true);
+  assert.equal(result.exit_code, null);
+  // Settled on the timer, not on the child's eventual close.
+  assert.ok(Date.now() - started < 5_000);
 });

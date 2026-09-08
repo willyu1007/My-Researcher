@@ -32,7 +32,13 @@ function surface(): {
       scope_id: RESEARCH,
       definition: { name: 'read_evidence', description: 'fetch', inputSchema: { type: 'object' } },
       reads: (args) => (Array.isArray(args.ids) ? args.ids.length : 0),
-      run: async (args) => { calls.push('read_evidence'); return `read ${String((args.ids as string[]).length)}`; },
+      run: async (args) => {
+        calls.push('read_evidence');
+        if ((args.ids as string[]).includes('BOOM')) {
+          throw new Error('handler exploded');
+        }
+        return `read ${String((args.ids as string[]).length)}`;
+      },
     },
     {
       scope_id: ORCHESTRATION,
@@ -198,4 +204,28 @@ void test('an empty bundle says so rather than rendering an empty table', async 
   assert.equal(listed.status, 'ok');
   if (listed.status !== 'ok') { return; }
   assert.match(listed.text, /No evidence units are available/);
+});
+
+void test('concurrent calls cannot both be served against a budget that covers only one', async () => {
+  const { service, scopes } = surface();
+  const scope = researchScope(scopes, 1);
+
+  // Both calls pass the remaining-budget check before either handler runs; the reservation is
+  // what turns that into exactly one served read.
+  const results = await Promise.all([
+    service.call('read_evidence', { handle: scope.handle, ids: ['A'] }),
+    service.call('read_evidence', { handle: scope.handle, ids: ['B'] }),
+  ]);
+  assert.deepEqual(results.map((result) => result.status).sort(), ['ok', 'refused']);
+  assert.equal(scopes.resolve(scope.handle)?.reads_used, 1);
+});
+
+void test('a handler that throws refunds its reservation', async () => {
+  const { service, scopes } = surface();
+  const scope = researchScope(scopes, 2);
+
+  await assert.rejects(service.call('read_evidence', { handle: scope.handle, ids: ['BOOM'] }), /exploded/);
+  assert.equal(scopes.resolve(scope.handle)?.reads_used, 0);
+  // The budget is still fully available afterwards.
+  assert.equal((await service.call('read_evidence', { handle: scope.handle, ids: ['A', 'B'] })).status, 'ok');
 });
