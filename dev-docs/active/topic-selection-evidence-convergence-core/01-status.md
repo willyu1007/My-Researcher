@@ -5,8 +5,8 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: done
-- Current phase: Phase 3 completed; Arena database-constraint repair and disposable PostgreSQL verification passed on 2026-09-07
-- Next step: Deploy the verified Arena constraint migration only to an explicitly selected target before persisted use; keep adoption by another Debate scenario separately authorized.
+- Current phase: Phase 3 completed; disposable PostgreSQL verification passed; the selected local dev schema was synchronized on 2026-09-08
+- Next step: No further T-150 implementation is required. The selected local my_researcher_dev schema is current; keep migration to other environments, live provider canaries and adoption by another Debate scenario separately scoped.
 - Blocker: none.
 
 ## Phase 1 checkpoint

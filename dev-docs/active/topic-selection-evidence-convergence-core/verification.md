@@ -1,5 +1,12 @@
 # Verification
 
+## Selected local development schema synchronization — 2026-09-08
+
+- T-148 Phase 4 recovered the normal local backend and reproduced `P2022` on `TopicSelectionEvidenceMap.predecessorEvidenceMapId` through the canonical evidence-map HTTP read. Prisma status identified exactly the convergence-contract and Arena-state migrations as pending.
+- After SQL review, existing `pnpm db:dev:migrate` applied `20260903090000_add_topic_selection_evidence_convergence_contracts` and `20260907100843_align_arena_execution_state_constraints` to PostgreSQL `127.0.0.1:5432`, database `postgres`, schema `my_researcher_dev`. Migration status now reports all **82 migrations current**. No migration file, table reset or runtime workaround was introduced.
+- The original HTTP read returned 200 after synchronization, nine source units were readable, and two historical checkpoint packets plus the promotion support, dossier and decision bundle remained equal after JSON parsing. The bounded T-148 fresh evidence materialization also passed. Evidence is linked in [the Phase 4 observation bundle](../topic-selection-real-flow-findings/artifacts/phase4-local-reread-2026-09-08.json), committed with `c339fc17`.
+- This records deployment to that local schema only. It adds no live provider, new scenario adoption, normal-database concurrency experiment, or stronger crash-recovery claim. The prior disposable PostgreSQL verification remains the evidence for those tested relational seams. T-150 remains done at its existing bounded scope.
+
 ## Supplemental disposable PostgreSQL verification — 2026-09-07
 
 - The user approved direct bounded verification without a separate task package. The uncommitted T-151 draft and its registry/generated projections were withdrawn through governance prune; no new task or scenario adoption is required for this check.

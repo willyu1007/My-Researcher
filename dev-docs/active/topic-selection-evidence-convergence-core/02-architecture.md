@@ -75,7 +75,9 @@ states to those constraints. Both retain the current Arena key; executing record
 fields, and blocked records carry a termination reason with either a complete transcript ref/hash pair
 or neither, without a synthesis timestamp. The original synthesized/superseded invariants remain.
 This migration must be deployed to a target database before using the persisted claim/blocked paths;
-the supplemental verification applied it only to disposable databases.
+the 2026-09-07 relational verification used disposable databases. The selected local development
+database `postgres`, schema `my_researcher_dev`, at `127.0.0.1:5432` was synchronized on 2026-09-08.
+This does not establish deployment to any other environment.
 
 The pilot is an additive composition of the canonical runtime services rather than a new aggregate authority or public orchestration endpoint. It creates a new SearchRun, successor EvidenceMap, linked Debate round, and fresh evidence checkpoint instead of mutating a frozen downstream bundle. Coordinator output carries orchestration-step, elapsed-time, and query-embedding-cost accounting into the linked round; equivalent durable retrieval reuse adds no retrieval cost. T-148 owns the typed required-coverage issue and Human acceptance contract consumed here; T-150 does not duplicate it. Existing SearchPlans, SearchRuns, EvidenceMaps, Debate artifacts, and Human decisions remain readable. A rollback disables the pilot coordinator while retaining its durable support artifacts; it never deletes a map or decision.
 
