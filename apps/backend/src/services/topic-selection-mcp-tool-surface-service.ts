@@ -19,6 +19,16 @@ export interface TopicSelectionMcpToolDefinition {
   inputSchema: Record<string, unknown>;
 }
 
+/** One unit of the attempt's frozen evidence bundle. `index_fields` is what the index tool exposes,
+ *  and choosing it is the whole design problem: a probe showed that an index carrying no
+ *  discriminating signal makes an agent read the entire corpus one unit at a time, which cost four
+ *  times as much and took twenty times as long as answering from a stuffed prompt. */
+export interface TopicSelectionMcpEvidenceUnit {
+  id: string;
+  index_fields: Record<string, string | number | boolean | null>;
+  body: string;
+}
+
 export interface TopicSelectionMcpScope {
   handle: string;
   invocation_attempt_id: string;
@@ -27,6 +37,9 @@ export interface TopicSelectionMcpScope {
    *  handle, which is what keeps a workflow input from gaining the power to advance the workflow. */
   scope_id: string;
   read_budget: number;
+  /** The attempt's frozen bundle travels with the handle, so a handle can only ever reach the
+   *  evidence its own attempt was authorised to see. */
+  evidence: readonly TopicSelectionMcpEvidenceUnit[];
 }
 
 export interface TopicSelectionMcpMintScopeInput {
@@ -34,6 +47,7 @@ export interface TopicSelectionMcpMintScopeInput {
   workflow_run_id: string;
   scope_id: string;
   read_budget: number;
+  evidence: readonly TopicSelectionMcpEvidenceUnit[];
 }
 
 export const TOPIC_SELECTION_MCP_REFUSALS = [
@@ -145,4 +159,66 @@ export class TopicSelectionMcpToolSurfaceService {
 
 function refuse(refusal: TopicSelectionMcpRefusal, text: string): TopicSelectionMcpToolResult {
   return { status: 'refused', refusal, text };
+}
+
+export const TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE = 'research_role';
+
+/** The two tools a research role needs, and no more. The index is free so the agent can look before
+ *  it chooses; the fetch is batched and charged, so selecting well is cheaper than enumerating. */
+export function createTopicSelectionResearchRoleTools(): TopicSelectionMcpToolHandler[] {
+  return [
+    {
+      scope_id: TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
+      definition: {
+        name: 'list_evidence',
+        description:
+          'Index of every evidence unit available for this task, with the fields that distinguish '
+          + 'them. Free to call. Use it to decide which units are worth reading in full.',
+        inputSchema: {
+          type: 'object',
+          required: ['handle'],
+          additionalProperties: false,
+          properties: { handle: { type: 'string', description: 'The handle supplied with this task.' } },
+        },
+      },
+      reads: () => 0,
+      run: async (_args, scope) => {
+        if (scope.evidence.length === 0) {
+          return 'No evidence units are available for this task.';
+        }
+        const columns = ['id', ...Object.keys(scope.evidence[0]!.index_fields)];
+        const rows = scope.evidence.map((unit) => [
+          unit.id,
+          ...columns.slice(1).map((column) => String(unit.index_fields[column] ?? '')),
+        ].join(' | '));
+        return [columns.join(' | '), ...rows].join('\n');
+      },
+    },
+    {
+      scope_id: TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
+      definition: {
+        name: 'read_evidence',
+        description:
+          'Read the full text of one or more evidence units. Pass every id you need in a single '
+          + 'call. Each unit counts against this task\'s read budget.',
+        inputSchema: {
+          type: 'object',
+          required: ['handle', 'ids'],
+          additionalProperties: false,
+          properties: {
+            handle: { type: 'string' },
+            ids: { type: 'array', items: { type: 'string' }, minItems: 1 },
+          },
+        },
+      },
+      reads: (args) => (Array.isArray(args.ids) ? args.ids.length : 0),
+      run: async (args, scope) => {
+        const ids = (args.ids as unknown[]).map((id) => String(id));
+        return ids
+          .map((id) => scope.evidence.find((unit) => unit.id === id)?.body
+            ?? `No evidence unit ${id} is available for this task.`)
+          .join('\n\n');
+      },
+    },
+  ];
 }

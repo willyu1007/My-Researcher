@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
   TopicSelectionMcpScopeStore,
+  createTopicSelectionResearchRoleTools,
   TopicSelectionMcpToolSurfaceService,
   type TopicSelectionMcpToolHandler,
 } from './topic-selection-mcp-tool-surface-service.js';
@@ -50,6 +52,7 @@ function researchScope(scopes: TopicSelectionMcpScopeStore, budget = 3) {
     workflow_run_id: 'run_1',
     scope_id: RESEARCH,
     read_budget: budget,
+  evidence: [],
   });
 }
 
@@ -133,4 +136,64 @@ void test('tool listing can be narrowed to one scope', () => {
   assert.deepEqual(service.listTools(RESEARCH).map((tool) => tool.name), ['list_evidence', 'read_evidence']);
   assert.deepEqual(service.listTools(ORCHESTRATION).map((tool) => tool.name), ['request_promotion']);
   assert.equal(service.listTools().length, 3);
+});
+
+function researchSurface(units: Array<{ id: string; index_fields: Record<string, string | number>; body: string }>, budget = 3) {
+  const scopes = new TopicSelectionMcpScopeStore(() => 'handle_research');
+  const service = new TopicSelectionMcpToolSurfaceService(createTopicSelectionResearchRoleTools(), scopes);
+  const scope = scopes.mint({
+    invocation_attempt_id: 'a1',
+    workflow_run_id: 'r1',
+    scope_id: TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
+    read_budget: budget,
+    evidence: units,
+  });
+  return { service, scope };
+}
+
+const UNITS = [
+  { id: 'EVIDENCE-001', index_fields: { followup_months: 3, n: 97 }, body: 'unit one body' },
+  { id: 'EVIDENCE-002', index_fields: { followup_months: 24, n: 104 }, body: 'unit two body' },
+];
+
+void test('the index exposes the fields that let an agent choose, and costs nothing', async () => {
+  const { service, scope } = researchSurface(UNITS, 1);
+
+  const listed = await service.call('list_evidence', { handle: scope.handle });
+  assert.equal(listed.status, 'ok');
+  if (listed.status !== 'ok') { return; }
+  assert.equal(listed.reads_charged, 0);
+  assert.equal(listed.text.split('\n')[0], 'id | followup_months | n');
+  assert.match(listed.text, /EVIDENCE-002 \| 24 \| 104/);
+  // Bodies stay out of the index; reading is what costs.
+  assert.doesNotMatch(listed.text, /unit two body/);
+});
+
+void test('a batched read returns the bodies and charges one read per unit', async () => {
+  const { service, scope } = researchSurface(UNITS, 2);
+
+  const read = await service.call('read_evidence', { handle: scope.handle, ids: ['EVIDENCE-002', 'EVIDENCE-001'] });
+  assert.equal(read.status, 'ok');
+  if (read.status !== 'ok') { return; }
+  assert.equal(read.reads_charged, 2);
+  assert.match(read.text, /unit two body/);
+  assert.match(read.text, /unit one body/);
+});
+
+void test('a unit outside the attempt is reported as unavailable, not leaked', async () => {
+  const { service, scope } = researchSurface(UNITS);
+
+  const read = await service.call('read_evidence', { handle: scope.handle, ids: ['EVIDENCE-999'] });
+  assert.equal(read.status, 'ok');
+  if (read.status !== 'ok') { return; }
+  // The bundle travels with the handle, so another attempt's evidence is not reachable at all.
+  assert.match(read.text, /No evidence unit EVIDENCE-999 is available for this task/);
+});
+
+void test('an empty bundle says so rather than rendering an empty table', async () => {
+  const { service, scope } = researchSurface([]);
+  const listed = await service.call('list_evidence', { handle: scope.handle });
+  assert.equal(listed.status, 'ok');
+  if (listed.status !== 'ok') { return; }
+  assert.match(listed.text, /No evidence units are available/);
 });
