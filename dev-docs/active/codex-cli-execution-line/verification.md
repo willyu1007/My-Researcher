@@ -25,6 +25,8 @@
 | Phase 2: a tool behaves identically natively and through the shim. | Same call with and without the native `_meta` protocol version. | passed (2026-09-08) | Content and error flag identical; only the envelope differs, `resultType` present natively and absent on the shimmed path. |
 | Phase 2: a research handle cannot reach a workflow-advancing tool. | Call an orchestration-scoped tool with a research handle. | passed (2026-09-08) | Refused as `SCOPE_MISMATCH` before the handler runs, so the tool never observes the attempt. |
 
+| Phase 2: a handle cannot outlive its attempt. | Run a codex_cli invocation with evidence and assert the handle is authored into the prompt, offered as a url server, and gone afterwards. | passed (2026-09-08) | The handle appears in the prompt and the generated config's url server; resolving it after the attempt returns null. An attempt with no evidence runs toolless: no handle in the prompt and no mcp_servers in the config. |
+
 ## Outstanding verification
 
 - None for Phase 1. The live smoke stays gated on `TOPIC_SELECTION_CODEX_HOME` and

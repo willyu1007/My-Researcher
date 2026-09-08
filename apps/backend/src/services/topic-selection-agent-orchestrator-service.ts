@@ -41,9 +41,15 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
+  TopicSelectionCodexCliMcpServer,
   TopicSelectionCodexCliRunOutcome,
   TopicSelectionCodexCliRunnerService,
 } from './topic-selection-codex-cli-runner-service.js';
+import {
+  TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
+  type TopicSelectionMcpEvidenceUnit,
+  type TopicSelectionMcpScopeStore,
+} from './topic-selection-mcp-tool-surface-service.js';
 import {
   BackendLlmGateway,
   LlmGatewayError,
@@ -181,6 +187,12 @@ export type TopicSelectionAgentInvocationRequest<T> = {
   debate_extension?: TopicSelectionAgentDebateExtension | null;
   mocked_output?: TopicSelectionMockedAgentOutput<T> | null;
   codex_response?: TopicSelectionCodexAssistedAgentOutput<T> | null;
+  /** codex_cli line: the attempt's frozen evidence, offered through the product's tool surface
+   *  instead of stuffed into the prompt. Absent means the line runs without tools. */
+  mcp_evidence?: readonly TopicSelectionMcpEvidenceUnit[] | null;
+  /** How many units this attempt may read. The product's MCP server enforces it, because an agentic
+   *  loop cannot be estimated ahead of time. */
+  mcp_read_budget?: number | null;
   created_by?: 'human' | 'llm' | 'system' | 'hybrid';
 };
 
@@ -249,10 +261,15 @@ export class TopicSelectionAgentOrchestratorService {
     promptPacketCache?: TopicSelectionPromptPacketCacheService | null;
     codexCliRunner?: TopicSelectionCodexCliRunnerService | null;
     codexCliModelId?: string | null;
+    mcpScopeStore?: TopicSelectionMcpScopeStore | null;
+    /** Where the product serves its tool surface. Absent means the line runs without tools. */
+    mcpEndpointUrl?: string | null;
     now?: () => string;
   } = {}) {
     this.codexCliRunner = options.codexCliRunner ?? null;
     this.codexCliModelId = options.codexCliModelId ?? null;
+    this.mcpScopeStore = options.mcpScopeStore ?? null;
+    this.mcpEndpointUrl = options.mcpEndpointUrl ?? null;
     this.llmGateway = options.llmGateway ?? new BackendLlmGateway();
     this.controlPlane = options.controlPlane ?? null;
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -270,6 +287,10 @@ export class TopicSelectionAgentOrchestratorService {
   private readonly codexCliRunner: TopicSelectionCodexCliRunnerService | null;
 
   private readonly codexCliModelId: string | null;
+
+  private readonly mcpScopeStore: TopicSelectionMcpScopeStore | null;
+
+  private readonly mcpEndpointUrl: string | null;
 
   async invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
@@ -953,11 +974,22 @@ export class TopicSelectionAgentOrchestratorService {
       throw new AppError(500, 'INTERNAL_ERROR', 'The codex_cli line requires a control plane to persist its trace.');
     }
 
-    const outcome = await this.codexCliRunner.run({
-      prompt: this.codexPromptText(input),
-      output_schema: this.providerCompatibleSchema(input.schema) as unknown as Record<string, unknown>,
-      invocation_attempt_id: invocationAttemptId,
-    });
+    // The handle is minted for this attempt and released with it: one that outlived the attempt
+    // would be a second, unaudited way into the product's data.
+    const scope = this.mintCodexCliScope(input, invocationAttemptId);
+    let outcome: TopicSelectionCodexCliRunOutcome;
+    try {
+      outcome = await this.codexCliRunner.run({
+        prompt: this.codexPromptText(input, scope?.handle ?? null),
+        output_schema: this.providerCompatibleSchema(input.schema) as unknown as Record<string, unknown>,
+        invocation_attempt_id: invocationAttemptId,
+        mcp_servers: this.codexCliMcpServers(scope !== null),
+      });
+    } finally {
+      if (scope) {
+        this.mcpScopeStore?.release(scope.handle);
+      }
+    }
     const trace = await this.recordCodexCliTrace(input, invocationAttemptId, outcome);
     const packetOptions = {
       promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
@@ -1036,10 +1068,40 @@ export class TopicSelectionAgentOrchestratorService {
 
   /** The CLI takes one prompt on stdin, so the packet's messages are flattened with their roles
    *  kept legible. */
-  private codexPromptText<T>(input: TopicSelectionAgentInvocationRequest<T>): string {
-    return input.messages
+  private codexPromptText<T>(input: TopicSelectionAgentInvocationRequest<T>, handle: string | null): string {
+    const body = input.messages
       .map((message) => `[${message.role}]\n${message.content}`)
       .join('\n\n');
+    if (handle === null) {
+      return body;
+    }
+    // The product authors the handle into its own prompt; the model cannot reach any tool without it.
+    return `${body}\n\n[tools]\nYour handle for this task is "${handle}". Every tool call must include it.`;
+  }
+
+  /** A handle is minted only when the deployment serves a tool surface and the caller supplied the
+   *  attempt's evidence. Otherwise the line runs without tools, which is a valid configuration. */
+  private mintCodexCliScope<T>(
+    input: TopicSelectionAgentInvocationRequest<T>,
+    invocationAttemptId: string,
+  ): { handle: string } | null {
+    const evidence = input.mcp_evidence ?? null;
+    if (!this.mcpScopeStore || !this.mcpEndpointUrl || !evidence || evidence.length === 0) {
+      return null;
+    }
+    return this.mcpScopeStore.mint({
+      invocation_attempt_id: invocationAttemptId,
+      workflow_run_id: input.workflow_run_id,
+      scope_id: TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
+      read_budget: input.mcp_read_budget ?? evidence.length,
+      evidence,
+    });
+  }
+
+  private codexCliMcpServers(scoped: boolean): TopicSelectionCodexCliMcpServer[] {
+    return scoped && this.mcpEndpointUrl
+      ? [{ name: 'research', url: this.mcpEndpointUrl }]
+      : [];
   }
 
   private async recordCodexCliTrace<T>(

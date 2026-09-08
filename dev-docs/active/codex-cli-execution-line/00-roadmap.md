@@ -151,8 +151,11 @@
   discriminating index produced perfect selection on a real agent (two tool calls for twelve units,
   the three correct ids cited); the budget guarantee holds against what the model asks for rather
   than what it should ask for; and refusal wording is functional — naming the remaining budget moved
-  a run from serving nothing to serving its full allowance. Remaining before the phase closes:
-  registering the routes in `app.ts` and minting the handle from the codex_cli invocation path.
+  a run from serving nothing to serving its full allowance. The routes are registered in `app.ts`, and
+  the codex_cli invocation path mints a handle over the attempt's evidence, authors it into the
+  product's own prompt and releases it in a finally, so a handle cannot outlive the attempt that
+  justified it. An attempt without evidence runs toolless rather than half-configured. Phase 2 is
+  complete.
 
 ### Phase 3 — One debate role runs on the line
 - Outcome: the D-8 slice — one N6 divergent-debate role — produces its artifact through the

@@ -150,6 +150,13 @@ import { registerTopicSettingsRoutes } from './routes/topic-settings-routes.js';
 import { registerTopicSelectionV1aRoutes } from './routes/topic-selection-v1a-routes.js';
 import { registerTopicSelectionV1bRoutes } from './routes/topic-selection-v1b-routes.js';
 import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-routes.js';
+import { registerTopicSelectionMcpRoutes } from './routes/topic-selection-mcp-routes.js';
+import { TopicSelectionMcpProtocolService } from './services/topic-selection-mcp-protocol-service.js';
+import {
+  TopicSelectionMcpScopeStore,
+  TopicSelectionMcpToolSurfaceService,
+  createTopicSelectionResearchRoleTools,
+} from './services/topic-selection-mcp-tool-surface-service.js';
 import { registerTopicSelectionResearchCheckpointRoutes } from './routes/topic-selection-research-checkpoint-routes.js';
 import { registerTopicSelectionResearchEvidencePacketRoutes } from './routes/topic-selection-research-evidence-packet-routes.js';
 import { registerTopicSelectionResearchArenaRetrievalRoutes } from './routes/topic-selection-research-arena-retrieval-routes.js';
@@ -1219,6 +1226,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     store: topicSelectionPromptPacketCacheStore,
   });
   const topicSelectionContextPacketCacheService = new TopicSelectionContextPacketCacheService();
+  const topicSelectionMcpScopeStore = new TopicSelectionMcpScopeStore();
+  const topicSelectionMcpToolSurface = new TopicSelectionMcpToolSurfaceService(
+    createTopicSelectionResearchRoleTools(),
+    topicSelectionMcpScopeStore,
+  );
   const topicSelectionContextPolicyProfileRegistryService =
     new TopicSelectionContextPolicyProfileRegistryService();
   const topicSelectionV1aAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
@@ -2086,6 +2098,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionResearchArenaRetrievalRoutes(
       instance,
       topicSelectionResearchArenaRetrievalController,
+    );
+    // T-151: the product's own MCP tool surface. Reaching the endpoint is not reaching data — every
+    // tool call must carry a handle, which is minted per codex_cli invocation attempt and released
+    // with it. Until a node routes to that line no handle exists, so the surface lists its tools and
+    // serves nothing.
+    await registerTopicSelectionMcpRoutes(
+      instance,
+      new TopicSelectionMcpProtocolService(topicSelectionMcpToolSurface),
     );
     await registerTopicSelectionEvidenceConvergenceRoutes(
       instance,

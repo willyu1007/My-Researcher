@@ -7,10 +7,10 @@ provenance of record.
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2. The tool surface, protocol edge, shim, research tools and HTTP routes are
-  implemented and verified against a real Codex client.
-- Next step: Register the MCP routes in `app.ts` and mint the handle from the codex_cli invocation
-  path, which closes Phase 2.
+- Current phase: Phase 2 complete. The product serves its own MCP tool surface, a real Codex client
+  reaches it over HTTP, and handles are minted and released with the invocation attempt.
+- Next step: Phase 3 — route one N6 divergent-debate role through the `codex_cli` line and let the
+  existing deterministic gate admit its artifact.
 - Blocker: none. T-148 shares this worktree; stage explicit paths and preserve its changes.
 
 ## Done when

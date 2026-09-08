@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -28,6 +28,10 @@ import {
   createDefaultTopicSelectionModelProfileRegistry,
 } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import {
+  TopicSelectionMcpScopeStore,
+  type TopicSelectionMcpEvidenceUnit,
+} from './topic-selection-mcp-tool-surface-service.js';
 import type { LookupTopicSelectionPromptPacketCacheInput } from './topic-selection-prompt-packet-cache-service.js';
 
 type CandidateDraftBatch = {
@@ -118,6 +122,8 @@ function makeOrchestrator(options: {
   modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
   codexCliRunner?: TopicSelectionCodexCliRunnerService | null;
   codexCliModelId?: string | null;
+  mcpScopeStore?: TopicSelectionMcpScopeStore | null;
+  mcpEndpointUrl?: string | null;
 } = {}) {
   const repository = new InMemoryTopicSelectionControlPlaneRepository();
   let sequence = 0;
@@ -132,6 +138,8 @@ function makeOrchestrator(options: {
     modelProfileRegistry: options.modelProfileRegistry,
     codexCliRunner: options.codexCliRunner,
     codexCliModelId: options.codexCliModelId,
+    mcpScopeStore: options.mcpScopeStore,
+    mcpEndpointUrl: options.mcpEndpointUrl,
     now: () => '2026-05-19T00:00:00.000Z',
   });
   return { orchestrator, repository };
@@ -1361,4 +1369,77 @@ void test('codex_cli line stays inert while no profile admits it', async () => {
       execution_mode: 'codex_cli',
     }),
   );
+});
+
+const MCP_EVIDENCE: TopicSelectionMcpEvidenceUnit[] = [
+  { id: 'EVIDENCE-001', index_fields: { followup_months: 24 }, body: 'body one' },
+];
+
+/** Captures what the runner was actually told, which is where the handle has to show up. */
+function capturingCodexRunner(): {
+  runner: TopicSelectionCodexCliRunnerService;
+  seen: { prompt: string; config: string }[];
+} {
+  const home = mkdtempSync(join(tmpdir(), 'orchestrator-mcp-'));
+  const seen: { prompt: string; config: string }[] = [];
+  const runner = new TopicSelectionCodexCliRunnerService(
+    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' },
+    async (args, opts) => {
+      if (args[0] === '--version') {
+        return { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false };
+      }
+      seen.push({ prompt: opts.stdin, config: readFileSync(join(home, 'config.toml'), 'utf8') });
+      return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
+    },
+  );
+  return { runner, seen };
+}
+
+void test('a codex_cli attempt gets a handle that is offered to the model and dies with the attempt', async () => {
+  const scopes = new TopicSelectionMcpScopeStore(() => 'handle_under_test');
+  const { runner, seen } = capturingCodexRunner();
+  const { orchestrator } = makeOrchestrator({
+    modelProfileRegistry: registryOpeningCodexCli(),
+    codexCliRunner: runner,
+    codexCliModelId: 'gpt-6-astra',
+    mcpScopeStore: scopes,
+    mcpEndpointUrl: 'http://127.0.0.1:3000/topic-selection/mcp',
+  });
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'codex_cli',
+    mcp_evidence: MCP_EVIDENCE,
+    mcp_read_budget: 4,
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.equal(seen.length, 1);
+  // The product authors the handle into its own prompt; without it the model reaches no tool.
+  assert.match(seen[0]!.prompt, /handle_under_test/);
+  assert.match(seen[0]!.config, /url = "http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
+  assert.match(seen[0]!.config, /default_tools_approval_mode = "approve"/);
+  // Released with the attempt: a handle that outlived it would be an unaudited way back in.
+  assert.equal(scopes.resolve('handle_under_test'), null);
+});
+
+void test('a codex_cli attempt without evidence runs toolless rather than half-configured', async () => {
+  const scopes = new TopicSelectionMcpScopeStore(() => 'handle_unused');
+  const { runner, seen } = capturingCodexRunner();
+  const { orchestrator } = makeOrchestrator({
+    modelProfileRegistry: registryOpeningCodexCli(),
+    codexCliRunner: runner,
+    codexCliModelId: 'gpt-6-astra',
+    mcpScopeStore: scopes,
+    mcpEndpointUrl: 'http://127.0.0.1:3000/topic-selection/mcp',
+  });
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'codex_cli',
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.doesNotMatch(seen[0]!.prompt, /handle/);
+  assert.doesNotMatch(seen[0]!.config, /mcp_servers/);
 });
