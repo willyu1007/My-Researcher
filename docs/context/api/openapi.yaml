@@ -6732,6 +6732,51 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /topic-selection/mcp:
+    post:
+      operationId: invokeTopicSelectionMcp
+      summary: JSON-RPC endpoint of the product's MCP tool surface for the codex_cli line.
+      description: >-
+        Speaks MCP 2026-07-28 natively (stateless, server/discover, per-request version in _meta)
+        and accepts the handshake-based revisions through an envelope shim. Reaching the endpoint
+        is not reaching data: every tools/call carries a handle minted per codex_cli invocation
+        attempt and released with it; discovery and listing are open and expose only the tool
+        catalogue. Notifications (no id) receive 202 with no body.
+      tags: [topic-selection]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: One JSON-RPC 2.0 message.
+              additionalProperties: true
+      responses:
+        '200':
+          description: JSON-RPC response for a request carrying an id.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '202':
+          description: Notification accepted; no response body.
+    get:
+      operationId: streamTopicSelectionMcp
+      summary: Server-to-client notification stream for the handshake-based MCP revisions.
+      description: >-
+        Held open as text/event-stream for clients on 2025-06-18 and earlier, which expect it.
+        Nothing is pushed today. The current MCP revision replaces this with subscriptions/listen,
+        so the route exists only for the shimmed revisions.
+      tags: [topic-selection]
+      responses:
+        '200':
+          description: An open event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
 components:
   parameters:
     TitleCardId:

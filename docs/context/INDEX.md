@@ -11,6 +11,8 @@ This directory contains maintained context, not a generated discovery registry.
 - `process/` — current process matrices, scenarios, calibration notes, and operational playbooks;
   `process/codex-assisted-operator.md` defines the current Codex-operated rehearsal boundary and
   the deferred product integration direction, while
+  `process/codex-cli-execution-line.md` defines the product-driven `codex_cli` line, its deployment,
+  MCP tool surface and live checks;
   `process/topic-selection-continuation-envelope.md` defines effect-bounded continuation to the
   next human research decision.
 - `ui/` — current desktop UI alignment and surface-specific notes.
