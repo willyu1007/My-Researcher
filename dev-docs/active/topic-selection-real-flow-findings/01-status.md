@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: blocked
-- Current phase: Phase 4 started; stage wording, historical recovery and fresh evidence checkpoint verified; awaiting exact Human review
-- Next step: Obtain the exact Human decision on checkpoint research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc using artifacts/phase4-human-review-2026-09-08.md and its draft payload. After confirmation, continue fresh gap/question/value/promotion verification with per-step accounting; never copy historical Human decisions.
-- Blocker: Fresh evidence review has two required missing coverage rows and no Human decision; continuation returns stop_for_human. The local schema blocker FIND-033 is resolved (82/82 migrations applied).
+- Current phase: Phase 4 bounded external literature recheck and paired-benchmark feasibility proposal completed; awaiting exact Human evidence loopback decision
+- Next step: Review artifacts/phase4-evidence-recheck-2026-09-08.md and confirm or revise the draft loopback for checkpoint research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc. After an exact decision, use existing admission to incorporate the new evidence and prepare a fresh review; do not submit the withdrawn advance proposal or start experiments. Fresh downstream Debate/refinement/promotion verification remains after evidence acceptance.
+- Blocker: The current frozen packet still has two missing coverage rows and no Human decision. External research changed the advisory recommendation but has not changed product coverage or authority; continuation remains at the Human boundary. The local schema blocker FIND-033 is resolved (82/82 migrations applied).
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.

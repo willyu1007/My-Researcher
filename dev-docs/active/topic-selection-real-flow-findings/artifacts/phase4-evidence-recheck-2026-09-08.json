@@ -1,0 +1,280 @@
+{
+  "purpose": "Bounded external-source investigation and benchmark qualification supporting T-148 Phase 4 Human review. Not a product SearchRun, EvidenceMap, coverage verdict or workflow state authority.",
+  "as_of": "2026-09-08",
+  "scope": {
+    "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+    "topic_id": "TOPIC-T147-ADAPTIVE-RETRIEVAL",
+    "checkpoint_id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+    "target_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
+    "packet_hash": "61b86b691cc6b4223bbe4462785f90ba818c8a85f130c91e6daf301406747856",
+    "last_read_utc": "2026-09-08T02:21:51.140845+00:00"
+  },
+  "product_observations": {
+    "api_base": "http://127.0.0.1:3000",
+    "api_target_class": "selected_local_backend",
+    "identity_evidence": "Expected buildApp process at repo apps/backend, backgroundWorkEnabled:false; /health ok and exact existing TitleCard/checkpoint reads returned 200.",
+    "packet_equal_to_phase4_fresh_evidence_artifact": true,
+    "human_decision": null,
+    "continuation_boundary_reached": true,
+    "envelope_hash": "704484047922a3cee0c7dcb2c7aeb82164a8892edde9e51d59892f5a6bb5d00b",
+    "reason_codes": [
+      "HUMAN_DECISION_BOUNDARY_REACHED"
+    ],
+    "managed_records": {
+      "count": 14,
+      "metric": "managed",
+      "scope": "TOPIC-T147-ADAPTIVE-RETRIEVAL",
+      "source": "GET /literature/overview?topic_id=TOPIC-T147-ADAPTIVE-RETRIEVAL on 2026-09-08",
+      "freshness": "live scoped record listing only; no new per-record retrieval readiness determination"
+    },
+    "writes": 0,
+    "new_literature_records": 0,
+    "new_admitted_evidence_units": 0,
+    "retriever_operations": 0,
+    "configured_provider_calls": 0,
+    "human_decision_writes": 0,
+    "backend_lifecycle_restored": true
+  },
+  "external_search_accounting": {
+    "root": {
+      "search_tool_calls": 4,
+      "query_count": 13,
+      "query_batches": [
+        {
+          "queries": [
+            "\"retrieval utility\" \"router\" retriever shift calibration",
+            "\"frozen\" \"router\" \"retrieval\" calibration",
+            "\"RAGRouter\" retrieval knowledge shifts"
+          ],
+          "intent": "Direct mechanism overlap and nearest RAG routing neighbors"
+        },
+        {
+          "queries": [
+            "retrieval router \"retriever\" \"shift\" recalibration",
+            "\"retrieval\" \"router\" \"replacement\"",
+            "\"retrieval utility\" \"calibration\" 2026",
+            "\"retriever routing\" \"distribution\" adaptation 2026"
+          ],
+          "intent": "Find exact replacement/transfer, utility calibration and routing generalization"
+        },
+        {
+          "queries": [
+            "\"retriever\" \"routing\" \"out-of-distribution\" site:arxiv.org",
+            "\"retrieval\" \"recalibration\" site:arxiv.org",
+            "\"retriever\" \"replacement\" \"calibration\" site:arxiv.org"
+          ],
+          "intent": "Target primary arXiv transfer, retriever replacement and calibration studies"
+        },
+        {
+          "queries": [
+            "RAG routing retriever shift frozen calibration August September 2026 site:arxiv.org",
+            "\"retriever routing\" \"unsupervised\" site:arxiv.org",
+            "\"retriever\" \"transfer\" \"utility\" \"router\" site:arxiv.org"
+          ],
+          "intent": "Final recency and synonym sweep; avoid relying on exact frozen-router phrasing"
+        }
+      ],
+      "page_open_requests": 24,
+      "in_page_find_requests": 19,
+      "limitations": [
+        "Counts are requested tool operations, including errors; not unique sources or successful fulltext downloads.",
+        "Attempted RAGRouter v3 HTML was unavailable; corrected after observing v2 on its primary abstract page. No v3 content was used."
+      ]
+    },
+    "independent_asset_review": {
+      "agent": "phase4_benchmark_feasibility",
+      "mode": "read_only_no_file_changes",
+      "search_tool_calls": 2,
+      "query_count": 6,
+      "queries": [
+        "BEIR benchmark official NQ dataset corpus answers license github",
+        "KILT benchmark official github Natural Questions answers knowledge source license",
+        "FlashRAG dataset NQ open qa retrieval corpus github utility evaluation",
+        "SQuAD official dataset v1.1 license Wikipedia paragraphs train dev github",
+        "Natural Questions open DPR dataset license questions answers official github",
+        "NoMIRACL official github multilingual generation benchmark relevant non relevant retrieval contexts"
+      ],
+      "total_web_tool_calls": 18,
+      "page_open_or_click_requests": 56,
+      "in_page_find_requests": 26,
+      "additional_http_requests": 6,
+      "additional_http_success": 5,
+      "additional_http_failure": 1,
+      "git_ls_remote_operations": 1,
+      "failures": [
+        "GitHub commit API returned 403; commit pinned with git ls-remote instead.",
+        "FlashRAG corpus directory returned 429; full corpus download not verified."
+      ]
+    },
+    "combined_search_tool_calls": 6,
+    "combined_query_count": 19,
+    "web_service_internal_provider_calls": null,
+    "web_service_token_or_cost_telemetry": null,
+    "raw_search_hit_count": null,
+    "counts_note": "External web research and its internal service telemetry are separate from product retriever/provider accounting. No experimental model inference executed; no zero-cost claim for agent/Web work."
+  },
+  "retained_primary_papers": [
+    {
+      "arxiv": "2608.26846v1",
+      "published": "2026-08-27",
+      "url": "https://arxiv.org/html/2608.26846v1",
+      "sections": [
+        "3-7",
+        "Appendix B.1"
+      ],
+      "role": "new_to_selected_scope_challenge",
+      "effect": "Depth-conditioned calibration-transfer failure and risk/coverage/cost confounds; controlled trajectories, not retriever swap."
+    },
+    {
+      "arxiv": "2608.13237v1",
+      "published": "2026-08-13",
+      "url": "https://arxiv.org/html/2608.13237v1",
+      "sections": [
+        "3-6"
+      ],
+      "role": "new_to_selected_scope_challenge",
+      "effect": "Quality preservation, conditional stopping safety and cost are distinct; fixed retriever stopping experiment."
+    },
+    {
+      "arxiv": "2607.24010v1",
+      "published": "2026-07-27",
+      "literature_id": "LIT-2254",
+      "url": "https://arxiv.org/html/2607.24010v1",
+      "sections": [
+        "3-5",
+        "Limitations"
+      ],
+      "role": "budget_and_retriever_change_baseline"
+    },
+    {
+      "arxiv": "2606.29959v1",
+      "published": "2026-06-29",
+      "literature_id": "LIT-2253",
+      "url": "https://arxiv.org/html/2606.29959v1",
+      "sections": [
+        "3",
+        "6.2",
+        "8"
+      ],
+      "role": "calibration_and_abstention_overlap"
+    },
+    {
+      "arxiv": "2601.14546v1",
+      "published": "2026-01-20",
+      "literature_id": "LIT-2295",
+      "url": "https://arxiv.org/html/2601.14546v1",
+      "sections": [
+        "3",
+        "4"
+      ],
+      "role": "multi_retriever_utility_prediction"
+    },
+    {
+      "arxiv": "2604.22849v1",
+      "published": "2026-04-22",
+      "literature_id": "LIT-0302",
+      "url": "https://arxiv.org/html/2604.22849v1",
+      "sections": [
+        "3-5"
+      ],
+      "role": "retriever_routing_neighbor"
+    },
+    {
+      "arxiv": "2505.23052v2",
+      "version_date": "2025-10-17",
+      "literature_id": "LIT-0333",
+      "url": "https://arxiv.org/html/2505.23052v2",
+      "sections": [
+        "3-5"
+      ],
+      "role": "generator_routing_distinction"
+    },
+    {
+      "arxiv": "2506.13743v1",
+      "published": "2025-06-16",
+      "url": "https://arxiv.org/html/2506.13743v1",
+      "sections": [
+        "3",
+        "experiments",
+        "appendix"
+      ],
+      "role": "new_to_selected_scope_existing_retriever_ranking_neighbor"
+    },
+    {
+      "arxiv": "2501.07793v1",
+      "published": "2025-01-14",
+      "literature_id": "LIT-2296",
+      "url": "https://arxiv.org/html/2501.07793v1",
+      "sections": [
+        "4",
+        "5"
+      ],
+      "role": "automatic_supervision_and_ood_neighbor"
+    },
+    {
+      "arxiv": "2602.00296v1",
+      "published": "2026-01-30",
+      "literature_id": "LIT-0190",
+      "url": "https://arxiv.org/html/2602.00296v1",
+      "sections": [
+        "experimental_design"
+      ],
+      "role": "paradigm_benchmark_context"
+    }
+  ],
+  "asset_audit": {
+    "repository": "https://github.com/dongzhe1/know-before-you-fetch",
+    "commit": "d0cb4238b351345bef50ad4df70ea0c1f67e60bc",
+    "evidence_mode": "Independent read-only raw-file counts; root inspected pinned sample-generator source. No downloaded author script or experiment was executed; inline read-only code computed row counts, joins and hashes.",
+    "files": [
+      {
+        "path": "analysis/tables/triviaqa_rc_table.jsonl",
+        "bytes": 62902,
+        "rows": 200,
+        "unique_normalized_questions": 10,
+        "sha256": "8bd9ea65650a3ab52dbd3a0fe2cdebd7de8cad87c3f3da5bfd364304418cbab4"
+      },
+      {
+        "path": "analysis/tables/triviaqa_rc_bgesmall_table.jsonl",
+        "bytes": 62849,
+        "rows": 200,
+        "unique_normalized_questions": 10,
+        "sha256": "5e01d6772f9295b6360a4645b062cd7a0f6ddee3723eb9181b06f227b901d123"
+      }
+    ],
+    "normalization": "Unicode NFKC + casefold + whitespace collapse",
+    "position_query_mismatches": 176,
+    "matched_query_positions": 24,
+    "closed_correct_mismatches_among_matched_positions": 14,
+    "each_file_questions_with_varying_closed_correct": 10,
+    "sample_generator": "https://raw.githubusercontent.com/dongzhe1/know-before-you-fetch/d0cb4238b351345bef50ad4df70ea0c1f67e60bc/scripts/make_sample_data.py",
+    "qualification": "Inspected files are unsuitable as real paired replacement evidence; synthetic sample-generation fields and non-unique question mapping. No conclusion about uninspected paper outputs or external archive authenticity.",
+    "selected_alternative": "HotpotQA official dev distractor fixed shared paragraph pool; no full dataset download, indexing or inference yet."
+  },
+  "scientific_delta": {
+    "advisory_new_to_selected_scope_papers": 3,
+    "selected_august_challenges_to_admit": 2,
+    "required_direct_mechanism_verdict": "not_found_in_bounded_investigation_not_proof_of_absence",
+    "replacement_benchmark_verdict": "constructible_candidate_protocol_not_execution_ready",
+    "claim_limit": "Diagnostic retriever-only replacement with frozen source router and same corpus; threshold retuning may suffice.",
+    "recommendation": "Exact Human loopback to evidence_landscape, no coverage acceptance; prepare revised evidence through existing admission, then fresh review.",
+    "runtime_coverage_change": false
+  },
+  "proposal_quality": {
+    "previous_advance_proposal_withdrawn": true,
+    "previous_schema_validation_limit": "Nonempty required_action_refs with advance would fail recordDecision service rule; prior schema-only pass was not runtime acceptance. It was never submitted.",
+    "replacement": "draft_loopback_not_submitted",
+    "replacement_semantic_review_flags": false,
+    "accepted_coverage_absent": true,
+    "execution_authorized": false,
+    "checks": [
+      "Shared decision-input schema validation passed",
+      "Exact snapshot hash, allowed action, required refs and loopback target ref matched the saved frozen packet",
+      "No coverage acceptance; all semantic-review flags false",
+      "Current live packet equals saved packet; no decision submitted",
+      "Readable frozen view preserved exactly",
+      "Query counts and local artifact links checked"
+    ],
+    "review": "Independent consistency review raised four corrections: full target-label budget for threshold baseline, low-power non-detection, strict-increase equivalence, and precise read-only-code execution accounting. All four corrected before checkpoint. Independent re-review: Clear."
+  }
+}

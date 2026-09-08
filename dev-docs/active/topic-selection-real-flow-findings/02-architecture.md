@@ -71,4 +71,6 @@ A running backend must use a database with the repository migration history appl
 
 Bounded verification may import retained literature into an independent draft TitleCard. Its SearchRun uses `manual_import`, records zero retriever/provider work and retains historical coverage provenance; no old Human decision is copied. New evidence checkpoints still require exact current-row acceptance.
 
+An explicitly requested external literature investigation remains advisory until sources enter the existing product admission path. Its Web queries and source/asset checks are accounted separately from product retrieval, provider calls and admitted EvidenceUnits. Supporting task artifacts cannot amend a frozen checkpoint, satisfy a coverage row or authorize continuation. The Phase 4 recheck preserves the pending packet and proposes a Human evidence loopback; it adds no scenario, schema, coverage taxonomy, experiment runtime or alternate authority.
+
 T-149 and T-150 are separate checkpoint owners. Their source, bundle, registry, and generated-view changes must not be staged or committed with T-148.

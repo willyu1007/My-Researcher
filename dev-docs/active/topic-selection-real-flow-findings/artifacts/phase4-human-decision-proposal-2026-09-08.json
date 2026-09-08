@@ -1,42 +1,27 @@
 {
-  "status": "draft_not_submitted",
-  "instruction": "Submit only after the researcher explicitly confirms this exact review and rationale; these true review flags are proposed confirmations, not completed Human review.",
+  "status": "draft_loopback_not_submitted",
+  "instruction": "The earlier advance proposal is withdrawn after the bounded literature recheck. Submit this exact loopback only after the researcher confirms it. It accepts no missing coverage, asserts no completed semantic review, and authorizes no experiment or provider execution.",
   "endpoint": "/topic-selection/checkpoints/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc/decisions",
   "payload": {
-    "decision_key": "t148-phase4-20260908-evidence-advance",
-    "decision": "advance",
+    "decision_key": "t148-phase4-20260908-evidence-recheck-loopback",
+    "decision": "loopback",
     "actor": {
       "actor_type": "human",
       "actor_id": "researcher"
     },
     "confirmed_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
-    "rationale": "仅在本轮有界复验与原研究方向内推进：将直接冻结路由器迁移研究缺口与检索器替换专用基准缺口保留为研究及可行性义务；后续必须构建并验证配对基准、比较强基线并限制主张范围。本轮重用既有材料，不能据此声称近期文献覆盖完整或新颖性已被证实。",
+    "rationale": "回环补强证据：当前冻结包尚未纳入 2026 年 8 月的校准迁移与停止风险反例；先通过现有来源准入补齐可核查材料，区分直接冻结路由器替换证据与相邻方法，并明确同语料 BM25→稠密检索器的最小配对协议、固定基线回退及预算/覆盖定义。保留两项缺失覆盖义务，再提交新的证据包供人工审阅。本次不接受覆盖缺口，不推进问题生成，也不授权实验或付费 provider 执行。",
     "review_payload": {
       "review_kind": "evidence_landscape",
-      "nearest_work_reviewed": true,
-      "disconfirming_evidence_reviewed": true,
-      "source_quality_reviewed": true,
+      "nearest_work_reviewed": false,
+      "disconfirming_evidence_reviewed": false,
+      "source_quality_reviewed": false,
       "limitations": [
-        "缺少直接测试冻结效用路由器在检索器或索引替换后迁移表现的研究证据。",
-        "缺少检索器替换专用基准，构建及验证基准是后续必做义务。",
-        "本轮没有新增检索；近期直接重叠工作和近重复风险仍未排除。",
-        "主张仅限受控的检索器或索引替换、冻结路由器及匹配预算，不声称通用 RAG 或生产优势。"
-      ],
-      "accepted_coverage": {
-        "coverage_row_refs": [
-          {
-            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
-            "ref_type": "coverage_row_intent",
-            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
-          },
-          {
-            "ref_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
-            "ref_type": "coverage_row_intent",
-            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
-          }
-        ],
-        "rationale": "仅在本轮有界复验与原研究方向内推进：将直接冻结路由器迁移研究缺口与检索器替换专用基准缺口保留为研究及可行性义务；后续必须构建并验证配对基准、比较强基线并限制主张范围。本轮重用既有材料，不能据此声称近期文献覆盖完整或新颖性已被证实。"
-      }
+        "本轮补查是外部原始来源研究，新增文献尚未成为当前冻结包的已准入证据。",
+        "没有找到直接验证冻结原路由器、检索器替换及小标签修复完整链条的研究；这不是不存在该研究的证明。",
+        "可构建基准仍是草案，现有公开示例缓存不符合真实配对实验输入要求。",
+        "路由器回退与最终拒答不同；严格递增校准不改变精确预算下的排序。"
+      ]
     },
     "required_action_refs": [
       {
@@ -44,6 +29,21 @@
         "ref_type": "research_required_action",
         "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
       }
+    ],
+    "loopback_target": "evidence_landscape",
+    "loopback_refs": [
+      {
+        "ref_type": "evidence_map",
+        "ref_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
     ]
-  }
+  },
+  "supersedes_unsubmitted_proposal": {
+    "decision_key": "t148-phase4-20260908-evidence-advance",
+    "git_commit": "c339fc17",
+    "reason": "New adjacent evidence and benchmark qualification change the advice; schema validation alone did not prove the earlier payload passed service semantics."
+  },
+  "supporting_review": "phase4-evidence-recheck-2026-09-08.md"
 }
