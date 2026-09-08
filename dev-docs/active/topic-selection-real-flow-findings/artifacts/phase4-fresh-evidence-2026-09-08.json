@@ -1,0 +1,2215 @@
+{
+  "purpose": "Independent T-148 Phase 4 verification lineage over retained source material. No retrieval, provider invocation, or copied Human decision. Product APIs remain the authority; recover owners before any retry, and do not replay create operations from this receipt.",
+  "source_title_card_id": "title_card_e80b4a40-544c-41c6-9c12-a80428c6604f",
+  "created_at": "2026-09-08T00:20:38.491Z",
+  "steps": [
+    {
+      "path": "/title-cards",
+      "method": "POST",
+      "input": {
+        "working_title": "[T-148 Phase 4 verification 2026-09-08] Safe transfer of retrieval-utility routers across retriever shifts",
+        "brief": "Evaluate whether a retrieval-utility router calibrated with one retriever remains reliable after the retriever or index is replaced, and whether low-label recalibration plus a shift-aware fallback prevents harmful routing under matched query, passage, and annotation budgets. Mechanism: measure ranking and calibration drift in utility predictions, detect unsupported shifts from retriever-score distributions and reader-context signals, and abstain to a fixed baseline when transfer risk is high. Falsification: zero-shot transfer is already stable, low-label recalibration does not outperform simple threshold retuning, fallback fails to reduce harmful decisions, or from-scratch and static baselines match it. Claim ceiling: only the tested retriever replacements, datasets, frozen readers, and matched budgets; no universal RAG robustness or production-reliability claim.",
+        "status": "draft"
+      },
+      "status": 201,
+      "response_sha256": "6fc40de99a58f56f58c6035db0f9a5ee0b0517d94fe8d37a57196b8add75f12a",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "status": "draft"
+      }
+    },
+    {
+      "path": "/topic-selection/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/continuation-envelope",
+      "method": "GET",
+      "status": 200,
+      "response_sha256": "16cfb52e4e72f413d33d6e4e502a996367ad07fd69b69d3836020acbc282df2f",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "boundary_reached": false
+      }
+    },
+    {
+      "path": "/topic-selection/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/continuation-envelope/evaluations",
+      "method": "POST",
+      "input": {
+        "schema_version": "TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1",
+        "envelope_hash": "3565929dde4bf1a4b30840b702bfb58c357eec3657d71bd61c748ec7a12f4edd",
+        "manifest_hash": "8c09a211816fdf6af0b9f35c0fcf21985f233822bdc02cc82e0038ac577b49e7",
+        "proposed_effects": [
+          "deterministic_local_write",
+          "verification"
+        ]
+      },
+      "status": 200,
+      "response_sha256": "574a46de26a866f2a6df222912f0c408a4197bbeedc4b8dbb71ddf6eaa8b356e",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "decision": "continue"
+      }
+    },
+    {
+      "path": "/topic-selection/v1a/topic-seeds/from-title-card",
+      "method": "POST",
+      "input": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "seed_version": "t148-phase4-frozen-replay-20260908",
+        "intent_summary": "Evaluate whether a retrieval-utility router calibrated with one retriever remains reliable after the retriever or index is replaced, and whether low-label recalibration plus a shift-aware fallback prevents harmful routing under matched query, passage, and annotation budgets. Mechanism: measure ranking and calibration drift in utility predictions, detect unsupported shifts from retriever-score distributions and reader-context signals, and abstain to a fixed baseline when transfer risk is high. Falsification: zero-shot transfer is already stable, low-label recalibration does not outperform simple threshold retuning, fallback fails to reduce harmful decisions, or from-scratch and static baselines match it. Claim ceiling: only the tested retriever replacements, datasets, frozen readers, and matched budgets; no universal RAG robustness or production-reliability claim.",
+        "scope_notes": "Independent verification copy of frozen 2026-09-01 material. No new literature query or novelty claim; historical Human decisions are not inherited.",
+        "created_by": "system"
+      },
+      "status": 201,
+      "response_sha256": "75d3fd597686c98b132897d292bcd8f9ee2a96d207c3af53020bb7760a1dcec9",
+      "result": {
+        "topic_seed_id": "topic_seed_44394151-cd55-49ca-8783-b313a3f216bf",
+        "workspace_id": null,
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "input_snapshot_id": "input_snapshot_08963c61-43b4-4205-91c6-a9497f222a6b",
+        "gate_result_id": "gate_result_9e9c38b7-76b4-4669-8d4e-ce1f359aceba",
+        "transition_attempt_id": "transition_attempt_08eea8d9-95bc-448a-af63-d0bc0a093efa",
+        "trace_snapshot_id": null
+      }
+    },
+    {
+      "path": "/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/evidence-basket",
+      "method": "PATCH",
+      "input": {
+        "add_literature_ids": [
+          "LIT-0190",
+          "LIT-2253",
+          "LIT-0333",
+          "LIT-0711",
+          "LIT-0332",
+          "LIT-0771",
+          "LIT-2296",
+          "LIT-2297",
+          "LIT-0181",
+          "LIT-0529",
+          "LIT-0302",
+          "LIT-2294",
+          "LIT-2254",
+          "LIT-2295"
+        ]
+      },
+      "status": 200,
+      "response_sha256": "ce7515e732d0056f838f7dfbef44a348e802ae8c9613a484e900269e76fc5cc4",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    },
+    {
+      "path": "/topic-selection/v1a/literature-resource-pool-snapshots",
+      "method": "POST",
+      "input": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "topic_seed_id": "topic_seed_44394151-cd55-49ca-8783-b313a3f216bf",
+        "snapshot_version": "t148-phase4-20260908",
+        "source_scope": "title_card_evidence_basket",
+        "created_by": "system"
+      },
+      "status": 201,
+      "response_sha256": "0f05e00641fa74e012212c04b80b3d3d4ada189841d60f252427e3b44e51f4c8",
+      "result": {
+        "literature_resource_pool_snapshot_id": "literature_snapshot_d5be095e-5b8c-4029-a666-18b324d2c295",
+        "workspace_id": null,
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "source_scope": "title_card_evidence_basket",
+        "source_health_summary": {
+          "stale_count": 3,
+          "source_count": 15,
+          "blocked_count": 0,
+          "warning_codes": [
+            "STALE_OR_DUPLICATE_PIPELINE_STATUS"
+          ],
+          "rights_class_counts": {
+            "OA": 9,
+            "UNKNOWN": 5
+          },
+          "abstract_ready_count": 14,
+          "fulltext_ready_count": 14,
+          "pipeline_ready_count": 14,
+          "missing_literature_ids": [],
+          "total_literature_count": 14,
+          "key_content_ready_count": 14
+        },
+        "snapshot_hash": "7c47b53e6abf0bb2e7c246e753c1f7addb6af9f7dff37a03ee13937aba059172",
+        "input_snapshot_id": "input_snapshot_2f39c12f-fe2b-4ec2-879a-360624846808",
+        "gate_result_id": "gate_result_5280c7b1-5a71-491d-a9de-a2e2efee83c1",
+        "transition_attempt_id": "transition_attempt_537aabfd-e6f7-4c61-8ffa-2a5dc51229a7"
+      }
+    },
+    {
+      "path": "/topic-selection/v1a/search-plans",
+      "method": "POST",
+      "input": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "topic_seed_id": "topic_seed_44394151-cd55-49ca-8783-b313a3f216bf",
+        "literature_resource_pool_snapshot_id": "literature_snapshot_d5be095e-5b8c-4029-a666-18b324d2c295",
+        "plan_version": "t148-phase4-20260908",
+        "query_intents": [
+          "frozen retrieval-utility router calibration drift after explicit retriever replacement or index rebuild with low-label recalibration and abstaining fallback",
+          "benchmark dataset for retriever replacement or index migration measuring routing calibration, harmful retrieval, OOD behavior, and matched retrieval budgets"
+        ],
+        "must_check_constraints": [
+          "The study must intervene on retriever or index replacement and expose a pre-replacement versus post-replacement transfer boundary.",
+          "The router must be frozen before adaptation so transfer safety is distinguishable from retriever selection or joint retraining.",
+          "Low-label recalibration must be compared with simple threshold retuning, from-scratch router adaptation, and retriever retraining under matched label and retrieval budgets.",
+          "Evaluation must report calibration drift or harmful routing in addition to aggregate answer quality."
+        ],
+        "exclusion_rules": [
+          "Exclude generic adaptive routing or adaptive-k work without an explicit retriever or index replacement intervention.",
+          "Exclude retriever-selection work that trains or selects among a fixed candidate pool without testing a frozen router transfer boundary.",
+          "Exclude generator-only calibration and static retriever comparisons that do not measure post-replacement routing behavior."
+        ],
+        "coverage_strategy": {
+          "mode": "frozen_material_replay",
+          "planned_retriever_calls": 0,
+          "planned_provider_calls": 0,
+          "source_search_plan_id": "search_plan_3e2a7a83-6381-406f-b2e7-5ea143f7a259",
+          "stop_condition": "Import retained evidence once; keep both historical gaps missing and stop at a fresh Human checkpoint."
+        },
+        "coverage_intents": [
+          {
+            "coverage_key": "context-retriever-replacement-benchmark",
+            "intent_type": "context",
+            "query": "benchmark dataset for retriever replacement or index migration measuring routing calibration, harmful retrieval, OOD behavior, and matched retrieval budgets",
+            "rationale": "Find or falsify the availability of an evaluation asset that directly models retriever or index replacement.",
+            "required": true,
+            "priority": 1,
+            "expected_evidence_role": "context"
+          },
+          {
+            "coverage_key": "support-direct-frozen-router-transfer",
+            "intent_type": "support",
+            "query": "frozen retrieval-utility router calibration drift after explicit retriever replacement or index rebuild with low-label recalibration and abstaining fallback",
+            "rationale": "Find direct conceptual or empirical evidence for the exact frozen-router transfer mechanism rather than adjacent adaptive routing.",
+            "required": true,
+            "priority": 1,
+            "expected_evidence_role": "support"
+          }
+        ],
+        "created_by": "system"
+      },
+      "status": 201,
+      "response_sha256": "ec9bc8c21782117dd3d427145adf0727a04860159fb1937747c788aa65f7fdab",
+      "result": {}
+    },
+    {
+      "path": "/topic-selection/v1a/search-runs",
+      "method": "POST",
+      "input": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "search_plan_id": "search_plan_f819e58e-e994-4e18-acfb-6c6f59c14008",
+        "run_kind": "manual_import",
+        "run_status": "succeeded",
+        "result_accounting": {
+          "total_result_count": 9,
+          "unique_literature_count": 8,
+          "duplicate_result_count": 1,
+          "failed_source_count": 0,
+          "skipped_source_count": 0
+        },
+        "source_health_summary": {
+          "mode": "retained_material_replay",
+          "retriever_operations": 0,
+          "provider_calls": 0,
+          "network_verified": false,
+          "new_literature_coverage_verified": false
+        },
+        "evidence_map_input_refs": [
+          {
+            "ref_id": "LIT-2253",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "_Xuqx2Ap",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LSRC-2268",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "LIT-2297",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "_HHASBrE",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LSRC-2312",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "LIT-0333",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "_zWDAw8V",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LSRC-0346",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "LIT-0302",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "_Ku7MbYy",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LSRC-0306",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "LIT-2296",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "_PQRNhnV",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LSRC-2311",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "_5GNYScY",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LIT-2254",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "sec-5",
+            "ref_type": "fulltext_section"
+          },
+          {
+            "ref_id": "LSRC-2269",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "LIT-0190",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "sec-30",
+            "ref_type": "fulltext_section"
+          },
+          {
+            "ref_id": "LSRC-0194",
+            "ref_type": "literature_source"
+          },
+          {
+            "ref_id": "LIT-2295",
+            "ref_type": "literature_record"
+          },
+          {
+            "ref_id": "_AG7MxS6",
+            "ref_type": "fulltext_paragraph"
+          },
+          {
+            "ref_id": "LSRC-2310",
+            "ref_type": "literature_source"
+          }
+        ],
+        "query_provenance": [
+          {
+            "query": "benchmark dataset for retriever replacement or index migration measuring routing calibration, harmful retrieval, OOD behavior, and matched retrieval budgets",
+            "mode": "manual_import",
+            "retriever_operations": 0,
+            "provider_calls": 0,
+            "new_hits": 0,
+            "decision_effect": "Preserve the historical missing verdict for fresh Human review.",
+            "source_search_run_id": "search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697",
+            "source_coverage_assessment_id": "coverage_assessment_af9c8d86-0018-4246-ba0e-51f71d2a1e05"
+          },
+          {
+            "query": "frozen retrieval-utility router calibration drift after explicit retriever replacement or index rebuild with low-label recalibration and abstaining fallback",
+            "mode": "manual_import",
+            "retriever_operations": 0,
+            "provider_calls": 0,
+            "new_hits": 0,
+            "decision_effect": "Preserve the historical missing verdict for fresh Human review.",
+            "source_search_run_id": "search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697",
+            "source_coverage_assessment_id": "coverage_assessment_c8730405-7043-41bb-b7cb-cf98fe7b757b"
+          }
+        ],
+        "raw_log_artifact": {
+          "purpose": "T-148 Phase 4 retained-material replay; imports are not retrieval hits.",
+          "source_evidence_map_id": "evidence_map_c691de26-831f-4c2b-bc0a-ea08e3399a93",
+          "source_unit_ids": [
+            "evidence_unit_e16a3263-7286-4a12-ba7f-656b2156d068",
+            "evidence_unit_861d3872-1ac3-4662-a412-d6107a86fc1e",
+            "evidence_unit_ad1c3947-c1ac-4925-82f2-992eb0fbe38d",
+            "evidence_unit_f4cfef45-b30f-4c70-8c0f-333185a829ce",
+            "evidence_unit_091ea1bc-0b01-4c52-b5fb-5817af4b183c",
+            "evidence_unit_9a5fd8b5-6ac1-4628-878e-c86a7fdf11f8",
+            "evidence_unit_048607f7-be48-46eb-abeb-54f3cad032f7",
+            "evidence_unit_c760330b-6d62-4c8e-ada4-d771feb2a762",
+            "evidence_unit_fab15c3f-1588-4219-b2ca-61e1949fc854"
+          ],
+          "retriever_operations": 0,
+          "provider_calls": 0,
+          "evidence_delta": 0
+        },
+        "coverage_observations": [
+          {
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "status": "not_run",
+            "result_count": 0,
+            "source_count": 0,
+            "missing_reason_codes": [
+              "RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND"
+            ],
+            "notes": "No new retrieval. Retained material from search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697 leaves the required gap unresolved."
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "status": "not_run",
+            "result_count": 0,
+            "source_count": 0,
+            "missing_reason_codes": [
+              "DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND"
+            ],
+            "notes": "No new retrieval. Retained material from search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697 leaves the required gap unresolved."
+          }
+        ],
+        "coverage_assessments": [
+          {
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "verdict": "missing",
+            "issue_codes": [
+              "RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND"
+            ],
+            "confidence": 0.9,
+            "assessed_by": "system"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "verdict": "missing",
+            "issue_codes": [
+              "DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND"
+            ],
+            "confidence": 0.92,
+            "assessed_by": "system"
+          }
+        ],
+        "evidence_bindings": [
+          {
+            "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_Xuqx2Ap",
+                "ref_type": "fulltext_paragraph"
+              },
+              {
+                "ref_id": "LSRC-2268",
+                "ref_type": "literature_source"
+              }
+            ],
+            "binding_kind": "manual_source"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "literature_ref": {
+              "ref_id": "LIT-2297",
+              "ref_type": "literature_record"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_HHASBrE",
+                "ref_type": "fulltext_paragraph"
+              },
+              {
+                "ref_id": "LSRC-2312",
+                "ref_type": "literature_source"
+              }
+            ],
+            "binding_kind": "manual_source"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_5GNYScY",
+                "ref_type": "fulltext_paragraph"
+              },
+              {
+                "ref_id": "LSRC-2268",
+                "ref_type": "literature_source"
+              }
+            ],
+            "binding_kind": "manual_source"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "literature_ref": {
+              "ref_id": "LIT-2254",
+              "ref_type": "literature_record"
+            },
+            "source_refs": [
+              {
+                "ref_id": "sec-5",
+                "ref_type": "fulltext_section"
+              },
+              {
+                "ref_id": "LSRC-2269",
+                "ref_type": "literature_source"
+              }
+            ],
+            "binding_kind": "manual_source"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "literature_ref": {
+              "ref_id": "LIT-0190",
+              "ref_type": "literature_record"
+            },
+            "source_refs": [
+              {
+                "ref_id": "sec-30",
+                "ref_type": "fulltext_section"
+              },
+              {
+                "ref_id": "LSRC-0194",
+                "ref_type": "literature_source"
+              }
+            ],
+            "binding_kind": "manual_source"
+          },
+          {
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "literature_ref": {
+              "ref_id": "LIT-2295",
+              "ref_type": "literature_record"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_AG7MxS6",
+                "ref_type": "fulltext_paragraph"
+              },
+              {
+                "ref_id": "LSRC-2310",
+                "ref_type": "literature_source"
+              }
+            ],
+            "binding_kind": "manual_source"
+          }
+        ],
+        "created_by": "system"
+      },
+      "status": 201,
+      "response_sha256": "957f5068da9a1f5d980e38e1eb986905f72d71e4d896b3d95c2de5641e37778b",
+      "result": {}
+    },
+    {
+      "path": "/topic-selection/v1a/evidence-maps",
+      "method": "POST",
+      "input": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "search_run_id": "search_run_9ed44667-90f6-4d9a-bd69-58128bc36f6b",
+        "evidence_map_version": "t148-phase4-frozen-replay-20260908",
+        "evidence_units": [
+          {
+            "client_unit_key": "0",
+            "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "evidence_role": "support",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_Xuqx2Ap",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-2268",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 14277,
+              "source_ref": {
+                "ref_id": "LSRC-2268",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_Xuqx2Ap",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 13892,
+              "paragraph_ref": {
+                "ref_id": "_Xuqx2Ap",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-2253",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "Adaptive retrieval can reduce unnecessary computation and encourage abstention, but calibrated confidence can be unsafe outside its validation domain and may skip retrieval when evidence is needed.",
+            "normalized_statement": "OOD calibration failure can turn adaptive retrieval decisions into harmful skips.",
+            "interpretation_payload": {
+              "limitation": "The paper does not directly test retriever replacement.",
+              "relevance_to_topic": "Supports shift-aware recalibration and conservative fallback after a retriever change."
+            },
+            "extraction_confidence": 0.93,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "1",
+            "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "evidence_role": "support",
+            "literature_ref": {
+              "ref_id": "LIT-2297",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_HHASBrE",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-2312",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 1379,
+              "source_ref": {
+                "ref_id": "LSRC-2312",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_HHASBrE",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 609,
+              "paragraph_ref": {
+                "ref_id": "_HHASBrE",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-2297",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "Relevance-biased retrievers can ignore passage utility and become misaligned with downstream generation; learning utility-aware retrieval remains an open challenge.",
+            "normalized_statement": "Retriever utility signals can diverge from semantic relevance and generator needs.",
+            "interpretation_payload": {
+              "limitation": "This work trains the retriever rather than testing router transfer safety.",
+              "relevance_to_topic": "A changed retriever can shift the utility signal seen by a frozen router."
+            },
+            "extraction_confidence": 0.94,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "2",
+            "coverage_row_intent_id": null,
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-0333",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_zWDAw8V",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-0346",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 13015,
+              "source_ref": {
+                "ref_id": "LSRC-0346",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_zWDAw8V",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 12820,
+              "paragraph_ref": {
+                "ref_id": "_zWDAw8V",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-0333",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "counter_evidence",
+            "source_statement": "RAGRouter explicitly accounts for knowledge shifts introduced by document retrieval when estimating model capability in RAG settings.",
+            "normalized_statement": "Existing RAG routing already models retrieval-induced capability shift.",
+            "interpretation_payload": {
+              "novelty_effect": "Narrows novelty; replacement-specific calibration safety must be shown beyond generic retrieval-induced shift."
+            },
+            "extraction_confidence": 0.96,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "3",
+            "coverage_row_intent_id": null,
+            "evidence_role": "challenge",
+            "literature_ref": {
+              "ref_id": "LIT-0302",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_Ku7MbYy",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-0306",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 19851,
+              "source_ref": {
+                "ref_id": "LSRC-0306",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_Ku7MbYy",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 19199,
+              "paragraph_ref": {
+                "ref_id": "_Ku7MbYy",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-0302",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "counter_evidence",
+            "source_statement": "Retriever-routing methods dynamically select the most suitable retriever from a candidate pool for each query and are evaluated against sequential, conditional, and iterative retrieval paradigms.",
+            "normalized_statement": "Per-query retriever selection and broad adaptive retrieval baselines already exist.",
+            "interpretation_payload": {
+              "novelty_effect": "The topic must study post-replacement transfer of a frozen utility router, not retriever selection itself."
+            },
+            "extraction_confidence": 0.96,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "4",
+            "coverage_row_intent_id": null,
+            "evidence_role": "baseline",
+            "literature_ref": {
+              "ref_id": "LIT-2296",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_PQRNhnV",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-2311",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 2379,
+              "source_ref": {
+                "ref_id": "LSRC-2311",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_PQRNhnV",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 1432,
+              "paragraph_ref": {
+                "ref_id": "_PQRNhnV",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-2296",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "Supervised query routing depends on costly paired annotations and suffers from distribution mismatch between public datasets and real queries, limiting OOD generalization.",
+            "normalized_statement": "Low-label and OOD routing are credible baseline constraints.",
+            "interpretation_payload": {
+              "baseline_use": "Compare low-label recalibration against unsupervised routing and from-scratch adaptation under matched annotation budgets."
+            },
+            "extraction_confidence": 0.94,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "5",
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_5GNYScY",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-2268",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 3122,
+              "source_ref": {
+                "ref_id": "LSRC-2268",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_5GNYScY",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 2150,
+              "paragraph_ref": {
+                "ref_id": "_5GNYScY",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-2253",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "Calibration improves probability quality while preserving ranking, graded allocation changes passage and context budget frontiers, and held-out thresholds approach diagnostic operating points.",
+            "normalized_statement": "Evaluation should separate calibration quality, ranking, operating thresholds, and budget frontiers.",
+            "interpretation_payload": {
+              "evaluation_use": "Measure ECE or Brier-style calibration, harmful routing, threshold transfer, and matched retrieval budgets before and after replacement."
+            },
+            "extraction_confidence": 0.95,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "6",
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2254",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "sec-5",
+                "ref_type": "fulltext_section",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-2269",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 11074,
+              "source_ref": {
+                "ref_id": "LSRC-2269",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "sec-5",
+                "ref_type": "fulltext_section",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "section_ref": {
+                "ref_id": "sec-5",
+                "ref_type": "fulltext_section",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "section",
+              "start_offset": 9599,
+              "literature_ref": {
+                "ref_id": "LIT-2254",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "The cross-dataset evaluation fixes model families, example counts, retrieval depth, and retrieval method so that utility, calibration, and cost comparisons remain budget-aware.",
+            "normalized_statement": "Matched model and retrieval budgets are necessary for utility and calibration comparison.",
+            "interpretation_payload": {
+              "evaluation_use": "Adapt the protocol to before-versus-after retriever replacement and low-label recalibration."
+            },
+            "extraction_confidence": 0.87,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "7",
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-0190",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "sec-30",
+                "ref_type": "fulltext_section",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-0194",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 44471,
+              "source_ref": {
+                "ref_id": "LSRC-0194",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "sec-30",
+                "ref_type": "fulltext_section",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "section_ref": {
+                "ref_id": "sec-30",
+                "ref_type": "fulltext_section",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "section",
+              "start_offset": 43286,
+              "literature_ref": {
+                "ref_id": "LIT-0190",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "RAGRouter-Bench characterizes retrieval environments using structural-topology and semantic-space metrics to delineate where different RAG paradigms apply.",
+            "normalized_statement": "Retriever-shift evaluation can quantify both corpus topology and semantic-space change.",
+            "interpretation_payload": {
+              "evaluation_use": "Use environment-shift descriptors alongside calibration and routing-harm metrics."
+            },
+            "extraction_confidence": 0.86,
+            "review_status": "machine_checked"
+          },
+          {
+            "client_unit_key": "8",
+            "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "evidence_role": "context",
+            "literature_ref": {
+              "ref_id": "LIT-2295",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "source_refs": [
+              {
+                "ref_id": "_AG7MxS6",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              {
+                "ref_id": "LSRC-2310",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            ],
+            "locator": {
+              "end_offset": 18801,
+              "source_ref": {
+                "ref_id": "LSRC-2310",
+                "ref_type": "literature_source",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_ref": {
+                "ref_id": "_AG7MxS6",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "locator_type": "paragraph",
+              "start_offset": 18209,
+              "paragraph_ref": {
+                "ref_id": "_AG7MxS6",
+                "ref_type": "fulltext_paragraph",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              },
+              "literature_ref": {
+                "ref_id": "LIT-2295",
+                "ref_type": "literature_record",
+                "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+              }
+            },
+            "source_attribution_kind": "source_claim",
+            "source_statement": "Retrieval-utility prediction is evaluated on Natural Questions using answer F1 and Spearman correlation between predicted scores and ground-truth context utility or answer quality.",
+            "normalized_statement": "Context utility and answer quality can be evaluated separately with ranking correlations and task metrics.",
+            "interpretation_payload": {
+              "evaluation_use": "Track whether post-shift calibration preserves utility ranking and avoids harmful routing."
+            },
+            "extraction_confidence": 0.94,
+            "review_status": "machine_checked"
+          }
+        ],
+        "conflict_sets": [
+          {
+            "conflict_type": "claim_conflict",
+            "severity": "material",
+            "support_unit_keys": [
+              "0",
+              "1"
+            ],
+            "challenge_unit_keys": [
+              "2",
+              "3"
+            ],
+            "baseline_unit_keys": [
+              "4"
+            ],
+            "context_unit_keys": [
+              "5",
+              "6",
+              "7",
+              "8"
+            ],
+            "issue_codes": [
+              "RETRIEVER_SHIFT_NOVELTY_BOUNDARY",
+              "REPLACEMENT_BENCHMARK_REQUIRED"
+            ]
+          }
+        ],
+        "digest_payload": {
+          "mechanism": "Measure router calibration and harmful retrieval before and after a controlled retriever or index replacement, then compare low-label recalibration and abstaining fallback against frozen, unsupervised, and from-scratch baselines.",
+          "falsifiers": [
+            "The frozen router remains calibrated after replacement, leaving no material transfer problem.",
+            "Simple unsupervised or threshold-only adaptation matches low-label recalibration.",
+            "Apparent gains disappear under matched retrieval and annotation budgets.",
+            "Abstention reduces harmful routing only by sacrificing answer quality beyond the accepted operating point."
+          ],
+          "claim_ceiling": "A controlled retriever/index-replacement setting with a frozen utility router and explicitly constructed benchmark; no general claim about all adaptive RAG, all retrievers, or production robustness.",
+          "working_claim": "A retrieval-utility router calibrated for one retriever can become unsafe after an explicit retriever or index replacement; low-label recalibration plus an abstaining fallback should restore useful routing under matched retrieval budgets.",
+          "support_summary": "Prior work supports utility-aware retrieval, calibration, budget-aware evaluation, and the risk of distribution mismatch, but does not directly validate frozen-router transfer after retriever replacement.",
+          "baseline_summary": "Compare the frozen original router, unsupervised routing, from-scratch retraining, low-label recalibration without fallback, and the proposed recalibration-plus-abstention policy under matched label and retrieval budgets.",
+          "challenge_summary": "RAGRouter and retriever-routing research already model retrieval-induced shifts and per-query retriever choice, so novelty is restricted to post-replacement transfer safety for a frozen utility router.",
+          "evaluation_context": "Use calibration error or Brier-style quality, utility-ranking correlation, harmful-retrieval rate, answer quality, abstention behavior, and matched retrieval cost across controlled pre/post replacement environments.",
+          "unresolved_requirements": [
+            "Construct a retriever-replacement-specific benchmark because no direct reusable benchmark was found.",
+            "Keep the claim limited to explicit retriever or index replacement; do not claim generic adaptive-routing novelty.",
+            "Demonstrate that gains survive matched annotation, retrieval, and compute budgets."
+          ],
+          "historical_bounded_recheck": {
+            "total_hits": 16,
+            "duplicate_hits": 6,
+            "provider_calls": 2,
+            "context_verdict": "missing",
+            "support_verdict": "missing",
+            "stop_rule_reached": true,
+            "unique_literature": 10,
+            "retriever_operations": 2,
+            "source_search_run_id": "search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697"
+          },
+          "materialization_accounting": {
+            "mode": "retained_material_replay",
+            "retriever_operations": 0,
+            "provider_calls": 0,
+            "new_literature_hits": 0,
+            "evidence_delta": 0,
+            "source_evidence_map_id": "evidence_map_c691de26-831f-4c2b-bc0a-ea08e3399a93"
+          },
+          "recommendation": "Human review required: both historical coverage gaps remain missing, and current literature freshness is unverified."
+        },
+        "created_by": "system"
+      },
+      "status": 201,
+      "response_sha256": "5d18a343cf02f6d9c351a81447d405e62538c19066445f8d51c3f79ba8dcf904",
+      "result": {}
+    },
+    {
+      "path": "/topic-selection/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/checkpoints",
+      "method": "GET",
+      "status": 200,
+      "response_sha256": "f4534dbcdf992dd8d92b076531ba0a75d6ac689046771302498588b8b037217b",
+      "result": [
+        {
+          "id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "path": "/topic-selection/checkpoints/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc/packet",
+      "method": "GET",
+      "status": 200,
+      "response_sha256": "8384a24945335f9165364c1d8873a850545b6de1ec2f9214ed1727f4b956fefb",
+      "result": {
+        "research_checkpoint_id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "decision": null
+      }
+    },
+    {
+      "path": "/topic-selection/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/stage-views/evidence_landscape?audience=human",
+      "method": "GET",
+      "status": 200,
+      "response_sha256": "6b679fcb08fb45ebdefe07fa0cea65fae1bd5dc5d49c4c2c166899d7dfbee54a",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "state": "current"
+      }
+    },
+    {
+      "path": "/topic-selection/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/research-status",
+      "method": "GET",
+      "status": 200,
+      "response_sha256": "f73db001e8403348817a403f2ab9d6ffc094c1c6715c57830e6091a0d59cf7ed",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    },
+    {
+      "path": "/topic-selection/title-cards/title_card_e22967ea-bb22-41b6-8306-86f5acb714e2/continuation-envelope",
+      "method": "GET",
+      "status": 200,
+      "response_sha256": "50fa8eb2391bb71deaff883be6537e93d9255202494de42e0fda3efb63a04ebc",
+      "result": {
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+        "boundary_reached": true
+      }
+    }
+  ],
+  "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+  "topic_seed_id": "topic_seed_44394151-cd55-49ca-8783-b313a3f216bf",
+  "literature_snapshot_id": "literature_snapshot_d5be095e-5b8c-4029-a666-18b324d2c295",
+  "search_plan_id": "search_plan_f819e58e-e994-4e18-acfb-6c6f59c14008",
+  "search_run_id": "search_run_9ed44667-90f6-4d9a-bd69-58128bc36f6b",
+  "evidence_map_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+  "checkpoint_id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+  "verified": {
+    "fresh_title_has_no_rejection": true,
+    "human_decision_absent": true,
+    "checkpoint_count": 1,
+    "required_action_count": 1,
+    "paragraph_unit_count": 7,
+    "all_roles": [
+      "support",
+      "challenge",
+      "baseline",
+      "context"
+    ],
+    "source_scoping_admitted": true,
+    "retriever_operations": 0,
+    "provider_calls": 0,
+    "new_literature_hits": 0,
+    "evidence_delta": 0,
+    "original_packet_support_dossier_and_promotion_bundle_unchanged": true,
+    "continuation_decision": "stop_for_human",
+    "coverage_verdicts": [
+      "missing",
+      "missing"
+    ],
+    "policy_result": "human_acceptance_required",
+    "packet_hash": "61b86b691cc6b4223bbe4462785f90ba818c8a85f130c91e6daf301406747856",
+    "target_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5"
+  },
+  "packet": {
+    "research_checkpoint_id": "research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc",
+    "checkpoint_kind": "evidence_landscape",
+    "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+    "contract_version": "v1",
+    "target_ref": {
+      "ref_type": "evidence_map",
+      "ref_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+      "version_id": "t148-phase4-frozen-replay-20260908",
+      "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+    },
+    "target_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
+    "source_refs": [
+      {
+        "ref_id": "coverage_assessment_c2db46a3-2b4b-4668-ae1d-e31e3fc4aa61",
+        "ref_type": "coverage_assessment",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "coverage_assessment_f122a7ed-6073-4554-9a72-2964d9eef3f4",
+        "ref_type": "coverage_assessment",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_1bebdc21-131e-47d7-a051-ea89d4c2cc62",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_1fb5c8f2-a2cd-44a8-bb72-95dace42c298",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_4220f832-9be4-43af-a763-efeb9d7aec8b",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_4e2f3dfa-62c2-4a30-bd97-b242e66e0de9",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_87e7007c-3b67-4da7-9ccf-0f30db4a222b",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_a57cc72d-6249-4efa-a520-c481c0c5842d",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_b9c4c182-1e8e-4500-bf16-1370d5efbe3a",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_e5fa81d1-d59d-4782-9f75-4852780a66b4",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "evidence_unit_f536be8f-0113-43c0-9997-d77fc64da437",
+        "ref_type": "evidence_unit",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_5GNYScY",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_AG7MxS6",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_HHASBrE",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_Ku7MbYy",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_PQRNhnV",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_Xuqx2Ap",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "_zWDAw8V",
+        "ref_type": "fulltext_paragraph",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "sec-30",
+        "ref_type": "fulltext_section",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "sec-5",
+        "ref_type": "fulltext_section",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-0190",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-0302",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-0333",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-2253",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-2254",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-2295",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-2296",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LIT-2297",
+        "ref_type": "literature_record",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "literature_snapshot_d5be095e-5b8c-4029-a666-18b324d2c295",
+        "ref_type": "literature_resource_pool_snapshot",
+        "version_id": "t148-phase4-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-0194",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-0306",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-0346",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-2268",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-2269",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-2310",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-2311",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "LSRC-2312",
+        "ref_type": "literature_source",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "search_plan_f819e58e-e994-4e18-acfb-6c6f59c14008",
+        "ref_type": "search_plan",
+        "version_id": "t148-phase4-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      {
+        "ref_id": "search_run_9ed44667-90f6-4d9a-bd69-58128bc36f6b",
+        "ref_type": "search_run",
+        "version_id": null,
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    ],
+    "allowed_actions": [
+      "advance",
+      "hold",
+      "loopback",
+      "reject"
+    ],
+    "required_action_refs": [
+      {
+        "ref_id": "research_required_action_7d0f92fe20ade0270b3b7e0a",
+        "ref_type": "research_required_action",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    ],
+    "packet_payload": {
+      "policy_note": "Counts are diagnostic only; role, source authority, currentness, and inspectability govern eligibility.",
+      "policy_issues": [
+        {
+          "code": "REQUIRED_COVERAGE_MISSING",
+          "refs": [
+            {
+              "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+              "ref_type": "coverage_row_intent",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+              "ref_type": "coverage_row_intent",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ],
+          "message": "Every required missing coverage row needs exact Human acceptance before advancement."
+        }
+      ],
+      "policy_result": "human_acceptance_required",
+      "evidence_units": [
+        {
+          "locator": {
+            "end_offset": 14277,
+            "source_ref": {
+              "ref_id": "LSRC-2268",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_Xuqx2Ap",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 13892,
+            "paragraph_ref": {
+              "ref_id": "_Xuqx2Ap",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "support",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-2253",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "Adaptive retrieval can reduce unnecessary computation and encourage abstention, but calibrated confidence can be unsafe outside its validation domain and may skip retrieval when evidence is needed.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_1bebdc21-131e-47d7-a051-ea89d4c2cc62",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "OOD calibration failure can turn adaptive retrieval decisions into harmful skips.",
+          "interpretation_payload": {
+            "limitation": "The paper does not directly test retriever replacement.",
+            "relevance_to_topic": "Supports shift-aware recalibration and conservative fallback after a retriever change."
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "ref_type": "coverage_row_intent",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_attribution_kind": "source_claim"
+        },
+        {
+          "locator": {
+            "end_offset": 1379,
+            "source_ref": {
+              "ref_id": "LSRC-2312",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_HHASBrE",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 609,
+            "paragraph_ref": {
+              "ref_id": "_HHASBrE",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-2297",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "support",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-2297",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "Relevance-biased retrievers can ignore passage utility and become misaligned with downstream generation; learning utility-aware retrieval remains an open challenge.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_b9c4c182-1e8e-4500-bf16-1370d5efbe3a",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Retriever utility signals can diverge from semantic relevance and generator needs.",
+          "interpretation_payload": {
+            "limitation": "This work trains the retriever rather than testing router transfer safety.",
+            "relevance_to_topic": "A changed retriever can shift the utility signal seen by a frozen router."
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "ref_type": "coverage_row_intent",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_attribution_kind": "source_claim"
+        },
+        {
+          "locator": {
+            "end_offset": 13015,
+            "source_ref": {
+              "ref_id": "LSRC-0346",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_zWDAw8V",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 12820,
+            "paragraph_ref": {
+              "ref_id": "_zWDAw8V",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-0333",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "challenge",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-0333",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "RAGRouter explicitly accounts for knowledge shifts introduced by document retrieval when estimating model capability in RAG settings.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_4220f832-9be4-43af-a763-efeb9d7aec8b",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Existing RAG routing already models retrieval-induced capability shift.",
+          "interpretation_payload": {
+            "novelty_effect": "Narrows novelty; replacement-specific calibration safety must be shown beyond generic retrieval-induced shift."
+          },
+          "coverage_row_intent_ref": null,
+          "source_attribution_kind": "counter_evidence"
+        },
+        {
+          "locator": {
+            "end_offset": 19851,
+            "source_ref": {
+              "ref_id": "LSRC-0306",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_Ku7MbYy",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 19199,
+            "paragraph_ref": {
+              "ref_id": "_Ku7MbYy",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-0302",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "challenge",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-0302",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "Retriever-routing methods dynamically select the most suitable retriever from a candidate pool for each query and are evaluated against sequential, conditional, and iterative retrieval paradigms.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_a57cc72d-6249-4efa-a520-c481c0c5842d",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Per-query retriever selection and broad adaptive retrieval baselines already exist.",
+          "interpretation_payload": {
+            "novelty_effect": "The topic must study post-replacement transfer of a frozen utility router, not retriever selection itself."
+          },
+          "coverage_row_intent_ref": null,
+          "source_attribution_kind": "counter_evidence"
+        },
+        {
+          "locator": {
+            "end_offset": 2379,
+            "source_ref": {
+              "ref_id": "LSRC-2311",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_PQRNhnV",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 1432,
+            "paragraph_ref": {
+              "ref_id": "_PQRNhnV",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-2296",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "baseline",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-2296",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "Supervised query routing depends on costly paired annotations and suffers from distribution mismatch between public datasets and real queries, limiting OOD generalization.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_4e2f3dfa-62c2-4a30-bd97-b242e66e0de9",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Low-label and OOD routing are credible baseline constraints.",
+          "interpretation_payload": {
+            "baseline_use": "Compare low-label recalibration against unsupervised routing and from-scratch adaptation under matched annotation budgets."
+          },
+          "coverage_row_intent_ref": null,
+          "source_attribution_kind": "source_claim"
+        },
+        {
+          "locator": {
+            "end_offset": 3122,
+            "source_ref": {
+              "ref_id": "LSRC-2268",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_5GNYScY",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 2150,
+            "paragraph_ref": {
+              "ref_id": "_5GNYScY",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-2253",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "context",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-2253",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "Calibration improves probability quality while preserving ranking, graded allocation changes passage and context budget frontiers, and held-out thresholds approach diagnostic operating points.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_1fb5c8f2-a2cd-44a8-bb72-95dace42c298",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Evaluation should separate calibration quality, ranking, operating thresholds, and budget frontiers.",
+          "interpretation_payload": {
+            "evaluation_use": "Measure ECE or Brier-style calibration, harmful routing, threshold transfer, and matched retrieval budgets before and after replacement."
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "ref_type": "coverage_row_intent",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_attribution_kind": "source_claim"
+        },
+        {
+          "locator": {
+            "end_offset": 11074,
+            "source_ref": {
+              "ref_id": "LSRC-2269",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "sec-5",
+              "ref_type": "fulltext_section",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "section_ref": {
+              "ref_id": "sec-5",
+              "ref_type": "fulltext_section",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "section",
+            "start_offset": 9599,
+            "literature_ref": {
+              "ref_id": "LIT-2254",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "context",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-2254",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "The cross-dataset evaluation fixes model families, example counts, retrieval depth, and retrieval method so that utility, calibration, and cost comparisons remain budget-aware.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_e5fa81d1-d59d-4782-9f75-4852780a66b4",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Matched model and retrieval budgets are necessary for utility and calibration comparison.",
+          "interpretation_payload": {
+            "evaluation_use": "Adapt the protocol to before-versus-after retriever replacement and low-label recalibration."
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "ref_type": "coverage_row_intent",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_attribution_kind": "source_claim"
+        },
+        {
+          "locator": {
+            "end_offset": 44471,
+            "source_ref": {
+              "ref_id": "LSRC-0194",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "sec-30",
+              "ref_type": "fulltext_section",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "section_ref": {
+              "ref_id": "sec-30",
+              "ref_type": "fulltext_section",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "section",
+            "start_offset": 43286,
+            "literature_ref": {
+              "ref_id": "LIT-0190",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "context",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-0190",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "RAGRouter-Bench characterizes retrieval environments using structural-topology and semantic-space metrics to delineate where different RAG paradigms apply.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_f536be8f-0113-43c0-9997-d77fc64da437",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Retriever-shift evaluation can quantify both corpus topology and semantic-space change.",
+          "interpretation_payload": {
+            "evaluation_use": "Use environment-shift descriptors alongside calibration and routing-harm metrics."
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "ref_type": "coverage_row_intent",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_attribution_kind": "source_claim"
+        },
+        {
+          "locator": {
+            "end_offset": 18801,
+            "source_ref": {
+              "ref_id": "LSRC-2310",
+              "ref_type": "literature_source",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_ref": {
+              "ref_id": "_AG7MxS6",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "locator_type": "paragraph",
+            "start_offset": 18209,
+            "paragraph_ref": {
+              "ref_id": "_AG7MxS6",
+              "ref_type": "fulltext_paragraph",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            "literature_ref": {
+              "ref_id": "LIT-2295",
+              "ref_type": "literature_record",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          },
+          "issue_codes": [],
+          "abstract_only": false,
+          "evidence_role": "context",
+          "review_status": "machine_checked",
+          "literature_ref": {
+            "ref_id": "LIT-2295",
+            "ref_type": "literature_record",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "freshness_status": "current",
+          "source_statement": "Retrieval-utility prediction is evaluated on Natural Questions using answer F1 and Spearman correlation between predicted scores and ground-truth context utility or answer quality.",
+          "evidence_unit_ref": {
+            "ref_id": "evidence_unit_87e7007c-3b67-4da7-9ccf-0f30db4a222b",
+            "ref_type": "evidence_unit",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "normalized_statement": "Context utility and answer quality can be evaluated separately with ranking correlations and task metrics.",
+          "interpretation_payload": {
+            "evaluation_use": "Track whether post-shift calibration preserves utility ranking and avoids harmful routing."
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "ref_type": "coverage_row_intent",
+            "version_id": null,
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "source_attribution_kind": "source_claim"
+        }
+      ],
+      "evidence_map_ref": {
+        "ref_id": "evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f",
+        "ref_type": "evidence_map",
+        "version_id": "t148-phase4-frozen-replay-20260908",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      },
+      "material_conflicts": [
+        {
+          "severity": "material",
+          "issue_codes": [
+            "RETRIEVER_SHIFT_NOVELTY_BOUNDARY",
+            "REPLACEMENT_BENCHMARK_REQUIRED"
+          ],
+          "conflict_ref": {
+            "ref_id": "evidence_conflict_d8a5b112-8290-470d-a335-bb72564d1d1a",
+            "ref_type": "evidence_conflict_set",
+            "version_id": "t148-phase4-frozen-replay-20260908",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "conflict_type": "claim_conflict",
+          "context_unit_refs": [
+            {
+              "ref_id": "evidence_unit_1fb5c8f2-a2cd-44a8-bb72-95dace42c298",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "evidence_unit_e5fa81d1-d59d-4782-9f75-4852780a66b4",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "evidence_unit_f536be8f-0113-43c0-9997-d77fc64da437",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "evidence_unit_87e7007c-3b67-4da7-9ccf-0f30db4a222b",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ],
+          "support_unit_refs": [
+            {
+              "ref_id": "evidence_unit_1bebdc21-131e-47d7-a051-ea89d4c2cc62",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "evidence_unit_b9c4c182-1e8e-4500-bf16-1370d5efbe3a",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ],
+          "baseline_unit_refs": [
+            {
+              "ref_id": "evidence_unit_4e2f3dfa-62c2-4a30-bd97-b242e66e0de9",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ],
+          "challenge_unit_refs": [
+            {
+              "ref_id": "evidence_unit_4220f832-9be4-43af-a763-efeb9d7aec8b",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "evidence_unit_a57cc72d-6249-4efa-a520-c481c0c5842d",
+              "ref_type": "evidence_unit",
+              "version_id": "t148-phase4-frozen-replay-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ]
+        }
+      ],
+      "evidence_map_digest": {
+        "mechanism": "Measure router calibration and harmful retrieval before and after a controlled retriever or index replacement, then compare low-label recalibration and abstaining fallback against frozen, unsupervised, and from-scratch baselines.",
+        "falsifiers": [
+          "The frozen router remains calibrated after replacement, leaving no material transfer problem.",
+          "Simple unsupervised or threshold-only adaptation matches low-label recalibration.",
+          "Apparent gains disappear under matched retrieval and annotation budgets.",
+          "Abstention reduces harmful routing only by sacrificing answer quality beyond the accepted operating point."
+        ],
+        "claim_ceiling": "A controlled retriever/index-replacement setting with a frozen utility router and explicitly constructed benchmark; no general claim about all adaptive RAG, all retrievers, or production robustness.",
+        "working_claim": "A retrieval-utility router calibrated for one retriever can become unsafe after an explicit retriever or index replacement; low-label recalibration plus an abstaining fallback should restore useful routing under matched retrieval budgets.",
+        "recommendation": "Human review required: both historical coverage gaps remain missing, and current literature freshness is unverified.",
+        "support_summary": "Prior work supports utility-aware retrieval, calibration, budget-aware evaluation, and the risk of distribution mismatch, but does not directly validate frozen-router transfer after retriever replacement.",
+        "baseline_summary": "Compare the frozen original router, unsupervised routing, from-scratch retraining, low-label recalibration without fallback, and the proposed recalibration-plus-abstention policy under matched label and retrieval budgets.",
+        "challenge_summary": "RAGRouter and retriever-routing research already model retrieval-induced shifts and per-query retriever choice, so novelty is restricted to post-replacement transfer safety for a frozen utility router.",
+        "evaluation_context": "Use calibration error or Brier-style quality, utility-ranking correlation, harmful-retrieval rate, answer quality, abstention behavior, and matched retrieval cost across controlled pre/post replacement environments.",
+        "unresolved_requirements": [
+          "Construct a retriever-replacement-specific benchmark because no direct reusable benchmark was found.",
+          "Keep the claim limited to explicit retriever or index replacement; do not claim generic adaptive-routing novelty.",
+          "Demonstrate that gains survive matched annotation, retrieval, and compute budgets."
+        ],
+        "historical_bounded_recheck": {
+          "total_hits": 16,
+          "duplicate_hits": 6,
+          "provider_calls": 2,
+          "context_verdict": "missing",
+          "support_verdict": "missing",
+          "stop_rule_reached": true,
+          "unique_literature": 10,
+          "retriever_operations": 2,
+          "source_search_run_id": "search_run_bf8282ac-02ff-4fda-b3ee-658dd0857697"
+        },
+        "materialization_accounting": {
+          "mode": "retained_material_replay",
+          "evidence_delta": 0,
+          "provider_calls": 0,
+          "new_literature_hits": 0,
+          "retriever_operations": 0,
+          "source_evidence_map_id": "evidence_map_c691de26-831f-4c2b-bc0a-ea08e3399a93"
+        }
+      },
+      "coverage_row_intents": [
+        {
+          "required": true,
+          "rationale": "Find or falsify the availability of an evaluation asset that directly models retriever or index replacement.",
+          "intent_type": "context",
+          "coverage_key": "context-retriever-replacement-benchmark",
+          "coverage_row_intent_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+          "expected_evidence_role": "context"
+        },
+        {
+          "required": true,
+          "rationale": "Find direct conceptual or empirical evidence for the exact frozen-router transfer mechanism rather than adjacent adaptive routing.",
+          "intent_type": "support",
+          "coverage_key": "support-direct-frozen-router-transfer",
+          "coverage_row_intent_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+          "expected_evidence_role": "support"
+        }
+      ],
+      "material_conflict_refs": [
+        {
+          "ref_id": "evidence_conflict_d8a5b112-8290-470d-a335-bb72564d1d1a",
+          "ref_type": "evidence_conflict_set",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "nearest_work_unit_refs": [
+        {
+          "ref_id": "evidence_unit_4e2f3dfa-62c2-4a30-bd97-b242e66e0de9",
+          "ref_type": "evidence_unit",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "disconfirming_unit_refs": [
+        {
+          "ref_id": "evidence_unit_4220f832-9be4-43af-a763-efeb9d7aec8b",
+          "ref_type": "evidence_unit",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "evidence_unit_a57cc72d-6249-4efa-a520-c481c0c5842d",
+          "ref_type": "evidence_unit",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "latest_coverage_assessments": [
+        {
+          "verdict": "missing",
+          "confidence": 0.9,
+          "created_at": "2026-09-08T00:22:58.453Z",
+          "assessed_by": "system",
+          "issue_codes": [
+            "RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND"
+          ],
+          "coverage_assessment_ref": {
+            "ref_id": "coverage_assessment_c2db46a3-2b4b-4668-ae1d-e31e3fc4aa61",
+            "ref_type": "coverage_assessment",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "ref_type": "coverage_row_intent",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        },
+        {
+          "verdict": "missing",
+          "confidence": 0.92,
+          "created_at": "2026-09-08T00:22:58.453Z",
+          "assessed_by": "system",
+          "issue_codes": [
+            "DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND"
+          ],
+          "coverage_assessment_ref": {
+            "ref_id": "coverage_assessment_f122a7ed-6073-4554-9a72-2964d9eef3f4",
+            "ref_type": "coverage_assessment",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          "coverage_row_intent_ref": {
+            "ref_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "ref_type": "coverage_row_intent",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        }
+      ],
+      "evidence_map_freshness_status": "current",
+      "claim_bearing_support_unit_refs": [
+        {
+          "ref_id": "evidence_unit_1bebdc21-131e-47d7-a051-ea89d4c2cc62",
+          "ref_type": "evidence_unit",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        },
+        {
+          "ref_id": "evidence_unit_b9c4c182-1e8e-4500-bf16-1370d5efbe3a",
+          "ref_type": "evidence_unit",
+          "version_id": "t148-phase4-frozen-replay-20260908",
+          "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+        }
+      ],
+      "literature_coverage_limitations": [
+        {
+          "code": "RECENT_LITERATURE_COVERAGE_UNVERIFIED",
+          "refs": [
+            {
+              "ref_id": "literature_snapshot_d5be095e-5b8c-4029-a666-18b324d2c295",
+              "ref_type": "literature_resource_pool_snapshot",
+              "version_id": "t148-phase4-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "search_plan_f819e58e-e994-4e18-acfb-6c6f59c14008",
+              "ref_type": "search_plan",
+              "version_id": "t148-phase4-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "search_run_9ed44667-90f6-4d9a-bd69-58128bc36f6b",
+              "ref_type": "search_run",
+              "version_id": null,
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ],
+          "message": "当前证据快照未验证近期直接重叠研究的覆盖情况；请核对检索时段、来源范围及相关工作。"
+        },
+        {
+          "code": "NEAR_DUPLICATE_RISK_UNRESOLVED",
+          "refs": [
+            {
+              "ref_id": "literature_snapshot_d5be095e-5b8c-4029-a666-18b324d2c295",
+              "ref_type": "literature_resource_pool_snapshot",
+              "version_id": "t148-phase4-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "search_plan_f819e58e-e994-4e18-acfb-6c6f59c14008",
+              "ref_type": "search_plan",
+              "version_id": "t148-phase4-20260908",
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            },
+            {
+              "ref_id": "search_run_9ed44667-90f6-4d9a-bd69-58128bc36f6b",
+              "ref_type": "search_run",
+              "version_id": null,
+              "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+            }
+          ],
+          "message": "已有基线与反证不能排除遗漏近重复工作；选题的新颖性仍需结合近期相关研究判断。"
+        }
+      ]
+    },
+    "open_objections": [],
+    "decision": null,
+    "packet_hash": "61b86b691cc6b4223bbe4462785f90ba818c8a85f130c91e6daf301406747856"
+  },
+  "human_view": {
+    "schema_version": "TopicSelectionResearchStageView@v1",
+    "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2",
+    "stage": "evidence_landscape",
+    "state": "current",
+    "manifest_hash": "3ddcadae64a91d222a5cea5a49de0251413fe2c2ac5b6017a332d3980cb7e94d",
+    "source_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
+    "view_hash": "972a3b294ec3a7bb8c856f504b6d2f65356f9d4d51ab8935fad18b7ddd534abf",
+    "audience": "human",
+    "markdown": "# 证据版图\n\n> 当前状态：当前有效；流程位置：证据版图\n\n## 结论\n- A retrieval-utility router calibrated for one retriever can become unsafe after an explicit retriever or index replacement; low-label recalibration plus an abstaining fallback should restore useful routing under matched retrieval budgets.\n- Compare the frozen original router, unsupervised routing, from-scratch retraining, low-label recalibration without fallback, and the proposed recalibration-plus-abstention policy under matched label and retrieval budgets.\n- Human review required: both historical coverage gaps remain missing, and current literature freshness is unverified.\n- Measure router calibration and harmful retrieval before and after a controlled retriever or index replacement, then compare low-label recalibration and abstaining fallback against frozen, unsupervised, and from-scratch baselines.\n- Prior work supports utility-aware retrieval, calibration, budget-aware evaluation, and the risk of distribution mismatch, but does not directly validate frozen-router transfer after retriever replacement.\n- RAGRouter and retriever-routing research already model retrieval-induced shifts and per-query retriever choice, so novelty is restricted to post-replacement transfer safety for a frozen utility router.\n- 证据版图已有当前版本，状态为 pending。\n\n## 证据与反证\n- 反证：RAGRouter explicitly accounts for knowledge shifts introduced by document retrieval when estimating model capability in RAG settings.\n- 反证：Retriever-routing methods dynamically select the most suitable retriever from a candidate pool for each query and are evaluated against sequential, conditional, and iterative retrieval paradigms.\n- 基线：Supervised query routing depends on costly paired annotations and suffers from distribution mismatch between public datasets and real queries, limiting OOD generalization.\n- 支持：Adaptive retrieval can reduce unnecessary computation and encourage abstention, but calibrated confidence can be unsafe outside its validation domain and may skip retrieval when evidence is needed.\n- 支持：Relevance-biased retrievers can ignore passage utility and become misaligned with downstream generation; learning utility-aware retrieval remains an open challenge.\n- 背景：Calibration improves probability quality while preserving ranking, graded allocation changes passage and context budget frontiers, and held-out thresholds approach diagnostic operating points.\n- 背景：RAGRouter-Bench characterizes retrieval environments using structural-topology and semantic-space metrics to delineate where different RAG paradigms apply.\n- 背景：Retrieval-utility prediction is evaluated on Natural Questions using answer F1 and Spearman correlation between predicted scores and ground-truth context utility or answer quality.\n- 背景：The cross-dataset evaluation fixes model families, example counts, retrieval depth, and retrieval method so that utility, calibration, and cost comparisons remain budget-aware.\n\n## 备选与拒绝理由\n- 暂无。\n\n## 主张与证伪边界\n- A controlled retriever/index-replacement setting with a frozen utility router and explicitly constructed benchmark; no general claim about all adaptive RAG, all retrievers, or production robustness.\n- A retrieval-utility router calibrated for one retriever can become unsafe after an explicit retriever or index replacement; low-label recalibration plus an abstaining fallback should restore useful routing under matched retrieval budgets.\n- Abstention reduces harmful routing only by sacrificing answer quality beyond the accepted operating point.\n- Apparent gains disappear under matched retrieval and annotation budgets.\n- Measure router calibration and harmful retrieval before and after a controlled retriever or index replacement, then compare low-label recalibration and abstaining fallback against frozen, unsupervised, and from-scratch baselines.\n- Simple unsupervised or threshold-only adaptation matches low-label recalibration.\n- The frozen router remains calibrated after replacement, leaving no material transfer problem.\n\n## 开放风险\n- 实质证据冲突：claim_conflict（evidence_conflict_d8a5b112-8290-470d-a335-bb72564d1d1a）；RETRIEVER_SHIFT_NOVELTY_BOUNDARY、REPLACEMENT_BENCHMARK_REQUIRED\n- 已有基线与反证不能排除遗漏近重复工作；选题的新颖性仍需结合近期相关研究判断。\n- 当前证据快照未验证近期直接重叠研究的覆盖情况；请核对检索时段、来源范围及相关工作。\n- 必要覆盖缺失：Find direct conceptual or empirical evidence for the exact frozen-router transfer mechanism rather than adjacent adaptive routing.（coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8）；DIRECT_FROZEN_ROUTER_TRANSFER_STUDY_NOT_FOUND\n- 必要覆盖缺失：Find or falsify the availability of an evaluation asset that directly models retriever or index replacement.（coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8）；RETRIEVER_REPLACEMENT_SPECIFIC_BENCHMARK_NOT_FOUND\n\n## 建议\n优先补齐必要覆盖；如决定承担当前缺口，接受并推进时必须确认上列精确覆盖行并说明理由。\n\n## 下一次人工判断\n请审阅本阶段并选择：接受并推进、暂缓决定、回环补强、拒绝当前结果。\n\n## 技术追踪\n- Manifest：3ddcadae64a91d222a5cea5a49de0251413fe2c2ac5b6017a332d3980cb7e94d\n- 阶段快照：cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5\n- 当前选择规则：checkpoint_unique_current_key\n- 权威与检查点引用：evidence_map/evidence_map_10dd5a3a-553f-47fb-ba8b-0d0524623b4f；research_checkpoint/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc\n- 可解析产物：无"
+  }
+}

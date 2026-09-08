@@ -118,9 +118,11 @@ The route is:
 
 ```text
 retrieval-ready literature snapshot
-  -> v1a validated need
-  -> v1b topic package
-  -> v1c human-promoted topic and PaperProject bridge
+  -> literature and evidence convergence
+  -> research-gap selection and Human-confirmed need
+  -> research-question convergence and research-value assessment
+  -> topic package
+  -> promotion review and Human-confirmed PaperProject bridge
   -> CoreMotive and Evidence Board
   -> ValidationCycle and WorkOrder
   -> fresh two-cell Run and local workflow simulation
@@ -128,8 +130,8 @@ retrieval-ready literature snapshot
   -> scientific validation and bounded Claim/Dossier state
 ```
 
-Codex may prepare structured semantic support. It must stop for v1a need adjudication, v1b
-constraint and slice acceptance, v1c promotion, confirmatory review, every provider/cost action,
+Codex may prepare structured semantic support. It must stop for research-need adjudication,
+constraint and slice acceptance, promotion review, confirmatory review, every provider/cost action,
 and destructive/control actions. The rehearsal stops before writing-center or prose-generation
 work.
 

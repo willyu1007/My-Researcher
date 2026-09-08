@@ -155,7 +155,7 @@ export function AcceptedRiskCard({ titleCardId, targetOptions, refreshToken, onM
         <div data-ui="stack" data-direction="col" data-gap="1">
           <p data-ui="text" data-variant="label" data-tone="primary">AcceptedRisk（人审接受风险）</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            为某个 v1a 对象正式接受一项有界风险，经 guardedDirectWrite 人审路径写入；runtime 的 gate/transition 会消费 accepted_risk_refs。
+            为所选证据或研究需求正式接受一项有界风险。确认后，后续研究检查将保留并审阅这项风险。
           </p>
         </div>
 
@@ -203,7 +203,7 @@ export function AcceptedRiskCard({ titleCardId, targetOptions, refreshToken, onM
         <div data-ui="stack" data-direction="col" data-gap="2">
           <p data-ui="text" data-variant="caption" data-tone="primary">记录新的 accepted risk</p>
           {targetOptions.length === 0 ? (
-            <ReviewerCardEmpty label="没有可选的 v1a 目标对象（先生成 NeedCandidate / ValidatedNeed / EvidenceMap / SearchPlan）。" />
+            <ReviewerCardEmpty label="暂无可选目标；请先生成候选需求、已确认需求、证据图或检索计划。" />
           ) : (
             <>
               <div data-ui="stack" data-direction="col" data-gap="1">

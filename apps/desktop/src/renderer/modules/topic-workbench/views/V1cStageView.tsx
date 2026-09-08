@@ -44,9 +44,9 @@ export function V1cStageView({
     return (
       <article data-ui="card">
         <div data-ui="stack" data-direction="col" data-gap="2">
-          <p data-ui="text" data-variant="label" data-tone="primary">v1c 晋升桥</p>
+          <p data-ui="text" data-variant="label" data-tone="primary">晋升审阅</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            请先在侧边栏选择一个题目卡。v1c 决策链消费 v1b 出口 V1bToV1cInputBundle。
+            请先在侧边栏选择一个题目卡。方案通过研究价值评估并发布后，即可审阅晋升条件与后续承诺。
           </p>
         </div>
       </article>
@@ -57,7 +57,7 @@ export function V1cStageView({
     <div data-ui="stack" data-direction="col" data-gap="3">
       <div data-ui="toolbar" data-align="between" data-wrap="wrap">
         <div data-ui="stack" data-direction="row" data-gap="2" data-align="center" data-wrap="wrap">
-          <span data-ui="badge" data-variant="solid" data-tone="info">v1c 晋升桥</span>
+          <span data-ui="badge" data-variant="solid" data-tone="info">晋升审阅</span>
           {loading ? (
             <span data-ui="text" data-variant="caption" data-tone="muted">加载中…</span>
           ) : null}
@@ -73,7 +73,7 @@ export function V1cStageView({
           onClick={() => void reload()}
           disabled={loading}
         >
-          刷新 v1c 数据
+          刷新晋升审阅
         </button>
       </div>
 

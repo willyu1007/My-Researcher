@@ -135,11 +135,11 @@ export function DownstreamFeedbackCard({ bridges }: DownstreamFeedbackCardProps)
         <ReviewerCardEmpty label="downstream feedback 由 paper-project / 写作 / 实验层 append；reviewer 不在此处直接修改。" />
       }
       blockers={
-        <ReviewerCardEmpty label="recheck 派发与 escalation 由 Phase 5 横切 queue/trace 面板承担。" />
+        <ReviewerCardEmpty label="需复查的事项请结合当前研究阶段的待处理队列与运行记录核对。" />
       }
       nextActions={
         <p data-ui="text" data-variant="caption" data-tone="muted">
-          → Phase 5 在此处加 "查看 recheck request" / "升级到 v1a/b/c recheck queue" 跳转。
+          → 查看反馈引用的复查请求，并在相应研究阶段处理。
         </p>
       }
       footer={`bridge=${bridgeId || '—'}`}

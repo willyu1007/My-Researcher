@@ -133,7 +133,7 @@ export function ResearchConstraintProfileCard({
         ) : loadError ? (
           <p data-ui="text" data-variant="caption" data-tone="danger">{loadError}</p>
         ) : snapshots.length === 0 ? (
-          <ReviewerCardEmpty label="该题目卡还没有 intake snapshot（先由 v1b N1 从 V1bInputBundle 生成）。" />
+          <ReviewerCardEmpty label="尚未接收已确认的研究需求；请先发布需求并完成研究约束输入接入。" />
         ) : (
           <>
             <div data-ui="stack" data-direction="col" data-gap="1">

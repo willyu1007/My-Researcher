@@ -1229,8 +1229,8 @@
     {
       "id": "T-148",
       "slug": "topic-selection-real-flow-findings",
-      "status": "in-progress",
-      "updated": "2026-09-03",
+      "status": "blocked",
+      "updated": "2026-09-08",
       "dev_docs_path": "dev-docs/active/topic-selection-real-flow-findings",
       "feature_id": "F-001"
     },

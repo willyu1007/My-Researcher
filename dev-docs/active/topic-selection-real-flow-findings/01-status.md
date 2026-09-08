@@ -4,17 +4,17 @@
 Make topic selection trustworthy in real use by closing the decision-presentation, local gate, contract, and decision-support defects exposed by the 2026-09-01 end-to-end rehearsal while preserving strict-human authority.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 3 implemented and focused-verified, including FIND-028 condition grouping; ready for Phase 4 bounded real-flow acceptance
-- Next step: Begin Phase 4: prepare the bounded real-flow re-read for rejection/replacement, evidence/question views, refinement and conditional promotion; audit research-stage wording and disposition adjacent findings. Preserve exact Human decisions and separate provider/DB follow-up boundaries.
-- Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
+- State: blocked
+- Current phase: Phase 4 started; stage wording, historical recovery and fresh evidence checkpoint verified; awaiting exact Human review
+- Next step: Obtain the exact Human decision on checkpoint research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc using artifacts/phase4-human-review-2026-09-08.md and its draft payload. After confirmation, continue fresh gap/question/value/promotion verification with per-step accounting; never copy historical Human decisions.
+- Blocker: Fresh evidence review has two required missing coverage rows and no Human decision; continuation returns stop_for_human. The local schema blocker FIND-033 is resolved (82/82 migrations applied).
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
 - [x] TSRF-02: Human-visible risk and conflict summaries remain semantically consistent with the checkpoint packet; a material conflict cannot be rendered as “no open risks.”
 - [x] TSRF-03: The public EvidenceMap request contract documents the runtime-supported evidence-unit, locator, review-status, relationship, conflict, and digest fields and their enums.
 - [ ] TSRF-04: A focused real-flow verification covers topic rejection and replacement, fresh lineage, paragraph-level evidence locators, strict-human checkpoint blocking, and idempotent decision recovery.
-- [ ] TSRF-05: Operational and experiment-asset findings that are not topic-selection defects receive an explicit disposition and, when still material, a separately owned follow-up proposal.
+- [x] TSRF-05: Operational and experiment-asset findings that are not topic-selection defects receive an explicit disposition and, when still material, a separately owned follow-up proposal.
 - [x] TSRF-06: Before an evidence-landscape checkpoint is eligible to advance, the workflow either covers directly overlapping recent work or visibly records the unresolved literature-freshness and near-duplicate risk for an exact Human decision; systematic retrieval and evidence onboarding remain T-150 work and do not block this visibility repair.
 - [ ] TSRF-07: The real-flow record distinguishes retriever operations from provider calls and captures query intent, mode, hits/evidence delta, and decision effect at every literature-dependent step without turning zero-call materialization into retrieval.
 - [x] TSRF-08: Evidence-landscape eligibility consumes required SearchPlan coverage outcomes; a required `missing` row emits a typed issue and cannot advance unless the exact current row refs and rationale are accepted by the Human, persisted in the checkpoint decision, and preserved in downstream lineage.
@@ -26,4 +26,4 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [x] TSRF-14: A draft topic package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; recovery supersedes stale packages and bundles.
 - [x] TSRF-15: The regular promotion-review support path has an explicit bounded-Debate policy, and runtime routing, OpenAPI, operator guidance, support provenance, and the deterministic gate agree with it.
 - [x] TSRF-16: Conditional-promotion support presents a grouped mapping that covers every pass-with-risk finding and early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
-- [ ] TSRF-22: User-facing workflow surfaces and operating guidance use human-readable research-stage names instead of internal version labels, while technical diagnostics retain exact node and API identities.
+- [x] TSRF-22: User-facing workflow surfaces and operating guidance use human-readable research-stage names instead of internal version labels, while technical diagnostics retain exact node and API identities.

@@ -78,7 +78,7 @@ export function useV1aStageData(
     });
     if (firstError && firstError.status === 'rejected') {
       const reason = firstError.reason;
-      setError(reason instanceof Error ? reason.message : '加载 v1a 阶段数据失败。');
+      setError(reason instanceof Error ? reason.message : '加载文献与证据收敛数据失败。');
     }
     setLoading(false);
   }, [titleCardId]);

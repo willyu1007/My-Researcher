@@ -59,9 +59,9 @@ export function V1bStageView({
     return (
       <article data-ui="card">
         <div data-ui="stack" data-direction="col" data-gap="2">
-          <p data-ui="text" data-variant="label" data-tone="primary">v1b 切片-题目-价值-方案</p>
+          <p data-ui="text" data-variant="label" data-tone="primary">研究问题与价值</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            请先在侧边栏选择一个题目卡。v1b 决策链消费 v1a 出口 ValidatedNeed + V1bInputBundle。
+            请先在侧边栏选择一个题目卡。确认研究缺口并发布后，即可收敛研究问题、评估价值与整理方案。
           </p>
         </div>
       </article>
@@ -72,7 +72,7 @@ export function V1bStageView({
     <div data-ui="stack" data-direction="col" data-gap="3">
       <div data-ui="toolbar" data-align="between" data-wrap="wrap">
         <div data-ui="stack" data-direction="row" data-gap="2" data-align="center" data-wrap="wrap">
-          <span data-ui="badge" data-variant="solid" data-tone="info">v1b 切片-题目-价值-方案</span>
+          <span data-ui="badge" data-variant="solid" data-tone="info">研究问题与价值</span>
           {loading ? (
             <span data-ui="text" data-variant="caption" data-tone="muted">加载中…</span>
           ) : null}
@@ -88,15 +88,15 @@ export function V1bStageView({
           onClick={() => void reload()}
           disabled={loading}
         >
-          刷新 v1b 数据
+          刷新研究问题与价值
         </button>
       </div>
 
       <article data-ui="card" data-padding="sm">
         <div data-ui="stack" data-direction="row" data-gap="2" data-wrap="wrap" data-align="center">
-          <span data-ui="badge" data-variant="subtle" data-tone="warning">验收口径</span>
+          <span data-ui="badge" data-variant="subtle" data-tone="warning">研究流程</span>
           <span data-ui="text" data-variant="caption" data-tone="muted">
-            当前页展示 v1b authority：N2 约束档案（constraint 标签，人审撰写）与 N5 选片（slice 标签，人审选择）均经 harness human_delegated 写入，其余 harness/agent 写入。快速本地 smoke 默认 1 轮；provider live 验收使用 N4/N6/N8 slot canary；近生产深测由 runtime stress 与 provider slot canary 组合完成。
+            先确认研究约束并选择研究切片，再收敛候选问题、评估研究价值与整理方案。约束与切片选择由你确认；研究问题须经人工检查点审阅后才能进入价值评估。
           </span>
         </div>
       </article>

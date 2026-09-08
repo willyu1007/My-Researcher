@@ -76,7 +76,7 @@ export function useV1bStageData(
     });
     if (firstError && firstError.status === 'rejected') {
       const reason = firstError.reason;
-      setError(reason instanceof Error ? reason.message : '加载 v1b 阶段数据失败。');
+      setError(reason instanceof Error ? reason.message : '加载研究问题与价值数据失败。');
     }
     setLoading(false);
   }, [titleCardId]);

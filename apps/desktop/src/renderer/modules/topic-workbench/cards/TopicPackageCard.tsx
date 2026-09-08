@@ -34,7 +34,7 @@ export function TopicPackageCard({ topicPackages }: TopicPackageCardProps) {
         <div data-ui="stack" data-direction="col" data-gap="2">
           <p data-ui="text" data-variant="label" data-tone="primary">TopicPackage(draft)</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            该题目卡还没有 TopicPackage 草案。先通过 v1b WorkflowHarness 完成 N9/N10。
+            尚未形成选题方案草案；请先完成研究价值评估与处置。
           </p>
         </div>
       </article>

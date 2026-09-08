@@ -152,29 +152,29 @@ export function OverviewView({
 
       <article data-ui="card">
         <div data-ui="stack" data-direction="col" data-gap="2">
-          <p data-ui="text" data-variant="label" data-tone="primary">进入决策链阶段（stepper）</p>
+          <p data-ui="text" data-variant="label" data-tone="primary">进入研究阶段</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            v1a 证据-需求 → v1b 切片-题目-价值-方案 → v1c 晋升桥。每个阶段在选中题目卡后才能进入。
+            文献与证据收敛 → 研究缺口选择 → 研究问题收敛 → 研究价值评估 → 晋升审阅。请先选择题目卡。
           </p>
           <div data-ui="grid" data-cols="3" data-gap="2">
             {([
               {
                 stage: 'v1a',
-                badge: '1 · v1a',
-                title: '证据-需求',
-                surfaces: 'Seed / SearchPlan / EvidenceMap / NeedCandidate / ValidatedNeed',
+                badge: '1',
+                title: '文献与证据收敛',
+                surfaces: '审阅检索计划与证据，选择并确认研究缺口',
               },
               {
                 stage: 'v1b',
-                badge: '2 · v1b',
-                title: '切片-题目-价值-方案',
-                surfaces: 'Slice / Question / Value / Package(draft)',
+                badge: '2',
+                title: '研究问题与价值',
+                surfaces: '选择研究切片，收敛问题，评估价值并整理方案',
               },
               {
                 stage: 'v1c',
-                badge: '3 · v1c',
-                title: '晋升桥',
-                surfaces: 'GateCheck / Decision / Commitment / Bridge / Downstream',
+                badge: '3',
+                title: '晋升审阅',
+                surfaces: '审阅风险与晋升条件，确认承诺并衔接论文项目',
               },
             ] as const).map((step) => (
               <article key={step.stage} data-ui="card" data-padding="md" data-elevation="sm">
@@ -190,7 +190,7 @@ export function OverviewView({
                     disabled={!activeTitleCardId}
                     onClick={() => onEnterStage(step.stage)}
                   >
-                    进入 {step.stage.toUpperCase()}
+                    进入 {step.title}
                   </button>
                 </div>
               </article>

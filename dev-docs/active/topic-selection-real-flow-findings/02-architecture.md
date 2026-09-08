@@ -11,7 +11,7 @@ Evidence/question Human projections now retain substantive decision inputs, answ
 - Regular research-question generation now uses one existing 2-Explorer/1-Critic/1-Arbiter Debate in coordinator and Codex product HTTP. The existing product N6 gate requires the exact reviewed draft, using the semantic artifact's effective run mode even when the request omits it.
 - Promotion support requires the existing four-role bounded Debate when frozen input carries accepted risks or material RiskFinding refs; only risk-free input can use the ordinary deterministic path. Conditional-promotion support now exposes complete typed condition candidates and early checks for Human editing.
 - Fulltext acquisition preflight exposes the effective downloader policy and its origins, blocks deterministically impossible plans locally, and leaves network feasibility unverified.
-- User-facing operation still relies on opaque internal version/node labels.
+- User-facing navigation, queue badges, stage guidance and errors use research activity names; persisted navigation keys, action values and technical identifiers remain unchanged.
 
 T-150 now owns the independent evidence-convergence capability: full-library evidence onboarding, typed RetrievalRequests, linked Debate rounds, successor EvidenceMaps, and one evidence-landscape ResolutionRoute pilot. Those contracts are no longer part of this task's implementation plan. T-148 still owns the concrete evidence-checkpoint truth and Human acceptance contract on which that later convergence path relies.
 
@@ -66,5 +66,9 @@ The N6 runtime records a support-only receipt with the canonical request/executi
 Projection and OpenAPI changes are backward compatible with existing records. Gate changes consume already persisted coverage assessments and add an explicit decision field rather than reinterpreting historical Human decisions or creating a generic obligation store. Evidence materialization checks the complete pre-limitations packet identity before creating a new checkpoint, preserving exact older linked-round replay even after a successor exists; historical packet and decision hashes are not rewritten. Route-policy changes preserve current Debate artifacts and deterministic gates; rollback restores the former routing without deleting support or authority records.
 
 The real-flow verification uses supported APIs and replaceable test state. Safe starts or restarts of the same local backend are covered by an already authorized operation and do not require repeated prompts. A different environment, external provider/cost, destructive effect, or new Human decision remains a separate authorization boundary.
+
+A running backend must use a database with the repository migration history applied. The Phase 4 local target is `127.0.0.1:5432`, database `postgres`, schema `my_researcher_dev`; its 82 migrations are current after applying the two existing T-150 migrations. This is environment synchronization, not a new migration or an expansion of convergence adoption.
+
+Bounded verification may import retained literature into an independent draft TitleCard. Its SearchRun uses `manual_import`, records zero retriever/provider work and retains historical coverage provenance; no old Human decision is copied. New evidence checkpoints still require exact current-row acceptance.
 
 T-149 and T-150 are separate checkpoint owners. Their source, bundle, registry, and generated-view changes must not be staged or committed with T-148.

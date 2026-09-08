@@ -121,7 +121,7 @@ export function PromotionGateCheckCard({ gateChecks }: PromotionGateCheckCardPro
         <div data-ui="stack" data-direction="col" data-gap="2">
           <p data-ui="text" data-variant="label" data-tone="primary">PromotionGateCheck</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            该题目卡的 v1c 还没有 GateCheck。先在 v1b 发布 V1bToV1cInputBundle 触发 agent 层生成 PromotionDecisionSupport → GateCheck。
+            尚未形成晋升审阅检查；请先发布选题方案，再生成晋升决策支持并运行检查。
           </p>
         </div>
       </article>

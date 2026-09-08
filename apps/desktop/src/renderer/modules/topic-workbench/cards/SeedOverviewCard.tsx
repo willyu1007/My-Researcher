@@ -53,15 +53,15 @@ export function SeedOverviewCard({
       return `研究已拒绝：${titleCard.research_rejection.rationale}`;
     }
     if (!hasAnyV1aAuthority) {
-      return '该题目卡的 v1a 决策链还没有任何 authority/workflow 记录。';
+      return '该题目卡还没有文献证据与研究缺口审阅记录。';
     }
     if (promotedValidatedNeeds.length > 0) {
-      return `v1a 出口达成：已有 ${promotedValidatedNeeds.length} 个 human-confirmed ValidatedNeed。`;
+      return `研究缺口已确认：已有 ${promotedValidatedNeeds.length} 个经人工确认的研究需求。`;
     }
     if (openNeedCandidates.length > 0) {
-      return `v1a 进行中：${openNeedCandidates.length} 个 NeedCandidate 在审查。`;
+      return `研究缺口选择中：${openNeedCandidates.length} 个候选需求待审阅。`;
     }
-    return 'v1a 进行中：还未生成 NeedCandidate。';
+    return '文献与证据收敛中：尚未生成候选研究需求。';
   })();
 
   return (
@@ -168,7 +168,7 @@ export function SeedOverviewCard({
           ) : promotedValidatedNeeds.length === 0 ? (
             <p data-ui="text" data-variant="caption" data-tone="primary">→ 进入 ValidatedNeed 标签做 human-confirm。</p>
           ) : (
-            <p data-ui="text" data-variant="caption" data-tone="primary">→ v1a 出口已达成，可进入 v1b。</p>
+            <p data-ui="text" data-variant="caption" data-tone="primary">→ 研究缺口已确认，可进入研究问题收敛。</p>
           )}
         </div>
       }

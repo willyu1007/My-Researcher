@@ -40,7 +40,7 @@ export function ValueAssessmentCard({ valueAssessments }: ValueAssessmentCardPro
         <div data-ui="stack" data-direction="col" data-gap="2">
           <p data-ui="text" data-variant="label" data-tone="primary">TopicValueAssessment</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            该题目卡的 v1b 还没生成 TopicValueAssessment。先在 Question surface 选定 TopicQuestion。
+            尚未形成研究价值评估；请先完成人工研究问题审阅。
           </p>
         </div>
       </article>
@@ -162,7 +162,7 @@ export function ValueAssessmentCard({ valueAssessments }: ValueAssessmentCardPro
               → 已有 disposition decision：{active.active_disposition_decision_id}
             </p>
           ) : (
-            <ReviewerCardEmpty label="等待 v1b WorkflowHarness N9 写入 disposition。" />
+            <ReviewerCardEmpty label="等待研究价值评估形成下一步处置。" />
           )}
         </div>
       }

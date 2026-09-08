@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { titleCardTabs } from '../../../literature/shared/constants';
 import type { TitleCardPrimaryTabKey } from '../../../literature/shared/types';
 import { useWorkbenchQueues, type WorkbenchQueueItem } from '../hooks/useWorkbenchQueues';
 
@@ -135,7 +136,7 @@ export function QueuePanel({
 
         {!titleCardId ? (
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            选择一个题目卡后此队列会显示该卡跨 v1a/v1b/v1c 的 backlog。
+            选择题目卡后，可查看证据、研究问题与晋升审阅中待处理的事项。
           </p>
         ) : activeItems.length === 0 ? (
           <p data-ui="text" data-variant="caption" data-tone="muted">{active.empty}</p>
@@ -151,7 +152,7 @@ export function QueuePanel({
                     ) : null}
                   </div>
                   <div data-ui="stack" data-direction="row" data-gap="1" data-align="center">
-                    <span data-ui="badge" data-variant="subtle" data-tone="info">{item.stage}</span>
+                    <span data-ui="badge" data-variant="subtle" data-tone="info">{titleCardTabs.find((tab) => tab.key === item.stage)?.label}</span>
                     <button
                       type="button"
                       data-ui="button"

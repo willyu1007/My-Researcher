@@ -68,7 +68,7 @@ export function useV1cStageData(
     });
     if (firstError && firstError.status === 'rejected') {
       const reason = firstError.reason;
-      setError(reason instanceof Error ? reason.message : '加载 v1c 阶段数据失败。');
+      setError(reason instanceof Error ? reason.message : '加载晋升审阅数据失败。');
     }
     setLoading(false);
   }, [titleCardId]);

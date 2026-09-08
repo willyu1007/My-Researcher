@@ -83,9 +83,9 @@ export function V1aStageView({
     return (
       <article data-ui="card">
         <div data-ui="stack" data-direction="col" data-gap="2">
-          <p data-ui="text" data-variant="label" data-tone="primary">v1a 证据-需求</p>
+          <p data-ui="text" data-variant="label" data-tone="primary">文献与证据收敛</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            请先在侧边栏选择一个题目卡。v1a 决策链以题目卡为根对象。
+            请先在侧边栏选择一个题目卡，再审阅文献证据并选择研究缺口。
           </p>
         </div>
       </article>
@@ -96,7 +96,7 @@ export function V1aStageView({
     <div data-ui="stack" data-direction="col" data-gap="3">
       <div data-ui="toolbar" data-align="between" data-wrap="wrap">
         <div data-ui="stack" data-direction="row" data-gap="2" data-align="center" data-wrap="wrap">
-          <span data-ui="badge" data-variant="solid" data-tone="info">v1a 证据-需求</span>
+          <span data-ui="badge" data-variant="solid" data-tone="info">文献与证据收敛</span>
           {loading ? (
             <span data-ui="text" data-variant="caption" data-tone="muted">加载中…</span>
           ) : null}
@@ -112,7 +112,7 @@ export function V1aStageView({
           onClick={() => void reload()}
           disabled={loading}
         >
-          刷新 v1a 数据
+          刷新证据与研究缺口
         </button>
       </div>
 

@@ -42,9 +42,9 @@ export const literatureTabs: Array<{ key: LiteratureTabKey; label: string }> = [
  */
 export const titleCardTabs: Array<{ key: TitleCardPrimaryTabKey; label: string }> = [
   { key: 'overview', label: '总揽' },
-  { key: 'v1a', label: 'v1a · 证据-需求' },
-  { key: 'v1b', label: 'v1b · 切片-题目-价值-方案' },
-  { key: 'v1c', label: 'v1c · 晋升桥' },
+  { key: 'v1a', label: '文献与证据收敛' },
+  { key: 'v1b', label: '研究问题与价值' },
+  { key: 'v1c', label: '晋升审阅' },
 ];
 export const autoImportSubTabs: Array<{ key: AutoImportSubTabKey; label: string }> = [
   { key: 'topic-settings', label: '设置主题' },

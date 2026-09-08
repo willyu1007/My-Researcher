@@ -1,0 +1,565 @@
+{
+  "purpose": "T-148 Phase 4 recoverable historical HTTP re-read and bounded downloader preflight. Selected observations only; not a fresh end-to-end acceptance or complete HTTP request log.",
+  "captured_at": "2026-09-08T00:14:07.084Z",
+  "source_head": "ad1980f88e08ec7acf6a908e573480feb1d2fdda",
+  "environment": {
+    "base_url": "http://127.0.0.1:3000",
+    "database": "postgres",
+    "schema": "my_researcher_dev",
+    "database_host": "127.0.0.1:5432",
+    "repository": "Prisma",
+    "background_work_enabled": false,
+    "research_state_writes": 0,
+    "provider_calls": 0,
+    "retriever_operations": 0,
+    "evidence_delta": 0
+  },
+  "title_cards": [
+    {
+      "title_card_id": "title_card_e80b4a40-544c-41c6-9c12-a80428c6604f",
+      "title": "[REAL REHEARSAL 2026-09-01 #03] Safe transfer of retrieval-utility routers across retriever shifts",
+      "management_status": "active",
+      "research_rejection": null,
+      "checkpoint_history": [
+        {
+          "id": "research_checkpoint_e59a2da2-1768-4763-ad9e-6a4eeb70b891",
+          "kind": "evidence_landscape",
+          "status": "superseded",
+          "packet_hash": "a2d43f7197b4944baf0a3e30b20a1e8b837b29bbf817cab033b969e6f5e46ced"
+        },
+        {
+          "id": "research_checkpoint_b6358af3-fa20-4ef8-9c41-1f12dc154f45",
+          "kind": "evidence_landscape",
+          "status": "decided",
+          "packet_hash": "372ec28c89422fbc0a2ac8b18e7b6a1dea2bf8bb233bb77085f5e7f459c57228"
+        },
+        {
+          "id": "research_checkpoint_7113ebe3-98c0-4f80-82e9-4f99fddc92ad",
+          "kind": "gap_selection",
+          "status": "superseded",
+          "packet_hash": "98e7f01b89329eed3e980122017a6a459bf204355b8b67ae39f640e5eb455687"
+        },
+        {
+          "id": "research_checkpoint_e5e6ba92-ba21-4c05-a7e5-fe36dc0a4393",
+          "kind": "gap_selection",
+          "status": "decided",
+          "packet_hash": "6fad5b7e2e9f9f545df5f000de785678d418b29fabd82949481bec50561ae478"
+        },
+        {
+          "id": "research_checkpoint_7954facf-f2e5-44e1-9025-ff275c64a51f",
+          "kind": "question_contract",
+          "status": "superseded",
+          "packet_hash": "2b2711ce1cb59d5adf72aa444746b72e9fe414c719d2a493ef6ef526892b5d83"
+        },
+        {
+          "id": "research_checkpoint_30a2ec52-2ba4-458e-b1a9-055ab6c216ff",
+          "kind": "question_contract",
+          "status": "superseded",
+          "packet_hash": "f2ea5c363106d38c213c2032eeea9e15c0e0f696bd9bfcd362fa44342d5b02ad"
+        },
+        {
+          "id": "research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee",
+          "kind": "question_contract",
+          "status": "decided",
+          "packet_hash": "c11fe61784ca46beb66f2db39da79c43a2c96fd6db9fa381000340a907e67b4f"
+        },
+        {
+          "id": "research_checkpoint_cc3a2e59-b9ea-4457-b251-dd1488ee0d22",
+          "kind": "promotion",
+          "status": "superseded",
+          "packet_hash": "9e27c4163688206540700c80ddad9d92d35f2c247203405ed1c7187355ec7bc3"
+        },
+        {
+          "id": "research_checkpoint_65134045-8b91-4e0c-b061-18e03f3b4261",
+          "kind": "promotion",
+          "status": "decided",
+          "packet_hash": "65383e198f0324645dce6005df1b5eea8f747fb42f9310e7fadf186b5d8bb1f4"
+        }
+      ]
+    },
+    {
+      "title_card_id": "title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e",
+      "title": "[REAL REHEARSAL 2026-09-01 #02] Signed marginal retrieval utility under matched budget",
+      "management_status": "active",
+      "research_rejection": {
+        "checkpoint_kind": "evidence_landscape",
+        "checkpoint_ref": {
+          "ref_type": "research_checkpoint",
+          "ref_id": "research_checkpoint_4fa82ea5-d030-4b4e-affc-36a53da4b83c",
+          "title_card_id": "title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e"
+        },
+        "decision_ref": {
+          "ref_id": "research_checkpoint_decision_ce93b762-1121-463b-ad8a-42574db9db7a",
+          "ref_type": "research_checkpoint_decision",
+          "title_card_id": "title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e"
+        },
+        "rationale": "The refreshed evidence landscape confirms direct 2026 overlap in calibrated retrieval-budget allocation, marginal correctness and harm evaluation, binary global budget allocation, retrieval-utility prediction, and adaptive retrieval depth. The researcher explicitly rejects this topic and requests a fresh topic.",
+        "rejected_at": "2026-09-01T04:16:24.521Z"
+      },
+      "checkpoint_history": [
+        {
+          "id": "research_checkpoint_7eee1e0b-6535-4ef2-8018-8d46e143c679",
+          "kind": "evidence_landscape",
+          "status": "superseded",
+          "packet_hash": "6491b878f87658a65017ae3f1e7f7011c69b0bc746b193e7022c16284ac3b305"
+        },
+        {
+          "id": "research_checkpoint_4fa82ea5-d030-4b4e-affc-36a53da4b83c",
+          "kind": "evidence_landscape",
+          "status": "decided",
+          "packet_hash": "adbceb89fbdafc5b2f349d6e551373fd07dcb1afdf88b9b59f996cf03d380d28"
+        }
+      ]
+    },
+    {
+      "title_card_id": "title_card_3d330ca2-c00a-471a-a524-5a0422616460",
+      "title": "[REAL REHEARSAL 2026-09-01 #01] SciFact retrieval top-k 10 vs top-k 5",
+      "management_status": "active",
+      "research_rejection": {
+        "checkpoint_kind": "evidence_landscape",
+        "checkpoint_ref": {
+          "ref_type": "research_checkpoint",
+          "ref_id": "research_checkpoint_db710a30-b463-428d-a61a-47b9671ea254",
+          "title_card_id": "title_card_3d330ca2-c00a-471a-a524-5a0422616460"
+        },
+        "decision_ref": {
+          "ref_id": "research_checkpoint_decision_55f0fd9f-8a52-402e-8437-d624d32b5ed8",
+          "ref_type": "research_checkpoint_decision",
+          "title_card_id": "title_card_3d330ca2-c00a-471a-a524-5a0422616460"
+        },
+        "rationale": "The fixed top-k 10 versus top-k 5 comparison has weak research mineability: it is primarily a parameter-only contrast, lacks a distinctive mechanism, and is unlikely to support a meaningful contribution beyond the frozen SciFact setup.",
+        "rejected_at": "2026-09-01T01:57:42.481Z"
+      },
+      "checkpoint_history": [
+        {
+          "id": "research_checkpoint_db710a30-b463-428d-a61a-47b9671ea254",
+          "kind": "evidence_landscape",
+          "status": "decided",
+          "packet_hash": "3a1241b7b9e383c325e2745717a50c5e46101889c6743903f09de2144a141c25"
+        }
+      ]
+    }
+  ],
+  "current_question": {
+    "source_snapshot_hash": "d450fe4db256de71d7005ef0e6262a25e067937a088f360f28ed889b33cf65f4",
+    "main_question_present": true,
+    "primary_metric": "Brier Score",
+    "coverage_floor": "90% of frozen-router coverage"
+  },
+  "current_value": {
+    "assessment_ref": {
+      "ref_type": "topic_value_assessment",
+      "ref_id": "topic_value_assessment_257ba79c-a281-4c22-b327-96c6bedb98ed",
+      "title_card_id": "title_card_e80b4a40-544c-41c6-9c12-a80428c6604f"
+    },
+    "status": "ready:advance_to_package",
+    "material_risk_finding_count": 25
+  },
+  "historical_promotion": {
+    "support_id": "promotion_decision_support_6dd962b5-c257-497d-ac08-986e53c0b113",
+    "mode": "deterministic",
+    "llm_draft_payload": null,
+    "risk_finding_count": 25,
+    "promotion_decision_id": "promotion_decision_dae0f3fc-0749-4738-8584-6c55e26272e5",
+    "decision": "promote_with_conditions",
+    "commitment_profile_id": "promotion_commitment_profile_7941eb3b-ec4b-494b-ae82-0f69c6468641",
+    "profile_fields": [
+      "promotion_commitment_profile_id",
+      "promotion_decision_id",
+      "human_promotion_decision_id",
+      "human_confirmed_decision_id",
+      "workspace_id",
+      "title_card_id",
+      "promotion_gate_check_id",
+      "promotion_input_snapshot_id",
+      "promotion_input_snapshot_hash",
+      "topic_package_id",
+      "package_version",
+      "scope",
+      "claim_ceiling",
+      "prohibited_claims",
+      "accepted_risk_refs",
+      "conditions",
+      "allowed_refinements",
+      "early_check_obligations",
+      "stop_conditions",
+      "reopen_conditions",
+      "source_refs",
+      "snapshot_hashes",
+      "artifact_refs",
+      "created_at"
+    ],
+    "new_debate_and_condition_grouping_verified": false
+  },
+  "recovery_reads": [
+    {
+      "path": "/topic-selection/checkpoints/research_checkpoint_db710a30-b463-428d-a61a-47b9671ea254/packet",
+      "body_sha256": "68dab0de8b6b8d923dbd7a520bfeae4f7eea11f4614cad9f065361e693ff6094",
+      "unchanged_after_clean_restart": true
+    },
+    {
+      "path": "/topic-selection/checkpoints/research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee/packet",
+      "body_sha256": "91870edd65f68627fed834e1f86e599477ae6854b2b2588ec663673a630a4103",
+      "unchanged_after_clean_restart": true
+    },
+    {
+      "path": "/topic-selection/v1c/promotion-decisions/promotion_decision_dae0f3fc-0749-4738-8584-6c55e26272e5/bundle",
+      "body_sha256": "28b50b5b537b13fb12ad33d048f495e5d0f407401212a1d37c5820df6b460142",
+      "unchanged_after_clean_restart": true
+    }
+  ],
+  "downloader_preflight": {
+    "input": {
+      "workset": {
+        "literature_ids": [
+          "LIT-2297"
+        ],
+        "only_missing_assets": false
+      },
+      "options": {
+        "max_byte_size": 4,
+        "force_refresh": true
+      }
+    },
+    "policy": {
+      "configured": {
+        "max_byte_size": 104857600,
+        "timeout_ms": 60000,
+        "max_redirects": 5,
+        "require_pdf_signature": true
+      },
+      "repository_defaults": {
+        "max_byte_size": 104857600,
+        "timeout_ms": 60000,
+        "max_redirects": 5,
+        "require_pdf_signature": true
+      },
+      "field_sources": {
+        "max_byte_size": "persisted_setting",
+        "timeout_ms": "persisted_setting",
+        "max_redirects": "persisted_setting",
+        "require_pdf_signature": "persisted_setting"
+      },
+      "settings_updated_at": "2026-09-01T03:25:46.204Z",
+      "requested_max_byte_size": 4,
+      "effective_max_byte_size": 4,
+      "network_verified": false
+    },
+    "blocker_codes": [
+      "DOWNLOAD_PDF_SIGNATURE_LIMIT"
+    ],
+    "estimated_provider_calls": {
+      "unpaywall_calls": 0,
+      "download_calls": 0
+    },
+    "network_verified": false
+  },
+  "limitations": [
+    "Historical evidence snapshots retain ID-only fields; current unresolved-literature warning is visible, but full new evidence-packet presentation needs a fresh packet.",
+    "Historical promotion predates regular four-role Debate and typed condition candidates; rereading it cannot verify either new behavior.",
+    "The original backend response-loss cause is still unproven; three identical packet/decision-bundle reads establish restart recovery only.",
+    "Historical reread created no Human decision or retriever/provider work. The two existing migrations were subsequently applied to the selected local dev schema; fresh verification owners are separately recorded."
+  ],
+  "observations": [
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/research-status",
+      "status": 200,
+      "body_sha256": "749b9d60463bb1fc7dcda2dd9c76c51c09d2dcb39283dfe47613619584d386e6"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/checkpoints",
+      "status": 200,
+      "body_sha256": "4a8e3222a2ff3bd5306bfe0b5f833d75adc4a1592997352946f40408802f3ba8"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/stage-manifest",
+      "status": 200,
+      "body_sha256": "32f730a36cb5ab68dfd78627fc00125d3ed82b988b611ddbbcccc1e945f210df"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/continuation-envelope",
+      "status": 200,
+      "body_sha256": "a0be37cfdbab03e899b4ae0a2be00e73b7d2a0dd306ee03eee4eadd6ca849809"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/stage-views/overview?audience=human",
+      "status": 200,
+      "body_sha256": "a3a03fb9313c771af27d8825163b7f04e2723b4de761ce1b052b0635249eecce"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/stage-views/evidence_landscape?audience=human",
+      "status": 200,
+      "body_sha256": "46bce0c4f3a48bd40ab2d2ae6ac5718774b9735360e51f505bd06627902073cb"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/stage-views/research_question?audience=human",
+      "status": 200,
+      "body_sha256": "f02bf3dfd1863c3f0f342f24d3473c44c9c4d8928b2a1644512b958d91d07288"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/stage-views/value_feasibility?audience=human",
+      "status": 200,
+      "body_sha256": "c251247bb1b9c7bd13c67a4ef8f0dd1ff8fab29ff4f79dd8e0599f3367f99dd8"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/stage-views/promotion_review?audience=human",
+      "status": 200,
+      "body_sha256": "8c3cf505b80d761ea9bcdffe886577667d76c99310b2f3cc1aadd59cfbb0c125"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/research-status",
+      "status": 200,
+      "body_sha256": "77e30b74278ce9a75a6a55c9b8a98fce75e49fe486358b5eedb5411e602cfdb2"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/checkpoints",
+      "status": 200,
+      "body_sha256": "beb13e29943ea9f220c390a0954b7d90af85f4f50b405c72aff5e7528810a11a"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/stage-manifest",
+      "status": 200,
+      "body_sha256": "b0086efeed632911c9020808aca73e414fa412212788a126825aaf1d5638384f"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/continuation-envelope",
+      "status": 200,
+      "body_sha256": "5908186dab8e8da9a47a22fe8d5b70fe68ee4082363ea8de1482a32e0c2c2e50"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/stage-views/overview?audience=human",
+      "status": 200,
+      "body_sha256": "4f8f206dbeefa57be3b414a74be7637fb3ab4fe6a111186fa1706446ad284021"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/stage-views/evidence_landscape?audience=human",
+      "status": 200,
+      "body_sha256": "61a432f956ed74f910c03e1903298158fe15cbc64ccf7b2443cb4d495f0e71e9"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/stage-views/research_question?audience=human",
+      "status": 200,
+      "body_sha256": "25be0623d86ce6fc5ab94868e96c72ce3827e9ffec583a8783c9ccd21d761426"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/stage-views/value_feasibility?audience=human",
+      "status": 200,
+      "body_sha256": "e92a896b40f9b7da42d16e166ab0458524d6290c0155495cb092f215ff9ecc5e"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_b6b487b7-ebd2-4792-9f98-320d69dec38e/stage-views/promotion_review?audience=human",
+      "status": 200,
+      "body_sha256": "19a9c2b39a80e71d47aa2126be2f818bcb43edfcef29bff540fc7ed047bef05a"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/research-status",
+      "status": 200,
+      "body_sha256": "b52dd7fccb04516095d403cb07e1d67a77bbc2d66036764b9af397fb0d709e2a"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/checkpoints",
+      "status": 200,
+      "body_sha256": "754225f5f2f347d86b6e65a527436eb5073a8860e3bf89486e646c7e23b89677"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/stage-manifest",
+      "status": 200,
+      "body_sha256": "5cef87f372c9081d942aea6ca8f2e04533477f18c75f394a2388695449407a61"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/continuation-envelope",
+      "status": 200,
+      "body_sha256": "b61b4436da2ff80a27fcfde8b3eea22c69beb715e7064e8b36d4921822e6303e"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/stage-views/overview?audience=human",
+      "status": 200,
+      "body_sha256": "9a68f72a3284ed1a95d4c6c5b0ce2afdaeb599da8670d93d90442d9380114e4f"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/stage-views/evidence_landscape?audience=human",
+      "status": 200,
+      "body_sha256": "41cd07dcf30762d45191bbae947e9d51c06fa8e4281a73522a74b629036fd21f"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/stage-views/research_question?audience=human",
+      "status": 200,
+      "body_sha256": "4252c96785b8b2965a86d10e463331f433e00547c337ddf2fc5b79f5f211f6df"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/stage-views/value_feasibility?audience=human",
+      "status": 200,
+      "body_sha256": "f0c097161f818e6ba5c176102cee8f3182709baac7a6e36ff17be5916797501e"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/title-cards/title_card_3d330ca2-c00a-471a-a524-5a0422616460/stage-views/promotion_review?audience=human",
+      "status": 200,
+      "body_sha256": "fb183123cf7ab09091245bc224ca5cdcd577a424c142936fdbea9bf13c9879b0"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1a/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/search-plans",
+      "status": 200,
+      "body_sha256": "eeb4be454500c50e9020e123d8d3bffaada73bb16f0bc5807531af77a42b923a"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1a/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/evidence-maps",
+      "status": 500,
+      "body_sha256": "c58b838ac35b0139534ea240d763c33ca1694a4feaa9aa971c7f63832e04333b"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1b/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/topic-question-candidate-sets",
+      "status": 200,
+      "body_sha256": "e8a484a628fdf9a00f9f8fa9cb6933e3db5591fe54b750ac9da22aec23c48921"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1b/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/topic-value-assessments",
+      "status": 200,
+      "body_sha256": "3b5651acfeefdaeb4019dfc8d88508ec2ca70fc4c3ae1c86a6f7308331dbc181"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1b/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/topic-packages",
+      "status": 200,
+      "body_sha256": "47ffdddf46f6103e97d0103a18d3d8bebc24ab378e49d0d8ca22be0ddf7890e0"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1c/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/promotion-gate-checks",
+      "status": 200,
+      "body_sha256": "30809cb4f212fb868222ae6195368937306fbfc1d519f8c0509001626f4b0fc8"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1c/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/promotion-decisions",
+      "status": 200,
+      "body_sha256": "402ef384370897d0095b963f71ef5d6c0040f3e83addda15c02fbd62a2af7b7d"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1c/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/paper-project-bridges",
+      "status": 200,
+      "body_sha256": "e40bb6c13ae9feb1d305fdbf65e2956289fb4778021bd029a1e3be6d619aa3a4"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1b/workflow-runs/workflow_run_t148_v1b_ff2e4c3a_retry1/state",
+      "status": 200,
+      "body_sha256": "d8f430189361dfe42717dd08514f4f3909a3b60f313caf351e79b64831556542"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/checkpoints/research_checkpoint_db710a30-b463-428d-a61a-47b9671ea254/packet",
+      "status": 200,
+      "body_sha256": "68dab0de8b6b8d923dbd7a520bfeae4f7eea11f4614cad9f065361e693ff6094"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/checkpoints/research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee/packet",
+      "status": 200,
+      "body_sha256": "91870edd65f68627fed834e1f86e599477ae6854b2b2588ec663673a630a4103"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1c/promotion-decision-support/promotion_decision_support_6dd962b5-c257-497d-ac08-986e53c0b113",
+      "status": 200,
+      "body_sha256": "ba8a9ce98bcf47d0a155d054f3152033f9344698b0e7b6e940cceb9d74e9409b"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1c/promotion-dossiers/promotion_dossier_7493e662-02e5-4958-9ffc-a4fd6ce20b7b",
+      "status": 200,
+      "body_sha256": "2936705be3629b5025c97f0f2584f49dea96864798377dc7755562fcbb0ff36e"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1c/promotion-decisions/promotion_decision_dae0f3fc-0749-4738-8584-6c55e26272e5/bundle",
+      "status": 200,
+      "body_sha256": "28b50b5b537b13fb12ad33d048f495e5d0f407401212a1d37c5820df6b460142"
+    },
+    {
+      "method": "POST",
+      "path": "/topic-selection/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/continuation-envelope/evaluations",
+      "status": 200,
+      "body_sha256": "1e452775a493bb63a640015dfd09397c719952e5fc97f668f75aa652effc7c17"
+    },
+    {
+      "method": "POST",
+      "path": "/literature/fulltext-acquisition/dry-runs",
+      "status": 200,
+      "body_sha256": "b65553bc96d23b1228f59249b4a391916a4b81e83cf20b30e658e83c002fee47"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1a/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/evidence-maps",
+      "status": 200,
+      "body_sha256": "15add0cab23efefdf2a4cfa8c5e902f38afa750d2a3ef89ff4e2765b3097bf78"
+    },
+    {
+      "method": "GET",
+      "path": "/topic-selection/v1a/evidence-maps/evidence_map_c691de26-831f-4c2b-bc0a-ea08e3399a93/units",
+      "status": 200,
+      "body_sha256": "3b08358f259409d77ca3ac689478343c362e143e24b0d1e7a8fc9944adcf3fce"
+    }
+  ],
+  "accounting_scope": "The historical reread and downloader preflight only. Fresh Phase 4 owner writes are recorded in phase4-fresh-evidence-2026-09-08.json.",
+  "resolved_environment_issue": {
+    "finding": "FIND-033",
+    "endpoint": "/topic-selection/v1a/title-cards/title_card_e80b4a40-544c-41c6-9c12-a80428c6604f/evidence-maps",
+    "http_status": 500,
+    "confirmed_error": {
+      "name": "PrismaClientKnownRequestError",
+      "code": "P2022",
+      "model": "TopicSelectionEvidenceMap",
+      "column": "TopicSelectionEvidenceMap.predecessorEvidenceMapId"
+    },
+    "migration_status": "82 of 82 applied; clean Prisma migrate status",
+    "pending_migrations": [
+      "20260903090000_add_topic_selection_evidence_convergence_contracts",
+      "20260907100843_align_arena_execution_state_constraints"
+    ],
+    "database_mutations_applied": true,
+    "command": "pnpm db:dev:migrate",
+    "reproduction_after_sync": {
+      "http_status": 200,
+      "evidence_map_count": 2
+    },
+    "research_history_unchanged": true
+  },
+  "limits_after_sync": "No build, backup, restore, new migration file, paid provider, external canary, or additional scenario adoption.",
+  "post_sync_evidence_units": {
+    "total": 9,
+    "paragraph_locators": 7,
+    "section_locators": 2
+  }
+}

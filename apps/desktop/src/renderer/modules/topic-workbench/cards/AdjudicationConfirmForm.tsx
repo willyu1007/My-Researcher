@@ -36,7 +36,7 @@ const DECISION_OPTIONS: DecisionOption[] = [
   {
     value: 'validate',
     label: 'validate · 创建 ValidatedNeed',
-    description: 'v1a 唯一成功出口；必须填齐 6 段确认。',
+    description: '确认研究需求并推进；必须填齐 6 段确认。',
     requiresValidatePath: true,
   },
   {
@@ -219,7 +219,7 @@ export function AdjudicationConfirmForm({
       challengeSummary: trimmed('challengeSummary') ? null : '必填：写明保留的 challenge / 已被接受的反证；如无可写"无未解 challenge"。',
       blockerSummary: trimmed('blockerSummary') ? null : '必填：列出 open blockers；如无写"无未解 blocker"。',
       acceptedRiskSummary: trimmed('acceptedRiskSummary') ? null : '必填：列出 accepted risks 的 scope / 原因 / expiry-recheck 条件；如无写"无 accepted risk"。',
-      downstreamEffect: trimmed('downstreamEffect') ? null : '必填：写明此 ValidatedNeed 对 v1b 的影响（claim ceiling / 资源约束 / non-goal）。',
+      downstreamEffect: trimmed('downstreamEffect') ? null : '必填：写明此研究需求对后续问题与方案的影响（主张上限、资源约束、非目标）。',
     };
   }, [requiresValidatePath, validateFields]);
 
@@ -518,11 +518,11 @@ export function AdjudicationConfirmForm({
               disabled={pendingConfirm}
             />
             <ValidateField
-              label="⑥ Downstream effect（v1b 继承什么）"
+              label="⑥ 后续研究继承什么"
               value={validateFields.downstreamEffect}
               error={validateFieldErrors.downstreamEffect}
               onChange={(value) => setValidateFields((current) => ({ ...current, downstreamEffect: value }))}
-              placeholder="对 v1b 的影响：claim ceiling=[…]，资源约束=[…]，non-goal=[…]"
+              placeholder="后续研究边界：主张上限=[…]，资源约束=[…]，非目标=[…]"
               rows={3}
               disabled={pendingConfirm}
             />

@@ -177,7 +177,7 @@ export function ValidatedNeedDecisionCard({
         nextActions={
           <div data-ui="stack" data-direction="col" data-gap="2">
             <p data-ui="text" data-variant="caption" data-tone="primary">
-              → 发布 V1bInputBundle 即把此 ValidatedNeed 推入 v1b 的 PlanResearchSlice 输入。
+              → 发布后，此研究需求将作为研究切片规划的输入。
             </p>
             <div data-ui="stack" data-direction="row" data-gap="1" data-wrap="wrap" data-align="center">
               <button

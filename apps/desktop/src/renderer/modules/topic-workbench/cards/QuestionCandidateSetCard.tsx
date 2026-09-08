@@ -34,7 +34,7 @@ export function QuestionCandidateSetCard({ candidateSets }: QuestionCandidateSet
         <div data-ui="stack" data-direction="col" data-gap="2">
           <p data-ui="text" data-variant="label" data-tone="primary">TopicQuestionCandidateSet</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            该题目卡的 v1b 还没生成 TopicQuestionCandidateSet。先在 Slice surface 选定 ResearchSlice。
+            尚未生成候选研究问题；请先选择研究切片。
           </p>
         </div>
       </article>
@@ -127,7 +127,7 @@ export function QuestionCandidateSetCard({ candidateSets }: QuestionCandidateSet
               generation_notes: {active.generation_notes.join(' · ')}
             </p>
           ) : (
-            <ReviewerCardEmpty label="等待 v1b WorkflowHarness N7 materialize contract。" />
+            <ReviewerCardEmpty label="等待所选研究问题形成可审阅的研究契约。" />
           )}
         </div>
       }

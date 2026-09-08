@@ -1,0 +1,49 @@
+{
+  "status": "draft_not_submitted",
+  "instruction": "Submit only after the researcher explicitly confirms this exact review and rationale; these true review flags are proposed confirmations, not completed Human review.",
+  "endpoint": "/topic-selection/checkpoints/research_checkpoint_300dc6d5-e741-40ba-b85b-1e547796f8fc/decisions",
+  "payload": {
+    "decision_key": "t148-phase4-20260908-evidence-advance",
+    "decision": "advance",
+    "actor": {
+      "actor_type": "human",
+      "actor_id": "researcher"
+    },
+    "confirmed_snapshot_hash": "cdf732d6c4fb55f2e32f5d9242f85d01e4cf61c054bfbc0289b59be4590187e5",
+    "rationale": "仅在本轮有界复验与原研究方向内推进：将直接冻结路由器迁移研究缺口与检索器替换专用基准缺口保留为研究及可行性义务；后续必须构建并验证配对基准、比较强基线并限制主张范围。本轮重用既有材料，不能据此声称近期文献覆盖完整或新颖性已被证实。",
+    "review_payload": {
+      "review_kind": "evidence_landscape",
+      "nearest_work_reviewed": true,
+      "disconfirming_evidence_reviewed": true,
+      "source_quality_reviewed": true,
+      "limitations": [
+        "缺少直接测试冻结效用路由器在检索器或索引替换后迁移表现的研究证据。",
+        "缺少检索器替换专用基准，构建及验证基准是后续必做义务。",
+        "本轮没有新增检索；近期直接重叠工作和近重复风险仍未排除。",
+        "主张仅限受控的检索器或索引替换、冻结路由器及匹配预算，不声称通用 RAG 或生产优势。"
+      ],
+      "accepted_coverage": {
+        "coverage_row_refs": [
+          {
+            "ref_id": "coverage_intent_8d18adc6-a5d6-42f9-9009-8c226ca35bd8",
+            "ref_type": "coverage_row_intent",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          },
+          {
+            "ref_id": "coverage_intent_aff79ce4-01e6-483f-9aa9-10afa9d5d0f8",
+            "ref_type": "coverage_row_intent",
+            "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+          }
+        ],
+        "rationale": "仅在本轮有界复验与原研究方向内推进：将直接冻结路由器迁移研究缺口与检索器替换专用基准缺口保留为研究及可行性义务；后续必须构建并验证配对基准、比较强基线并限制主张范围。本轮重用既有材料，不能据此声称近期文献覆盖完整或新颖性已被证实。"
+      }
+    },
+    "required_action_refs": [
+      {
+        "ref_id": "research_required_action_7d0f92fe20ade0270b3b7e0a",
+        "ref_type": "research_required_action",
+        "title_card_id": "title_card_e22967ea-bb22-41b6-8306-86f5acb714e2"
+      }
+    ]
+  }
+}

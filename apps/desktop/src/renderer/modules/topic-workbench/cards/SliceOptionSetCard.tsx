@@ -42,7 +42,7 @@ export function SliceOptionSetCard({ sliceOptionSets, onMutated }: SliceOptionSe
         <div data-ui="stack" data-direction="col" data-gap="2">
           <p data-ui="text" data-variant="label" data-tone="primary">ResearchSliceOptionSet</p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            该题目卡的 v1b 还没生成 ResearchSliceOptionSet。先确保 v1a 出口 ValidatedNeed + V1bInputBundle 已发布。
+            尚未生成研究切片候选；请先确认并发布研究缺口，再完成研究约束确认与就绪检查。
           </p>
         </div>
       </article>

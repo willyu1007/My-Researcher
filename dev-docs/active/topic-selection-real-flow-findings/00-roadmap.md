@@ -122,6 +122,7 @@
 - Exit criteria: All retained TSRF references pass and FIND-029 through FIND-031 remain owned only by T-150.
 - Verification: Focused checks plus one recoverable real-flow evidence bundle.
 - Recovery: Stop at the last trustworthy gate, preserve immutable decisions, and use only supported existing recovery routes.
+- Phase progress: FIND-032 copy and adjacent-finding disposition are complete. Historical rejection/replacement, current question/value and conditional-promotion records remain recoverable. The selected local dev schema now has all 82 repository migrations; the evidence-map P2022 read failure is resolved. Fresh TitleCard `title_card_e22967ea-bb22-41b6-8306-86f5acb714e2` imports nine retained units through a zero-retrieval manual SearchRun, admits exact scoped paragraph/section refs, and exposes both required missing rows plus literature and material-conflict risks. It stops at one undecided evidence checkpoint. Remaining work starts with the exact Human review, then fresh downstream Debate/refinement/conditional-promotion acceptance. This is a partial Phase 4 checkpoint, not rehearsal closure.
 
 ## Kickoff gate
 
