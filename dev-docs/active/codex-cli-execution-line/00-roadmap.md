@@ -113,13 +113,22 @@
 - Outcome: a research-role tool scope that an agent can use to select rather than enumerate, that
   refuses work outside its attempt's scope, that stops at a server-enforced budget, and that today's
   Codex can connect to.
-- Approach: implement the current MCP revision natively and confine the older-revision handshake to
-  a shim at the transport edge, sharing one tool implementation between both paths. Carry attempt
-  and role scope in a server-minted handle passed as an ordinary tool argument, which is what makes
-  the same tool correct on either path.
+- Approach: serve MCP from the backend over HTTP rather than from a spawned stdio subprocess. A
+  probe confirmed Codex connects to a `url`-configured MCP server, which means the tool surface can
+  reach the product's own repositories directly instead of a subprocess needing its own database
+  access. Implement the current MCP revision natively and confine the older-revision handshake to a
+  shim at the transport edge, sharing one tool implementation between both paths. Carry attempt and
+  role scope in a server-minted handle passed as an ordinary tool argument, which is what makes the
+  same tool correct on either path.
+
+  Two mechanics the probe pinned down: Codex health-checks `GET /health` at the endpoint's origin
+  and will not initialize until that returns 200, and it holds a `GET` stream open on the endpoint
+  for server-to-client notifications. Both are easy to miss and present as an unexplained hang.
 - Planned changes:
-  1. The server core on revision `2026-07-28`: `server/discover`, per-request version and
-     capabilities in `_meta`, no session state.
+  1. The server core on revision `2026-07-28`, served over HTTP by the backend: `server/discover`,
+     per-request version and capabilities in `_meta`, no session state, plus the origin health
+     endpoint Codex requires.
+  0. Teach the runner's generated config the `url` server form alongside the existing command form.
   2. The compatibility shim: accept the `initialize` handshake, translate the request envelope, and
      dispatch into the same tool implementations.
   3. Two research-role tools — a discriminating index and a batch fetch — where the index carries
@@ -157,7 +166,7 @@
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through phase 1
+- Authorized boundary: through phase 2
 - [x] Decisions: D-1 through D-9 are all decided; no user-owned choice blocks implementation.
 - [x] Design: the line's contract, trace shape, session rule, handle-based scoping and shim boundary are settled in `02-architecture.md`.
 - [x] Route: three phases reach the goal; Phase 1 is executable and dependency-free, and each phase carries exit, verification and recovery criteria.

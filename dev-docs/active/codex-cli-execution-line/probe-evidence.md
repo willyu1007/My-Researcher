@@ -199,6 +199,35 @@ with `-c` produced no error at all — so key names cannot be validated that way
 *inside* the `granular` table are ignored rather than rejected, so only the top-level key names are
 actually checked.
 
+## 8. The tool surface can be served over HTTP by the product itself
+
+Codex accepts a `url`-configured MCP server, so Phase 2 does not need a spawned stdio subprocess
+that would require its own database access. A probe endpoint received the full sequence:
+
+```
+GET  /health                      <- origin health check, before anything else
+POST /mcp  initialize
+POST /mcp  notifications/initialized
+GET  /mcp                         <- held open for server-to-client notifications
+POST /mcp  tools/list             (carries _meta even on 2025-06-18)
+```
+
+Two mechanics are worth knowing because both present as an unexplained hang rather than an error:
+
+- **Codex health-checks `GET /health` at the endpoint's origin — not under the endpoint path — and
+  will not initialize until it returns 200.** A 202 with an empty body is not enough; the probe sat
+  silent for ten minutes until the health route returned a 200 JSON body.
+- Codex then holds a `GET` stream open on the endpoint for the duration.
+
+**MCP connectivity and model authentication are independent.** The same probe reached `tools/list`
+successfully and then failed the model call with `401 Unauthorized` on
+`wss://api.openai.com/v1/responses`, because the product-owned `CODEX_HOME` used for the probe held
+no credential. The earlier stdio probes succeeded only because they ran against the developer's
+default `CODEX_HOME` with `--ignore-user-config`, which skips the config but keeps the auth.
+
+The practical consequence is good news for sequencing: the tool surface can be built and verified
+end to end without provisioning any credential. Only the model call needs one.
+
 ## Reproduction
 
 The probe MCP server was ~110 lines of dependency-free Node implementing JSON-RPC over stdio
