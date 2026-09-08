@@ -19,11 +19,13 @@
 
 ## Outstanding verification
 
-- The Phase 1 live check: one real `codex exec` invocation through the runner. It needs an
-  authenticated product-owned `CODEX_HOME`, which an operator must provision because that directory
-  is where the Codex credential lives. Until then the line is verified with an injected invocation,
-  and the live smoke should follow the repository's existing convention of an env-gated test that
-  skips by default.
+- The Phase 1 live check is written and gated:
+  `topic-selection-codex-cli-runner.live.test.ts` skips unless `TOPIC_SELECTION_CODEX_HOME` and
+  `TOPIC_SELECTION_CODEX_MODEL` are set. It re-proves schema enforcement on the installed binary by
+  asking for three violations at once, and asserts a thread id, a trace and non-zero usage.
+  Enabling it needs one operator action — `CODEX_HOME=<product dir> codex login` — because that
+  directory holds the Codex credential and nothing may be copied into it. The pattern comes from
+  a sibling project that runs Codex with per-account homes.
 
 - Phase 4's in-flow human confirmation is blocked by a client-side gap, not an unknown. MCP
   `2026-07-28` defines the correct shape — Multi Round-Trip Requests returning
