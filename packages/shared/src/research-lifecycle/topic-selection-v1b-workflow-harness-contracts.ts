@@ -548,7 +548,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N8TopicValueAssessmentGate',
     required_for_progress: false,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -562,7 +562,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N8TopicValueAssessmentGate',
     required_for_progress: false,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -576,7 +576,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N8TopicValueAssessmentGate',
     required_for_progress: false,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -590,7 +590,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N8TopicValueAssessmentGate',
     required_for_progress: false,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -820,8 +820,7 @@ export const N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
  * this const says dormant. Without the guard the path would be LIVE today: the advance route's
  * debate enum admits provider_llm, the debate model profiles default to provider-eligible
  * run modes, and a null model_option_id falls back to a default provider option — i.e. real
- * provider calls on debate prompts that are still skeletons (W-02 ledger; corpus-coupled prompts
- * land with W-18).
+ * provider calls through a gateway path whose complete output/provenance wiring remains deferred.
  *
  * Turn-on is a HUMAN CODE CHANGE in W-19 (flip `dormant` here) after the W-16
  * `calibration_gate_release` sign-off — never a runtime artifact check (T-127 D8: no auto-flip
@@ -829,6 +828,10 @@ export const N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE = {
  * outputs (no codex/mock passthrough), the gate-bridge provenance decision (the completed-debate
  * draft is bridged as codex_response/mocked_output today — neither fits provider), and the
  * runMode default for provider entries.
+ *
+ * This is only the deferred gateway-provider gate. T-153 separately qualifies the current managed
+ * prompts and integrated codex_cli consumers; its scoped profile admission does not flip this const
+ * or claim the historical gateway release obligations are complete.
  */
 export const TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH = {
   dormant: true,
