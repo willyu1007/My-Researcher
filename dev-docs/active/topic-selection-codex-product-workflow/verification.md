@@ -326,3 +326,32 @@ and read one scoped operational canary (39,774 input + 211 output tokens, of whi
 were cached). The returned random marker matched, the scope charged exactly one read, and both
 MCP calls completed. Scope and ephemeral HTTP server were closed afterward. This complements the
 native-read refusal in attempt 21 and makes no research-evidence claim.
+
+
+## Additional semantic coverage and scoring finding
+
+`staging_insufficient_arbiter_v3` (attempts 28–31) completed all four real N6 roles and was admitted
+with `evidence_expansion_required`, without candidate authority. Both Explorers distinguished the
+single DPR abstract from untested shift/position hypotheses and unverified resources. The Critic's
+material objection concerned assigning a query-level lexical-overlap stratum when multiple passages
+are relevant. Arbiter defined a common relevance-set aggregation independent of retriever outputs,
+labelled thresholds as proposed design choices, retained incomplete-judgment coverage as a blocker,
+and parked all three distinct candidates. Exact final v3 refs were accepted by the N6 gate. This is
+real evidence-insufficiency and substantive-repair evidence, not a claim of novelty or model accuracy.
+
+`staging_fixture_ordinary_n8_refs_compact_v3` has completed real N7, ordinary N8, an operator-triggered
+N8 assessment and N7 feedback support (32–35). All 37 functional-ref occurrences in attempt 33
+belong to the gate-owned list, including null evidence versions. The N8 calls distinguish bounded
+value from missing originality/resources and request evidence recheck. N7 consumed actual feedback;
+the first conditional Debate role is in progress. Attempt 34 took 590.30 seconds but succeeded within
+the unchanged 600-second timeout; no general low-latency/reliability claim follows.
+
+Inspection of N8 attempts 22/24/25/33 also found dimensions scored on 0–5 while totals were rescaled
+to 0–100. The shared schema and deterministic dimension triggers use 0–100 directly, so this can
+misroute otherwise admissible drafts. All three N8 prompts are now v4: dimension and total scores
+use the same favorable 0–100 scale; reviewer_risk means defensibility, confidence remains 0–1,
+and uncertainty/weighting must be explained without claiming calibration. No thresholds or guards
+were changed, and low scores cannot be mechanically assumed to mean a different scale. Config
+checks (5), N8 value-runtime checks (6) and independent review passed; prompt byte goldens align.
+The running process cached v3 before this change and does not qualify v4. Fresh v4 checks remain
+required before activating any N8 profile.
