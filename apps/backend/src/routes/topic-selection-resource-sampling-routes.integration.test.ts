@@ -52,3 +52,18 @@ test('topic-selection resource sampling route rejects malformed payloads with IN
     await app.close();
   }
 });
+
+test('resource sampling HTTP accepts the CLI contract but keeps its unqualified profile closed', async t => {
+  const app = buildApp({ topicSelectionCodexCli: null });
+  t.after(() => app.close());
+  const response = await app.inject({ method: 'POST', url: '/topic-selection/v1a/resource-samples',
+    payload: { topic_id: 'topic_without_resources', execution_spec: { execution_mode: 'codex_cli', model_option_id: null } } });
+  assert.equal(response.statusCode, 400);
+  assert.match(response.json().error.message, /execution_mode is not allowed by model profile/);
+  for (const execution_spec of [{ execution_mode: 'codex_assisted' }, { execution_mode: 'codex_cli', model_option_id: 'provider-option' }]) {
+    const invalid = await app.inject({ method: 'POST', url: '/topic-selection/v1a/resource-samples',
+      payload: { topic_id: 'topic_without_resources', execution_spec } });
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.json().error.code, 'INVALID_PAYLOAD');
+  }
+});

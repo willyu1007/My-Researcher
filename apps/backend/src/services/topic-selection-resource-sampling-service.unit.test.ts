@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import test from 'node:test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test, { type TestContext } from 'node:test';
 
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
@@ -38,6 +40,8 @@ import {
   TopicSelectionResourceSamplingService,
 } from './topic-selection-resource-sampling-service.js';
 import { sha256Text } from './literature-content-processing-utils.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 
 const NOW = '2026-05-17T08:00:00.000Z';
 const TOPIC_ID = 'ai-rag-finetuning-2022-2026';
@@ -439,6 +443,79 @@ function makeRetryService(gateway: TopicSelectionAgentOrchestratorLlmGateway, re
   });
   return { service, invocationAttemptIds };
 }
+
+async function makeCliSampling(t: TestContext, outcome: 'success' | 'timeout' = 'success') {
+  const home = await fs.mkdtemp(join(tmpdir(), 'sampling-cli-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(p => p.profile_id === TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY)!;
+  // Consumer qualification only: the upstream profile stays closed in the shipped registry.
+  profile.allowed_execution_modes.push('codex_cli');
+  profile.run_mode_eligibility.codex_cli = ['product'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls++;
+    if (outcome === 'timeout') return { stdout: '', stderr: '', exit_code: -1, timed_out: true };
+    assert.match(options.stdin, /RAG improves answer grounding/);
+    return { stdout: [
+      { type: 'thread.started', thread_id: 'sampling-thread' },
+      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(makeLlmOutput()) } },
+    ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const gateway = new StubLlmGateway(new Error('Unexpected provider call'));
+  const service = makeService(makeLlmOutput(), undefined, { controlPlaneService: controlPlane, modelProfileRegistry,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry,
+      llmGateway: gateway, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }) });
+  return { service, controlPlane, gateway, modelProfileRegistry, get calls() { return calls; } };
+}
+
+test('resource sampling consumes CLI settings and records the actual runner identity without provider work', async t => {
+  const ctx = await makeCliSampling(t);
+  const { service, controlPlane, gateway } = ctx;
+  const input = { topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID, sample_size: 4,
+    execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null } };
+  const result = await service.createResourceSampleSet(input);
+  assert.equal(gateway.calls.length, 0);
+  assert.equal(ctx.calls, 1);
+  assert.equal(result.sample_set.model.provider_id, 'codex');
+  assert.equal(result.sample_set.model.model_id, 'gpt-6-astra');
+  assert.deepEqual(result.audit.model, result.sample_set.model);
+  assert.ok(result.selected_items.length > 0);
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(result.sample_set.workflow_run_id!);
+  const audit = artifacts.find(a => a.payload?.schema_version === 'topic-selection-agent-invocation-audit-v1');
+  assert.ok(audit);
+  assert.equal((audit.payload?.provenance as { source_kind: string }).source_kind, 'codex_cli_response');
+  assert.ok(artifacts.some(a => a.payload?.schema_version === 'topic-selection-codex-cli-trace-v1'));
+});
+
+test('resource sampling does not retry an ambiguous CLI timeout or fall back to a provider', async t => {
+  const ctx = await makeCliSampling(t, 'timeout');
+  const result = await ctx.service.createResourceSampleSet({ topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID,
+    execution_spec: { execution_mode: 'codex_cli' } });
+  assert.equal(ctx.calls, 1);
+  assert.equal(ctx.gateway.calls.length, 0);
+  assert.equal(result.sample_set.status, 'blocked');
+  assert.equal(result.selected_items.length, 0);
+  assert.equal(result.sample_set.model.provider_id, 'codex');
+});
+
+test('resource sampling validates CLI eligibility, runner and conflicting provider settings before creating a sample', async t => {
+  const ctx = await makeCliSampling(t);
+  const input = { topic_id: TOPIC_ID, execution_spec: { execution_mode: 'codex_cli' as const } };
+  const noWrites = { idFactory: () => { throw new Error('Unexpected sample write preparation'); } };
+  const closed = makeService(makeLlmOutput(), [], noWrites);
+  await assert.rejects(closed.createResourceSampleSet(input), /execution_mode is not allowed by model profile/);
+  const unconfigured = makeService(makeLlmOutput(), [], { ...noWrites, modelProfileRegistry: ctx.modelProfileRegistry });
+  await assert.rejects(unconfigured.createResourceSampleSet(input), /Codex runner is not configured/);
+  await assert.rejects(ctx.service.createResourceSampleSet({ ...input,
+    model: { provider_id: 'openai', model_id: 'gpt-5.6-sol' } }), /no provider model/);
+  assert.equal(ctx.calls, 0);
+  assert.equal(ctx.gateway.calls.length, 0);
+});
 
 test('resource sampling classifies roles, applies guardrails, and emits coverage warnings', async () => {
   const service = makeService(makeLlmOutput());

@@ -80,6 +80,7 @@ const DEFAULT_SAMPLE_SIZE = 16;
 const TARGET_ROLES = [...TOPIC_SELECTION_RESOURCE_SAMPLE_TARGET_ROLES];
 
 type IdFactory = (prefix: string) => string;
+type SamplingModel = LlmModelRef | { providerId: 'codex'; modelId: string; profileId: string };
 
 export type CreateTopicSelectionResourceSampleInput =
   Omit<CreateTopicSelectionResourceSampleRequest, 'model'> & {
@@ -308,7 +309,7 @@ export class TopicSelectionResourceSamplingService {
     const roleTargets = this.normalizeRoleTargets(sampleSize, input.role_targets);
     const policyVersion = input.policy_version ?? DEFAULT_POLICY_VERSION;
     const createdBy = input.created_by ?? 'system';
-    const model = this.normalizeModel(input.model);
+    const model = this.resolveModel(input);
     const modelRef = this.modelRef(model);
     const sampleSetId = this.idFactory('resource_sample_set');
     const auditId = this.idFactory('resource_sampling_audit');
@@ -604,7 +605,7 @@ export class TopicSelectionResourceSamplingService {
     eligibleCandidates: ResourceCandidate[];
     sampleSetId: string;
     workflowRunId: string;
-    model: LlmModelRef;
+    model: SamplingModel;
     policyVersion: string;
     roleTargets: TopicSelectionResourceRoleTargets;
     sampleSize: number;
@@ -622,14 +623,16 @@ export class TopicSelectionResourceSamplingService {
     const batches = this.chunkCandidates(input.eligibleCandidates, LLM_CLASSIFICATION_BATCH_SIZE);
     const classifications: TopicSelectionResourceCandidateClassificationDraft[] = [];
     const telemetry: LlmCallTelemetry[] = [];
-    // W-10 run5 lesson: a batch failure must stay a BATCH failure. Each batch gets bounded
-    // retries with backoff; a batch that still fails only blocks its own candidates, and the
+    // W-10 run5 lesson: a batch failure must stay a BATCH failure. Provider batches get bounded
+    // retries with backoff; CLI batches execute once; a batch that still fails only blocks its own candidates, and the
     // all-batches-failed case keeps the legacy whole-classification-failed semantics.
     const failedLiteratureIds = new Set<string>();
     let failedBatchCount = 0;
     let retriedBatchCount = 0;
     let retryAttemptCount = 0;
     let lastBatchError: unknown = null;
+    // A failed CLI attempt may have consumed model work; a new submission must be explicit.
+    const maxRetries = input.model.providerId === 'codex' ? 0 : this.classificationRetry.maxRetriesPerBatch;
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
       const batchCandidates = batches[batchIndex]!;
@@ -661,7 +664,7 @@ export class TopicSelectionResourceSamplingService {
       const contextPacketHash = this.hash(runtimeContext);
 
       let batchSucceeded = false;
-      for (let retry = 0; retry <= this.classificationRetry.maxRetriesPerBatch; retry += 1) {
+      for (let retry = 0; retry <= maxRetries; retry += 1) {
         // Retries are distinct attempts end to end: fresh node/invocation attempt ids keep
         // control-plane provenance rows unique and every paid call auditable.
         const attemptSuffix = retry > 0 ? `.retry_${retry}` : '';
@@ -674,12 +677,12 @@ export class TopicSelectionResourceSamplingService {
             workflow_run_id: input.workflowRunId,
             node_attempt_id: `${input.sampleSetId}.batch_${batchIndex + 1}${attemptSuffix}`,
             invocation_attempt_id: `${input.sampleSetId}.${RESOURCE_SAMPLING_INVOCATION_SLOT_ID}.batch_${batchIndex + 1}${attemptSuffix}`,
-            execution_mode: 'provider_llm',
+            execution_mode: input.model.providerId === 'codex' ? 'codex_cli' : 'provider_llm',
             executor_kind: 'single_agent',
             run_mode: 'product',
             profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
             output_contract: TOPIC_SELECTION_RESOURCE_SAMPLING_OUTPUT_CONTRACT,
-            model_option_id: this.modelOptionIdForModel(input.model),
+            model_option_id: input.model.providerId === 'codex' ? null : this.modelOptionIdForModel(input.model),
             prompt: request.prompt,
             prompt_variant_key: RESOURCE_SAMPLING_INVOCATION_SLOT_ID,
             schema_name: request.schemaName,
@@ -734,7 +737,7 @@ export class TopicSelectionResourceSamplingService {
           }
         }
         lastBatchError = attemptError;
-        if (retry < this.classificationRetry.maxRetriesPerBatch) {
+        if (retry < maxRetries) {
           retryAttemptCount += 1;
           await this.sleepMs(this.classificationRetry.backoffMs(retry + 1));
         }
@@ -758,7 +761,7 @@ export class TopicSelectionResourceSamplingService {
       return {
         guarded: input.eligibleCandidates.map((candidate) => this.blockedClassification(candidate, 'LLM_CLASSIFICATION_FAILED')),
         llmOutput: { classifications: [] },
-        telemetry: this.aggregateTelemetry(input.model, telemetry),
+        telemetry: input.model.providerId === 'codex' ? null : this.aggregateTelemetry(input.model, telemetry),
         error: lastBatchError ?? new AppError(500, 'INTERNAL_ERROR', 'Resource sampling classification failed for every batch.'),
         batchStats,
       };
@@ -776,7 +779,7 @@ export class TopicSelectionResourceSamplingService {
           ? this.blockedClassification(candidate, 'LLM_CLASSIFICATION_FAILED')
           : this.applyGuardrails(candidate, classificationsByLiteratureId.get(candidate.literature_ref.ref_id))),
       llmOutput,
-      telemetry: this.aggregateTelemetry(input.model, telemetry),
+      telemetry: input.model.providerId === 'codex' ? null : this.aggregateTelemetry(input.model, telemetry),
       error: null,
       batchStats,
     };
@@ -1787,6 +1790,21 @@ export class TopicSelectionResourceSamplingService {
     return targets;
   }
 
+  private resolveModel(input: CreateTopicSelectionResourceSampleInput): SamplingModel {
+    const spec = input.execution_spec;
+    if (spec == null) return this.normalizeModel(input.model);
+    if (typeof spec !== 'object' || spec.execution_mode !== 'codex_cli' || spec.model_option_id != null
+      || Object.keys(spec).some(key => key !== 'execution_mode' && key !== 'model_option_id')
+      || input.model != null) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Resource sampling CLI requires execution_mode=codex_cli, no model option and no provider model.');
+    }
+    this.modelProfileRegistry.resolveProfile({ profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
+      execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null });
+    const identity = this.agentOrchestrator.codexCliExecutionIdentity;
+    if (!identity) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Resource sampling Codex runner is not configured.');
+    return { providerId: 'codex', modelId: identity.model, profileId: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID };
+  }
+
   private normalizeModel(raw: CreateTopicSelectionResourceSampleInput['model']): LlmModelRef {
     if (!raw) {
       return this.registeredModelForProvider('openai');
@@ -1831,7 +1849,7 @@ export class TopicSelectionResourceSamplingService {
     return registeredModel;
   }
 
-  private modelRef(model: LlmModelRef): TopicSelectionResourceSamplingModelRef {
+  private modelRef(model: SamplingModel): TopicSelectionResourceSamplingModelRef {
     return {
       provider_id: model.providerId,
       model_id: model.modelId,

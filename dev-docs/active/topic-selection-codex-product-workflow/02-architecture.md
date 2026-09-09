@@ -165,7 +165,7 @@ supply reviewable content and create no new decision owner.
 
 ## Phase 3 sampling integration boundary
 
-The resource-sampling request will consume `execution_spec.execution_mode=codex_cli` with a null
+The resource-sampling request consumes `execution_spec.execution_mode=codex_cli` with a null
 model option. The existing `model` selection remains the provider-route input and cannot accompany
 CLI execution. Resolve profile eligibility and the app-owned runner identity before compiling or
 writing a sample; an unavailable runner or closed profile must not become a successful empty sample.
@@ -177,5 +177,6 @@ assembly. Each CLI batch executes once; its failure stays visible and cannot tri
 batch retry loop or a provider fallback. The existing provider retry behavior remains scoped to that
 route. A new sampling submission is a new operation, not an automatic continuation of an interrupted
 batch; stable request recovery must be settled before public activation. The initial consumer wiring
-keeps the sampling profile closed until real-input qualification and recovery verification. Sampling
-and v1a orchestrators share the existing app-owned runner and its shutdown/tool-scope owners.
+keeps the sampling profile closed until real-input qualification and recovery verification. The sampling
+orchestrator shares the existing app-owned runner and its shutdown/tool-scope owners; v1a injection
+remains part of the extraction/need-discovery work.

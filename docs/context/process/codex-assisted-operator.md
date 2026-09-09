@@ -60,6 +60,15 @@ A supported result may request more evidence or block an unchanged overclaim. Mo
 and draft admission do not establish scientific readiness or authorize a Human decision. The external
 operator paths below remain available under their separate provenance contract.
 
+## Upstream integration boundary
+
+`POST /topic-selection/v1a/resource-samples` recognizes the same explicit CLI execution spec and
+rejects a co-supplied provider `model`. Its consumer uses the app-owned runner, actual Codex model
+identity and one attempt per batch. The sampling profile remains closed pending recovery and
+real-input qualification, so a CLI submission currently stops at profile eligibility before any
+sample or model work. Calls without the spec retain the existing provider behavior. This endpoint
+is not yet part of the enabled CLI operating path.
+
 ## Regular N6 question candidates
 
 A fresh N5 selection now receives one bounded review: two Explorer responses, one Critic response,

@@ -232,9 +232,24 @@ bounded behavior with the pinned abstracts and disclosed fixtures; it does not p
 results, actual resource access, statistical accuracy, calibrated thresholds or genuine Human approval.
 The six unknown-usage calls remain in the ledger. Other generation-provider Debate remains dormant.
 
+## Phase 3 first implementation unit
+
+Resource sampling accepts an explicit CLI execution spec and resolves eligibility/runner before
+creating a sample. App composition reuses the existing runner. Successful batches retain actual
+Codex model identity, invocation audit and trace; CLI timeout stops that batch without retry or
+provider fallback. The existing classification prompt, deterministic filters and provider retries
+are unchanged. Sampling CLI remains closed in the shipped profile.
+
+The consumer test first exposed three unintended provider calls for a CLI request, then passed after
+routing was consumed. The timeout test first exposed three CLI calls, then passed with exactly one.
+All 29 sampling service/HTTP tests and backend no-emit typecheck passed; independent review of the
+five-file implementation against `331cda82` found no unresolved issues. Tests use a fake process and
+an explicitly local profile override, not a new real-model qualification. Stable request recovery,
+real-input sampling evidence and profile activation remain the next boundary.
+
 ## Outstanding verification
 
-- Phase 3 sampling/extraction consumer wiring, need discovery/final synthesis/adjudication/
+- Phase 3 sampling stable submission/recovery and live qualification, extraction consumer wiring, need discovery/final synthesis/adjudication/
   confirmation support, evidence convergence, their live qualification and fresh upstream-to-v1b lineage.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.

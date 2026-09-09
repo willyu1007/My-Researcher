@@ -8,7 +8,7 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
-| 1 | `topic-selection-resource-sampling-classification` | Resource sampling classification hardcodes provider execution; deterministic sampling filters remain separate | Phase 3 / CX-03 |
+| 1 | `topic-selection-resource-sampling-classification` | Canonical CLI consumer connected; real runner identity and one attempt per batch verified locally. Profile remains closed pending stable submission/recovery and real qualification | Phase 3 / CX-03 |
 | 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | v1a evidence extraction; inject shared CLI executor and align input admission | Phase 3 / CX-03 |
 | 3 | `topic-selection.generate-need-candidate.single-agent.v1` | v1a need generation; preserve evidence lineage and candidate admission | Phase 3 / CX-03 |
 | 4 | `topic-selection.need-adjudication.single-agent.v1` | v1a adjudication; generated support cannot confirm a need | Phase 3 / CX-03 |

@@ -1311,6 +1311,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     controlPlane: topicSelectionControlPlaneService,
     llmGateway,
     promptPacketCache: topicSelectionPromptPacketCacheService,
+    codexCliRunner: topicSelectionCodexCli?.runner, codexCliModelId: topicSelectionCodexCli?.model_id,
+    mcpScopeStore: topicSelectionMcpScopeStore, mcpEndpointUrl: () => topicSelectionMcpEndpoint,
   });
   const topicSelectionResourceSamplingService = new TopicSelectionResourceSamplingService({
     repository: topicSelectionResourceSamplingRepository,

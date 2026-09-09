@@ -119,6 +119,7 @@ Completed Phase 2 execution order:
 3. Open only qualified profiles with permanent policy/scenario/operator documentation, then verify canonical progression, Human stops and recovery. Keep ambiguous partial domain commits fail-closed pending authority inspection. The user has authorized Phase 3 after this closeout; Phases 4–5 require the next authorization.
 
 ### Phase 3 — Connect upstream evidence and need discovery (integration detail provisional)
+- Current implementation: Resource-sampling CLI request/consumer and shared runner composition verified locally; default sampling profile remains closed pending stable submission/recovery and real-input qualification.
 - Outcome: Resource sampling, extraction, evidence convergence, need discovery/final synthesis, adjudication and human-confirmation support use Codex through product callers.
 - Approach: Reuse canonical evidence/retrieval owners; re-evaluate provider-only final synthesis against the unified admission criteria; preserve human confirmation and successor-map boundaries.
 - Revertible implementation units after Phase 2 closeout:
