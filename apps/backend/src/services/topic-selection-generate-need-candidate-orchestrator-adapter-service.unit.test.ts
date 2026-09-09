@@ -434,7 +434,7 @@ test('generate-need-candidate adapter succeeds without persistence for a none-vi
 // re-baseline (no harness/replay/e2e guard pins this v1a prompt body; these are its only coverage).
 // Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
 const GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN = {
-  system: '4d964a25612b62e981ca47d6b47d774168354ba697cd9b2e31168628460cae56',
+  system: 'afc1b9d2d193c252f896527be4245b450814af541b01a6b5a08b70d4841da4a6',
   user: 'b1dca968e9950cea2097c7a9dbaa8b1670e2d868dc71d880606d0c723ddacac3',
 };
 test('generate-need-candidate single-agent prompt body is byte-identity drift-anchored (T-128 W-04)', async () => {

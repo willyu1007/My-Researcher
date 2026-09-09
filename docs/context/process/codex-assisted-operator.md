@@ -74,6 +74,35 @@ execution; inspect retained workflow/CLI traces before deliberately choosing a n
 A new ID is a new paid operation. The CLI profile requires a configured runner; it never falls back
 to a provider. Sample readiness does not establish evidence sufficiency or a Human research decision.
 
+
+### Evidence extraction and need discovery
+
+The native endpoint is `POST /topic-selection/v1a/workflow-harness/nodes/<node_id>/invocations`.
+Use the normal envelope with `workflow_run_id`, `node_attempt_id`, `title_card_id` and `policy_version`;
+inside `scenario_input`, set `execution_mode: "codex_cli"`, `run_mode: "product"`,
+`output_schema_version: "v1"`, and the normal scenario ID. Eligibility is controlled by the default
+profile registry; a configured runner is required.
+
+- `topic-selection.v1a.build-evidence-map.v1`: supply the preceding persisted `search_run_handoff`.
+  The product resolves original stored abstracts and compiles extraction context. Do not supply an
+  extraction draft/context or an external model answer. Abstract source ID/URL and checksum must
+  match the frozen search inputs. Generated summaries, missing source provenance and full-text-only
+  records are currently refused by this consumer. The output retains abstract-only warnings.
+- `topic-selection.v1a.generate-need-candidate.v1`: supply the current `evidence_map_ref`, its
+  `evidence_strength_ref`, exact `search_snapshot_refs` / `resource_snapshot_refs`, topic scope and
+  the normal exploration/arbiter request payloads. Create the strength assessment through its existing
+  API first. The product replaces evidence digests/tables with resolved original quotes and complete
+  strength/conflict records. Use `profile_id: "topic-selection.generate-need-candidate.single-agent.v1"`
+  and `executor_kind: "single_agent"` or `"multi_agent_debate"`. Debate runs two Explorers, one Critic,
+  issue framing and final synthesis through Codex. No role execution overrides or caller answers are
+  accepted on this node. Candidate admission/persistence and Human confirmation keep their usual gates.
+
+Reuse the exact workflow/node-attempt identity and request after a lost response; completed results
+replay without another model invocation. Changed input or an unfinished claim returns 409. Inspect
+retained model/domain artifacts before creating a new attempt after an interrupted commit; unlike
+sampling, this node does not automatically resume partial domain writes. An `expand_evidence` or
+`stop_without_candidate` result is a valid non-advancing conclusion, not a confirmed research need.
+
 ## Regular N6 question candidates
 
 A fresh N5 selection now receives one bounded review: two Explorer responses, one Critic response,

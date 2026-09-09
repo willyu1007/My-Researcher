@@ -1813,4 +1813,12 @@ export class TopicSelectionEvidenceMapService {
   ): Promise<TopicSelectionEvidenceUnitRecord[]> {
     return this.repository.listEvidenceUnitsByEvidenceMapId(evidenceMapId);
   }
+
+  async listEvidenceStrengthAssessmentsByEvidenceMapId(evidenceMapId: string): Promise<TopicSelectionEvidenceStrengthAssessmentRecord[]> {
+    return this.repository.listEvidenceStrengthAssessmentsByEvidenceMapId(evidenceMapId);
+  }
+
+  async listConflictSetsByEvidenceMapId(evidenceMapId: string): Promise<TopicSelectionEvidenceConflictSetRecord[]> {
+    return this.repository.listConflictSetsByEvidenceMapId(evidenceMapId);
+  }
 }

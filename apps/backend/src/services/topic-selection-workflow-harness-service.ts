@@ -76,6 +76,9 @@ import {
   TopicSelectionV1aLlmRuntimeBindingService,
 } from './topic-selection-v1a-llm-runtime-binding-service.js';
 import { TopicSelectionNeedDiscoveryArtifactBoundaryService } from './topic-selection-need-discovery-artifact-boundary-service.js';
+import type { TopicSelectionV1aCodexContextService } from './topic-selection-v1a-codex-context-service.js';
+import { executeV1aCodexSubmission } from './topic-selection-v1a-codex-submission.js';
+import { TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID } from './topic-selection-model-profile-registry-service.js';
 import {
   type TopicSelectionGenerateNeedCandidateOrchestratorAdapterResult,
   type TopicSelectionGenerateNeedCandidatePersistenceContext,
@@ -1311,6 +1314,7 @@ export class TopicSelectionWorkflowHarnessService {
       evidenceMaps?: TopicSelectionEvidenceMapService;
       evidenceMapMaterializer?: TopicSelectionEvidenceMapMaterializationService;
       evidenceMapExtractionAgent?: TopicSelectionAgentOrchestratorService;
+      codexContext?: TopicSelectionV1aCodexContextService;
       needValidation?: TopicSelectionNeedValidationService;
       needAdjudicationAgent?: TopicSelectionAgentOrchestratorService;
       humanConfirmationSemanticReviewAgent?: TopicSelectionAgentOrchestratorService;
@@ -2368,11 +2372,35 @@ export class TopicSelectionWorkflowHarnessService {
     input: TopicSelectionWorkflowHarnessBuildEvidenceMapInput,
   ): Promise<TopicSelectionWorkflowHarnessBuildEvidenceMapResult> {
     this.assertBuildEvidenceMapScenarioInput(input);
+    if (input.execution_mode === 'codex_cli') {
+      if (input.run_mode !== 'product' || input.extraction_draft || input.extraction_context_packet
+        || input.extraction_context_packet_ref || input.mocked_output || input.codex_response
+        || (input.executor_kind != null && input.executor_kind !== 'single_agent')
+        || (input.profile_id && input.profile_id !== TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Product CLI extraction compiles its own context and output through the registered extraction profile.');
+      }
+      const context = this.dependencies.codexContext;
+      if (!context) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI source compiler is not configured.');
+      return executeV1aCodexSubmission({ controlPlane: this.requiredControlPlane(), nodeId: BUILD_EVIDENCE_MAP_NODE_ID, input,
+        preflight: () => this.requiredEvidenceMapExtractionAgent().assertProductCodexProfile(TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID),
+        execute: async () => {
+          const compiled = await context.extraction(input);
+          return this.executeBuildEvidenceMapScenario({ ...input, extraction_context_packet: compiled.context },
+            draft => context.validateExtraction(draft, compiled.sources));
+        } });
+    }
+    return this.executeBuildEvidenceMapScenario(input);
+  }
+
+  private async executeBuildEvidenceMapScenario(input: TopicSelectionWorkflowHarnessBuildEvidenceMapInput,
+    validateDraft?: (draft: TopicSelectionEvidenceMapExtractionDraft) => void,
+  ): Promise<TopicSelectionWorkflowHarnessBuildEvidenceMapResult> {
     const controlPlane = this.requiredControlPlane();
     const evidenceMaps = this.requiredEvidenceMaps();
     const materializer = this.requiredEvidenceMapMaterializer();
     const nodeInput = this.buildEvidenceMapNodeInput(input);
     const extraction = await this.resolveEvidenceMapExtractionDraft(input, nodeInput);
+    if (extraction.draft) validateDraft?.(extraction.draft);
     const materialization = materializer.materialize({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
@@ -3200,6 +3228,33 @@ export class TopicSelectionWorkflowHarnessService {
     input: TopicSelectionWorkflowHarnessGenerateNeedCandidateInput,
   ): Promise<TopicSelectionWorkflowHarnessGenerateNeedCandidateResult> {
     this.assertScenarioInput(input);
+    const plannedModes = [input.debate_execution_plan?.default, ...Object.values(input.debate_execution_plan?.slots ?? {}),
+      ...Object.values(input.debate_execution_plan?.instances ?? {})].map(spec => spec?.execution_mode);
+    if (input.execution_mode !== 'codex_cli' && (plannedModes.includes('codex_cli')
+      || Object.values(input.debate_slot_execution_overrides ?? {}).includes('codex_cli'))) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'CLI need-discovery roles require a product CLI node submission.');
+    }
+    if (input.execution_mode === 'codex_cli') {
+      if (input.run_mode !== 'product' || input.mocked_output || input.codex_response || input.debate_mocked_outputs || input.debate_codex_responses
+        || input.debate_execution_plan || input.debate_slot_execution_overrides || input.debate_slot_model_option_overrides
+        || (input.executor_kind != null && !['single_agent', 'multi_agent_debate'].includes(input.executor_kind))
+        || input.profile_id !== TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Product CLI need discovery requires registered roles and cannot mix external outputs or execution plans.');
+      }
+      this.assertSingleAgentExecutionSpec(input);
+      const context = this.dependencies.codexContext;
+      if (!context) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI source compiler is not configured.');
+      return executeV1aCodexSubmission({ controlPlane: this.requiredControlPlane(), nodeId: GENERATE_NEED_CANDIDATE_NODE_ID, input,
+        preflight: () => this.dependencies.generateNeedCandidateAdapter.assertProductCodexProfiles(input.executor_kind ?? 'single_agent'),
+        execute: async () => this.executeGenerateNeedCandidateScenario(await context.discovery(input)),
+      });
+    }
+    return this.executeGenerateNeedCandidateScenario(input);
+  }
+
+  private async executeGenerateNeedCandidateScenario(
+    input: TopicSelectionWorkflowHarnessGenerateNeedCandidateInput,
+  ): Promise<TopicSelectionWorkflowHarnessGenerateNeedCandidateResult> {
     const inputHash = this.hash(this.generateNeedCandidateInputHashPayload(input));
     const replay = await this.findGenerateNeedCandidateReplay(input, inputHash);
     if (replay) {
@@ -9143,7 +9198,7 @@ export class TopicSelectionWorkflowHarnessService {
         model_option_id: input.model_option_id ?? null,
       });
     }
-    if (input.execution_mode !== 'none' && !input.extraction_context_packet) {
+    if (input.execution_mode !== 'none' && input.execution_mode !== 'codex_cli' && !input.extraction_context_packet) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'model-like evidence extraction requires extraction_context_packet.');
     }
     if (input.extraction_context_packet_ref) {

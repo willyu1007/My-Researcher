@@ -107,6 +107,8 @@ Phase 5 extends the same control through promotion and intake. The bounded N2 fi
 SO-02/DMP-11 锁定 model-like 调用槽位清单。未列入本表的节点是 deterministic 或 human-only，**不得**接受 `execution_spec`、provider model options 或 debate execution plans，除非先更新本表与节点策略。
 
 ### resource-sampling / v1a
+
+此表 Codex 列沿用 `codex_assisted`（外部输出）语义；`codex_cli` 为独立的产品执行线，实际开放范围由 profile registry 与 consumer 共同约束。
 | node_id | slot_id | Kind | Default mode | Codex | Provider | Debate | Profile / Contract | Status |
 |---|---|---|---|---|---|---|---|---|
 | `topic-selection.resource-sampling.create-sample-set.v1` | `resource_classification` | single_agent classifier | codex_assisted | yes | yes | conditional (polarity debate 仅政策, 另一概念, 见 Matrix 行) | `topic-selection-resource-sampling-classification`（model profile + prompt/invocation registry, T-123 Phase 1 注册化）; `TopicSelectionResourceSamplingLlmOutput@v1`; ~~profile escalation `topic-selection.resource-sampling-classification.profile-escalation.v1`~~ superseded per T-088 D-27（2026-07-05: 全仓零实现, 显式 `execution_spec`/`execution_plan` 取代策略升级运行时, 无自动升级路径） | implemented（classifier 本体; CLI product 已开放，稳定 submission_id / prepared commit 恢复 / 完整引用校验 / 真实摘要资格通过 T-153；无 spec 仍走既有 provider；escalation 按 D-27 superseded; polarity debate 仅政策） |
@@ -115,7 +117,7 @@ SO-02/DMP-11 锁定 model-like 调用槽位清单。未列入本表的节点是 
 | `topic-selection.v1a.generate-need-candidate.v1` | `explorer.round_1_discovery` | debate worker role/stage | per named profile (DMP-12) | yes | yes | yes | `topic-selection.need-discovery.explorer.v1`; `NeedDiscoveryExplorerNotes@v1` | implemented |
 | `topic-selection.v1a.generate-need-candidate.v1` | `deep_critic.round_1_discovery` | debate worker role/stage | per named profile (DMP-12) | yes | yes | yes | `topic-selection.need-discovery.deep-critic.v1`; `NeedDiscoveryDeepCriticNotes@v1` | implemented |
 | `topic-selection.v1a.generate-need-candidate.v1` | `arbiter.issue_framing` | debate arbiter role/stage | per named profile (DMP-12) | yes | yes | yes | `topic-selection.need-discovery.arbiter-framing.v1`; `DebateIssueFrame@v1` | implemented |
-| `topic-selection.v1a.generate-need-candidate.v1` | `arbiter.final_synthesis` | debate arbiter external output port | provider_llm for real runs; mocked_llm for isolated tests | no | yes | yes | `topic-selection.need-discovery.arbiter-final.v1`; `RankedCandidateDraftBatch@v1` | implemented |
+| `topic-selection.v1a.generate-need-candidate.v1` | `arbiter.final_synthesis` | debate arbiter external output port | provider_llm / explicit product codex_cli; mocked_llm for isolated tests | no | yes | yes | `topic-selection.need-discovery.arbiter-final.v1`; `RankedCandidateDraftBatch@v1` | implemented |
 | `topic-selection.v1a.validate-need-adjudication.v1` | `adjudication_recommendation` | single_agent recommendation before deterministic gate | codex_assisted | yes | yes | no | `topic-selection.need-adjudication.single-agent.v1`; `TopicSelectionNeedAdjudicationRecommendationPacket@v1` | implemented |
 | `topic-selection.v1a.human-confirm-need.v1` | `confirmation_semantic_review` | human-authorized bounded semantic review | codex_assisted | yes | yes | no | `topic-selection.confirmation-semantic-review.single-agent.v1`; `HumanConfirmationSemanticReview@v1` | implemented |
 

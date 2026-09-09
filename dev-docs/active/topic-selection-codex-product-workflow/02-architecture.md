@@ -8,7 +8,7 @@ The maintained workflow matrix already names node semantics and model/support sl
 
 The T-151 orchestrator has a `codex_cli` branch and a runner outcome with trace provenance. T-153 composes one app-owned runner, CLI semantic artifact/derived-draft types and canonical N6/N8 consumers. Their node/draft-slot types admit CLI, with 11 qualified profiles admitted for product CLI. T-152 completed its App Server transport at `a5263023`; App Server is the default and the runner contract remains the consumer boundary. Its canaries are foundation evidence, not T-153 product-node evidence.
 
-N6 regular initial question generation already requires two Explorer outputs, one Critic and one Arbiter over frozen input. N8 assessment conditionally routes through its existing bounded Debate and admission. Their gateway-provider branches have dormancy plus incomplete-live-path guards; changing the shared constant cannot supply missing role output/provenance wiring. Refinement-delta and promotion callers have their own execution restrictions. The v1a need-discovery final-synthesis profile admits only provider/mock today; that is a concrete full-workflow integration issue, not an exception to hide from completion.
+N6 regular initial question generation already requires two Explorer outputs, one Critic and one Arbiter over frozen input. N8 assessment conditionally routes through its existing bounded Debate and admission. Their gateway-provider branches have dormancy plus incomplete-live-path guards; changing the shared constant cannot supply missing role output/provenance wiring. Refinement-delta and promotion callers have their own execution restrictions. The v1a need-discovery final-synthesis slot now composes the same product CLI runner as its preceding roles; external operator substitution remains separate.
 
 T-150 provides evidence-stage managed-library retrieval, admitted claim delta, successor EvidenceMap and linked frozen rounds. Public granular APIs expose retrieval execution, successor maps and linked rounds; the full pilot composes existing owners. Existing CLI research MCP tools list/read a frozen evidence scope; they do not themselves implement this retrieval loop. Connecting these owners requires explicit product composition without making the model an evidence or checkpoint authority.
 
@@ -25,7 +25,7 @@ T-150 provides evidence-stage managed-library retrieval, admitted claim delta, s
 
 ## Interfaces and contracts
 
-The source-backed profile and operation index is in `execution-inventory.md`. The default registry opens the 11 Phase 2 profiles; the remaining 25 topic-selection profiles exclude CLI. Resource classification and ordinary promotion support are provider-only; need-discovery final synthesis permits provider/mock only. These require consumer and policy changes, not just wiring the runner into N6/N8.
+The source-backed profile and operation index is in `execution-inventory.md`. The registry opens qualified profiles by consumer slice. Sampling, v1a extraction and need-discovery share the app-owned runner; ordinary promotion and the remaining support roles still require consumer qualification and admission changes.
 
 ### Application-owned execution
 
@@ -181,6 +181,34 @@ domain transaction recovery without refreshing the pool or invoking a model. Bef
 interrupted claim refuses automatic retry and requires an explicit new submission ID. Unique sample
 IDs and full-result hashes arbitrate concurrent prepared recovery. Model classifications must preserve
 the complete batch reference set, including title/version scope. The sampling profile is qualified and
-enabled for product CLI. The sampling
-orchestrator shares the existing app-owned runner and its shutdown/tool-scope owners; v1a injection
-remains part of the extraction/need-discovery work.
+enabled for product CLI. Sampling and v1a orchestrators share the existing app-owned runner and its shutdown/tool-scope owners.
+
+
+## Phase 3 extraction and need-discovery boundary
+
+Canonical v1a harness node invocations consume `execution_mode=codex_cli`, `run_mode=product`
+and a stable workflow/node-attempt identity. N5 extraction is single-agent. N6 need discovery accepts
+single-agent or its existing five-call Debate (two Explorers, Critic, issue framing, final synthesis).
+The top-level CLI node owns every role; mixed role overrides and externally supplied outputs fail
+before model work. The final CLI slot is independent of the still-forbidden external final substitution.
+
+`TopicSelectionV1aCodexContextService` resolves the persisted SearchRun, snapshot, coverage roles and
+stored original AbstractProfiles. Source ID/URL must match the profile's actual source and frozen
+SearchRun; generated abstracts, checksum drift and missing provenance fail closed. This first extraction
+consumer supports original metadata abstracts, not full-text extraction or user-authored provenance.
+Every extracted quote and abstract locator must match that compiled source before the existing
+materializer may write EvidenceMap authority. Abstract-only warnings remain visible.
+
+Need discovery reads the current EvidenceMap and strength assessment with exact search/resource
+lineage. The existing research-evidence packet service resolves reviewed current units and original
+quotes; complete strength/conflict records enter the role contexts. The existing Debate loop carries
+actual Explorer/Critic summaries and issue-frame bodies into later roles. Full output refs, including
+empty-portfolio decisions, pass the existing batch validator before admission and routing. A legitimate
+non-advance portfolio is a completed management result (`terminal_result=finalize`), not a claim that a
+research need is validated. Human confirmation and candidate persistence retain their existing owners.
+
+`executeV1aCodexSubmission` claims the whole node before compilation/model/domain work. Immutable
+completion receipts replay the exact result after a lost response or service reconstruction. Same-ID
+input drift and concurrent pending requests return 409. An unfinished claim does not rerun the model
+or guess which domain writes completed: inspect retained artifacts/authority before using a new node
+attempt. This upstream wrapper deliberately does not promise sampling's prepared-transaction recovery.

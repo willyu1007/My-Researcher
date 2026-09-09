@@ -272,10 +272,41 @@ an explicitly local profile override, not a new real-model qualification. Those 
   metadata indexed by position); both fixed. Backend no-emit typecheck, LLM configuration (5 tests), and focused sampling/registry/
   HTTP checks (46 passed, 1 opt-in skip) cover the enabled default profile. No sampling prompt change or other provider activation.
 
+
+## Phase 3 extraction and need-discovery integration
+
+- Canonical v1a HTTP contracts and app wiring now reach the shared CLI runner. Server compilation
+  binds original AbstractProfiles to their actual source ID/URL/checksum and frozen SearchRun; quote,
+  locator, mixed-execution and executor-kind guards fail before inappropriate authority writes.
+- Full need-discovery output references, including empty-portfolio reasons, pass the existing batch
+  validator before routing. A fault-injection test first accepted a forged version, then passed after
+  the guard. Source mismatch, invented quote, same-ID drift, concurrent submission, completed replay
+  and failed completion receipt are covered through the public service. Unfinished node claims refuse
+  duplicate model work; automatic partial-domain repair is not claimed.
+- Local integration checkpoint: 156 service tests passed (one opt-in skip), 9 v1a HTTP tests passed,
+  9 shared schema tests passed, backend no-emit typecheck, five LLM configuration checks and matrix
+  consistency passed. Independent review against `ddae15a3` closed source pairing, mixed ingress,
+  full portfolio refs and final prompt/scenario version drift. No known code-review issue remains.
+- Extraction prompt v2 clarifies compiled original-abstract source/locator and producer provenance.
+  Need single-agent v3 and final v2 distinguish a completed non-advance portfolio from a technical
+  block and specify full nullable reference fields. The final scenario version matches the catalog.
+- Live evidence remains in the shared private ledger. Attempts 94/96/98/100 extracted exact DPR
+  quotes with abstract-only warnings. Attempt 95 timed out at 600 seconds while emitting whitespace
+  inside a reference, usage unknown. Compact-output guidance is a mitigation, not a transport fix.
+  Attempt 97 completed but failed the portfolio/terminal semantic gate. Attempt 99 correctly requested
+  evidence expansion but a too-narrow reference allowlist rejected its real context-artifact citation;
+  actual node-context refs are now included. Attempt 101 passed single-agent schema/admission/routing
+  with `expand_evidence`, no candidate persistence, no provider calls, and exact receipt replay.
+- `upstream_qualification_v4` continues the full five-call Debate after that single-agent pass. Six
+  upstream profiles remain closed until the full output/role evidence is inspected. The next source
+  case is Lost in the Middle (`TOPIC_SELECTION_QUALIFICATION_SOURCE_ID=2307.03172v3`), which states
+  an observed limitation, unlike the insufficient DPR-only case. These use isolated N1–N4 fixtures,
+  actual pinned source text and actual models; they do not represent Human research approval.
+
 ## Outstanding verification
 
-- Phase 3 extraction consumer wiring, need discovery/final synthesis/adjudication/
-  confirmation support, evidence convergence, their live qualification and fresh upstream-to-v1b lineage.
+- Finish extraction/need-discovery qualification and activation; then adjudication/confirmation support,
+  evidence convergence, their live qualification and fresh upstream-to-v1b lineage.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
 - Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and

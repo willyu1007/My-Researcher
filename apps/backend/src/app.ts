@@ -332,6 +332,7 @@ import { TopicSelectionControlPlaneService } from './services/topic-selection-co
 import { TopicSelectionResearchCheckpointService } from './services/topic-selection-research-checkpoint-service.js';
 import { TopicSelectionResearchCheckpointController } from './controllers/topic-selection-research-checkpoint-controller.js';
 import { TopicSelectionResearchEvidencePacketService } from './services/topic-selection-research-evidence-packet-service.js';
+import { TopicSelectionV1aCodexContextService } from './services/topic-selection-v1a-codex-context-service.js';
 import { TopicSelectionResearchEvidencePacketController } from './controllers/topic-selection-research-evidence-packet-controller.js';
 import {
   filterLocalSnapshotLexicalMatches,
@@ -1256,6 +1257,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     controlPlane: topicSelectionControlPlaneService,
     llmGateway: topicSelectionV1aLlmGateway,
     promptPacketCache: topicSelectionPromptPacketCacheService,
+    codexCliRunner: topicSelectionCodexCli?.runner, codexCliModelId: topicSelectionCodexCli?.model_id,
+    mcpScopeStore: topicSelectionMcpScopeStore, mcpEndpointUrl: () => topicSelectionMcpEndpoint,
   });
   const topicSelectionResearchArenaShadowRunnerService =
     new TopicSelectionResearchArenaShadowRunnerService({
@@ -1294,6 +1297,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     evidenceMaps: topicSelectionEvidenceMapService,
     evidenceMapMaterializer: topicSelectionV1aEvidenceMapMaterializationService,
     evidenceMapExtractionAgent: topicSelectionV1aAgentOrchestratorService,
+    codexContext: new TopicSelectionV1aCodexContextService({ literature: literatureRepository,
+      searchResources: topicSelectionSearchResourceService, evidenceMaps: topicSelectionEvidenceMapService,
+      researchEvidence: topicSelectionResearchEvidencePacketService }),
     needValidation: topicSelectionNeedValidationService,
     needAdjudicationAgent: topicSelectionV1aAgentOrchestratorService,
     humanConfirmationSemanticReviewAgent: topicSelectionV1aAgentOrchestratorService,

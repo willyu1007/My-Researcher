@@ -299,6 +299,13 @@ export class TopicSelectionAgentOrchestratorService {
     return this.codexCliRunner?.executionIdentity ?? null;
   }
 
+  assertProductCodexProfile(profileId: string): void {
+    this.modelProfileRegistry.resolveProfile({ profile_id: profileId, execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null });
+    if (!this.codexCliRunner || !this.codexCliModelId) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Product Codex runner is not configured.');
+    }
+  }
+
   async invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
   ): Promise<TopicSelectionAgentInvocationResult<T>> {

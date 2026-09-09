@@ -136,6 +136,7 @@ export type TopicSelectionEvidenceStrengthVerdict =
   (typeof TOPIC_SELECTION_EVIDENCE_STRENGTH_VERDICTS)[number];
 
 export const TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_PRODUCER_KINDS = [
+  'codex_cli',
   'codex_assisted',
   'provider_llm',
   'mocked_llm',
@@ -146,6 +147,7 @@ export type TopicSelectionEvidenceMapExtractionProducerKind =
   (typeof TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_PRODUCER_KINDS)[number];
 
 export const TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_EXECUTION_MODES = [
+  'codex_cli',
   'none',
   'mocked_llm',
   'codex_assisted',
@@ -776,7 +778,7 @@ export const topicSelectionEvidenceMapExtractionContextPacketSchema = {
     context_compiler_version: stringId,
     policy_version: stringId,
     output_schema_version: stringId,
-    execution_mode: { enum: ['mocked_llm', 'codex_assisted', 'provider_llm'] },
+    execution_mode: { enum: ['mocked_llm', 'codex_assisted', 'provider_llm', 'codex_cli'] },
     profile_id: stringId,
     cache_key: stringId,
     cache_hit: booleanValue,

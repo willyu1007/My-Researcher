@@ -1974,6 +1974,40 @@ test('topic-selection v1a offline evaluation rejects research-arena ownership an
   }
 });
 
+test('native v1a HTTP routes admit CLI extraction and discovery contracts and refuse mixed execution', async t => {
+  const app = buildApp({ topicSelectionCodexCli: null });
+  t.after(() => app.close());
+  const title = 'cli-http-preflight';
+  const nodeInputs = [
+    { node: 'topic-selection.v1a.build-evidence-map.v1', input: { search_run_handoff: {
+      search_run_ref: ref('search_run', 'run', title), search_plan_ref: ref('search_plan', 'plan', title),
+      literature_resource_pool_snapshot_ref: ref('literature_resource_pool_snapshot', 'snapshot', title),
+    } } },
+    { node: 'topic-selection.v1a.generate-need-candidate.v1', input: {
+      topic_scope_ref: ref('topic_seed', 'topic', title), evidence_map_ref: ref('evidence_map', 'map', title),
+      evidence_strength_ref: ref('evidence_strength_assessment', 'strength', title), search_snapshot_refs: [], resource_snapshot_refs: [],
+      profile_id: TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
+      exploration_payload: {}, arbiter_payload: {},
+    } },
+  ];
+  for (const { node, input } of nodeInputs) {
+    const body = { schema_version: TOPIC_SELECTION_V1A_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION, node_id: node,
+      workflow_run_id: 'http-cli-workflow', node_attempt_id: 'http-cli-attempt', title_card_id: title,
+      policy_version: TOPIC_SELECTION_V1A_WORKFLOW_HARNESS_POLICY_VERSION,
+      scenario_input: { ...input, scenario_id: 'cli-http', execution_mode: 'codex_cli', run_mode: 'product', output_schema_version: 'v1' } };
+    const response = await app.inject({ method: 'POST', url: `/topic-selection/v1a/workflow-harness/nodes/${node}/invocations`, payload: body });
+    assert.equal(response.statusCode, 400, response.body);
+    assert.match(response.json().error.message, /execution_mode is not allowed by model profile/);
+    if (node.includes('generate-need-candidate')) {
+      const mixed = await app.inject({ method: 'POST', url: `/topic-selection/v1a/workflow-harness/nodes/${node}/invocations`,
+        payload: { ...body, scenario_input: { ...body.scenario_input, execution_mode: 'provider_llm', executor_kind: 'multi_agent_debate',
+          debate_execution_plan: { default: { execution_mode: 'codex_cli' } } } } });
+      assert.equal(mixed.statusCode, 400, mixed.body);
+      assert.match(mixed.json().error.message, /require a product CLI node submission/);
+    }
+  }
+});
+
 test('topic-selection v1a workflow-harness artifact ingress cannot claim reserved human provenance', async () => {
   const app = buildApp();
   try {

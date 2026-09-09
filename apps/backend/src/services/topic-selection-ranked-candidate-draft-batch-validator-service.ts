@@ -20,6 +20,7 @@ export type TopicSelectionRankedCandidateDraftBatchValidationInput = {
   node_input: TopicSelectionGenerateNeedCandidateNodeInput;
   ranked_candidate_draft_batch: TopicSelectionRankedCandidateDraftBatch;
   max_persisted_candidates?: number | null;
+  allowed_refs?: TopicSelectionFunctionalRef[];
 };
 
 export class TopicSelectionRankedCandidateDraftBatchValidatorService {
@@ -42,6 +43,7 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
     this.validateEmptyBatchSemantics(batch, issues);
     this.validateDrafts(batch.drafts, batchMaxPersistedCandidates, maxPersistedCandidates, issues);
     this.validateUnresolvedPoints(batch, issues);
+    if (input.allowed_refs) this.validateResolvedRefs(batch, input.allowed_refs, issues);
 
     const blockingIssues = issues.filter((issue) => issue.severity === 'blocking');
     const warningIssues = issues.filter((issue) => issue.severity === 'warning');
@@ -65,6 +67,28 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
       issues,
       portfolio_outcome: batch.portfolio_disposition?.outcome ?? null,
     };
+  }
+
+  private validateResolvedRefs(
+    batch: TopicSelectionRankedCandidateDraftBatch,
+    allowedRefs: TopicSelectionFunctionalRef[],
+    issues: TopicSelectionRankedCandidateDraftBatchMinimumValidationIssue[],
+  ): void {
+    const identity = (ref: Record<string, unknown>) => stableStringify({ ref_type: ref.ref_type, ref_id: ref.ref_id,
+      title_card_id: ref.title_card_id ?? null, version_id: ref.version_id ?? null, legacy_ref: ref.legacy_ref ?? null });
+    const allowed = new Set(allowedRefs.map(ref => identity({ ...ref })));
+    const visit = (value: unknown, path: string): void => {
+      if (Array.isArray(value)) { value.forEach((item, index) => visit(item, `${path}[${index}]`)); return; }
+      if (!value || typeof value !== 'object') return;
+      const record = value as Record<string, unknown>;
+      if (typeof record.ref_type === 'string' && typeof record.ref_id === 'string') {
+        if (!allowed.has(identity(record))) this.addBlockingIssue(issues, { issue_code: 'UNRESOLVED_OUTPUT_REF',
+          message: 'Output reference is absent from the compiled evidence or changes its scope/version.', field_path: path });
+        return;
+      }
+      for (const [key, item] of Object.entries(record)) visit(item, path ? `${path}.${key}` : key);
+    };
+    visit(batch, '');
   }
 
   private validateBatchMetadata(

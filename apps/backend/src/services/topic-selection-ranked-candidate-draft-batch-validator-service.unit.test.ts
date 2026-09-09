@@ -212,6 +212,19 @@ test('ranked candidate draft batch validator accepts an evidence-backed none-via
   assert.equal(report.valid, true);
   assert.equal(report.draft_count, 0);
   assert.deepEqual(report.blocking_reason_codes, []);
+  const allowed = ref('evidence_unit', 'challenge_001');
+  assert.equal(validator.validate({ node_input: nodeInput(), ranked_candidate_draft_batch: noneViableBatch,
+    allowed_refs: [allowed] }).valid, true);
+  noneViableBatch.portfolio_disposition!.evidence_refs[0] = { ...allowed, version_id: 'invented-version' };
+  const invalid = validator.validate({ node_input: nodeInput(), ranked_candidate_draft_batch: noneViableBatch,
+    allowed_refs: [allowed] });
+  assert.equal(invalid.valid, false);
+  assert.ok(invalid.blocking_reason_codes.includes('UNRESOLVED_OUTPUT_REF'));
+  noneViableBatch.portfolio_disposition!.evidence_refs[0] = allowed;
+  noneViableBatch.portfolio_disposition!.rejection_reasons[0]!.evidence_refs[0] = ref('evidence_unit', 'invented');
+  assert.equal(validator.validate({ node_input: nodeInput(), ranked_candidate_draft_batch: noneViableBatch,
+    allowed_refs: [allowed] }).valid, false);
+
 });
 
 test('ranked candidate draft batch validator accepts exactly one selected candidate with complete coverage', () => {

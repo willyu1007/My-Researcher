@@ -503,7 +503,7 @@ const NEED_DISCOVERY_PROMPT_BODY_GOLDEN = {
   explorer: '4bd5b6ae88fe057c687d2eaa108f213f0b3c05fae55e97c8093216f414724a68',
   deep_critic: 'e66d5a6315e364d39a75cc64319ea250bc045a62eff37614129a8a8414003aec',
   arbiter_issue_frame: '1bdbef201cc484944ffe42542ee6cb35ce3813912c48355df3cf0a802dad1007',
-  arbiter_final: '76f32df7c6d07da658766e535c1b097f46ba39274e7163221460d08c3d3fd60e',
+  arbiter_final: 'c7448fcaadfa93561f214c1b3bc34a35c3759d93c690e365aa55391f92470327',
 };
 test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-128 W-04)', async () => {
   const providerGateway = new ProviderDebateGateway();
@@ -553,7 +553,7 @@ test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-12
     finalSystemBody,
     /Echo node_input\.schema_version into the batch and node_input\.node_attempt_id into draft_batch\.node_attempt_id/,
   );
-  assert.match(finalSystemBody, /only set terminal_result=finalize when at least one admissible draft exists/);
+  assert.match(finalSystemBody, /completed portfolio judgment uses draft_batch.terminal_result=finalize even when it does not advance research/);
   assert.match(finalSystemBody, /include non-empty scope_notes/);
   assert.match(finalSystemBody, /set speculative=false unless the supplied evidence directly forces uncertainty/);
   assert.match(finalSystemBody, /Rank drafts contiguously from 1 with no gaps/);

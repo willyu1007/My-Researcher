@@ -400,7 +400,7 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
           diversity_policy: 'prefer_prompt_or_context_angle_diversity',
           merge_output_as: 'role_level_summary',
         },
-        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
         codex_substitution_policy: {
           allowed: true,
           requires_operator_approval: false,
@@ -425,7 +425,7 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
           diversity_policy: 'prefer_critique_angle_diversity',
           merge_output_as: 'role_level_summary',
         },
-        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
         codex_substitution_policy: {
           allowed: true,
           requires_operator_approval: false,
@@ -450,7 +450,7 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
           diversity_policy: null,
           merge_output_as: 'arbiter_decision',
         },
-        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
         codex_substitution_policy: {
           allowed: true,
           requires_operator_approval: false,
@@ -466,7 +466,7 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
         output_contract: 'RankedCandidateDraftBatch@v1',
         schema_name: 'topic_selection_ranked_candidate_draft_batch',
         prompt_template_id: 'topic-selection-need-discovery-arbiter-final',
-        prompt_template_version: 'v1',
+        prompt_template_version: 'v2',
         instance_policy: {
           min_instances: 1,
           max_instances: 1,
@@ -475,7 +475,7 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
           diversity_policy: null,
           merge_output_as: 'external_structured_output',
         },
-        allowed_execution_modes: ['mocked_llm', 'provider_llm'],
+        allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_cli'],
         codex_substitution_policy: {
           allowed: false,
           requires_operator_approval: false,

@@ -68,6 +68,8 @@ import {
   type TopicSelectionCompressionReportRuntimeResult,
 } from './topic-selection-compression-runtime-service.js';
 import { TopicSelectionTokenBudgetGateService } from './topic-selection-token-budget-gate-service.js';
+import { TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID } from './topic-selection-model-profile-registry-service.js';
+import { createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContract } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 
 const GENERATE_NEED_CANDIDATE_NODE_ID = 'topic-selection.v1a.generate-need-candidate.v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-generate-need-candidate';
@@ -222,6 +224,13 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
     this.compressionRuntime = dependencies.compressionRuntime ?? new TopicSelectionCompressionRuntimeService();
   }
 
+  assertProductCodexProfiles(executorKind: TopicSelectionExecutorKind): void {
+    const profiles = executorKind === 'multi_agent_debate'
+      ? createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContract().role_stage_slots.map(slot => slot.profile_id)
+      : [TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID];
+    for (const profile of profiles) this.dependencies.agentOrchestrator.assertProductCodexProfile(profile);
+  }
+
   async generateRankedCandidateDraftBatch(
     input: TopicSelectionGenerateNeedCandidateOrchestratorAdapterInput,
   ): Promise<TopicSelectionGenerateNeedCandidateOrchestratorAdapterResult> {
@@ -318,6 +327,10 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
     const minimumSchemaValidationReport = this.draftBatchValidator.validate({
       node_input: input.node_input,
       ranked_candidate_draft_batch: rankedCandidateDraftBatch,
+      allowed_refs: input.node_input.execution_mode === 'codex_cli' && arbiterContext.context_family === 'arbiter_context'
+        ? [...this.extractFunctionalRefs(arbiterContext.payload.evidence_ref_table), ...this.inputRefs(input.node_input),
+          input.node_input.exploration_context_ref, input.node_input.arbiter_context_ref]
+        : undefined,
       max_persisted_candidates: arbiterContext.context_family === 'arbiter_context'
         ? arbiterContext.payload.max_persisted_candidates
         : undefined,

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { TopicSelectionV1aCodexContextService } from './topic-selection-v1a-codex-context-service.js';
+import { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -230,7 +237,8 @@ async function makeRuntime(options: {
     llmGateway,
     now: () => '2026-05-19T00:00:00.000Z',
   });
-  const generateNeedCandidateAdapter = new TopicSelectionGenerateNeedCandidateOrchestratorAdapterService({
+  const buildHarness = (agentOrchestrator: TopicSelectionAgentOrchestratorService, modelProfileRegistry?: TopicSelectionModelProfileRegistryService) => {
+    const generateNeedCandidateAdapter = new TopicSelectionGenerateNeedCandidateOrchestratorAdapterService({
     contextCompiler,
     agentOrchestrator,
     artifactBoundary,
@@ -239,7 +247,8 @@ async function makeRuntime(options: {
     }),
     needCandidateBatchPersistence,
   });
-  const workflowHarness = new TopicSelectionWorkflowHarnessService({
+  return new TopicSelectionWorkflowHarnessService({
+    modelProfileRegistry,
     contextCompiler,
     generateNeedCandidateAdapter,
     artifactBoundary,
@@ -249,14 +258,24 @@ async function makeRuntime(options: {
     evidenceMaps,
     evidenceMapMaterializer,
     evidenceMapExtractionAgent: agentOrchestrator,
+    codexContext: new TopicSelectionV1aCodexContextService({ literature, searchResources, evidenceMaps,
+      researchEvidence: new TopicSelectionResearchEvidencePacketService({ literatureRepository: literature, evidenceMapRepository: evidenceRepository,
+        directEvidenceReadinessResolver: async ids => new Map(ids.map(id => [id, { ready: true, reason: 'EVIDENCE_READY' as const,
+          freshness: 'fresh' as const, freshness_detail: null }])) }) }),
     needValidation: needService,
     needAdjudicationAgent: agentOrchestrator,
     compressionRuntime: options.compressionRuntime,
   }, {
     now: () => '2026-05-19T00:00:00.000Z',
   });
+  };
+  const workflowHarness = buildHarness(agentOrchestrator);
 
   return {
+    buildCliHarness: (runner: TopicSelectionCodexCliRunnerService, modelProfileRegistry: TopicSelectionModelProfileRegistryService) =>
+      buildHarness(new TopicSelectionAgentOrchestratorService({ controlPlane, llmGateway, modelProfileRegistry,
+        codexCliRunner: runner, codexCliModelId: runner.executionIdentity.model }), modelProfileRegistry),
+    controlPlane,
     workflowHarness,
     controlPlaneRepository,
     literature,
@@ -3048,6 +3067,239 @@ test('workflow harness blocks SearchRun refs outside the resolved literature sna
   assert.deepEqual(result.node_result.blocker_codes, ['SNAPSHOT_OUTSIDE_LITERATURE_REF']);
   assert.equal(result.node_result.authority_refs.length, 0);
   assert.equal((await ctx.searchResourceRepository.listCoverageEvidenceBindingsBySearchPlanId(ctx.searchPlan.search_plan_id)).length, 0);
+});
+
+test('Codex upstream qualification extracts pinned sources and runs single-agent and Debate need discovery', {
+  skip: process.env.TOPIC_SELECTION_CODEX_QUALIFICATION !== 'live',
+}, async t => {
+  const { qualificationSources } = await import('./test-fixtures/topic-selection-codex-qualification-sources.js');
+  const { qualificationRunner } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const sourceFile = process.env.TOPIC_SELECTION_QUALIFICATION_SOURCES;
+  const outputRoot = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  if (!sourceFile || !outputRoot || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit live upstream qualification configuration is required.');
+  const ctx = await seedBuildEvidenceMapRuntime();
+  await qualificationSources(sourceFile, ctx.titleCard.title_card_id);
+  const sources = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as Array<{ id: string; url: string; abstract: string }>;
+  const sourceId = process.env.TOPIC_SELECTION_QUALIFICATION_SOURCE_ID ?? '2004.04906v3';
+  assert.ok(['2004.04906v3', '2307.03172v3'].includes(sourceId), 'This qualification case supports DPR or Lost in the Middle.');
+  const source = sources.find(s => s.id === sourceId);
+  assert.ok(source, 'Select one of the verified original source pins.');
+  const intent = sourceId === '2307.03172v3'
+    ? 'Identify a bounded need for robust use of relevant information across context positions, grounded in the documented failures in Lost in the Middle. Distinguish advertised context length from demonstrated utilization; novelty, implementation access and any proposed repair remain unverified.'
+    : 'Identify bounded unmet retrieval-evaluation needs; one original DPR abstract only. Novelty, data access and fine-tuning effects are unknown.';
+  await ctx.literature.upsertLiteratureSource({ id: 'source_001', literatureId: 'lit_001', provider: 'arxiv',
+    sourceItemId: source.id, sourceUrl: source.url, rawPayload: { abstract: source.abstract }, fetchedAt: '2026-09-09T00:00:00.000Z' });
+  await ctx.literature.upsertAbstractProfile({ id: 'lit_001_abstract', literatureId: 'lit_001', abstractText: source.abstract,
+    abstractSource: 'collection_metadata', sourceRef: { ref_type: 'literature_source', source_id: 'source_001', source_url: source.url }, checksum: sha256Text(source.abstract), language: 'en',
+    confidence: 1, reasonCodes: ['PINNED_ORIGINAL_ABSTRACT'], generated: false,
+    createdAt: '2026-09-09T00:00:00.000Z', updatedAt: '2026-09-09T00:00:00.000Z' });
+  const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+  t.after(() => runner.shutdown());
+  t.after(() => budget?.close());
+  await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'upstream', source: source.url,
+    source_hash: sha256Text(source.abstract), isolated_search_run_and_coverage_fixture: true, model, limits,
+    started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  if (process.env.TOPIC_SELECTION_QUALIFICATION_SHIPPED !== '1') {
+    for (const profile of registry.profiles.filter(p => p.profile_id.startsWith('topic-selection.need-discovery.')
+      || p.profile_id === TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID
+      || p.profile_id === TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID)) {
+      if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+      profile.run_mode_eligibility.codex_cli = ['product'];
+    }
+  }
+  const profiles = new TopicSelectionModelProfileRegistryService({ registry });
+  const harness = ctx.buildCliHarness(runner, profiles);
+  const extractionInput: TopicSelectionWorkflowHarnessBuildEvidenceMapInput = {
+    scenario_id: 'topic-selection.real-e2e.canary.v1', title_card_id: ctx.titleCard.title_card_id,
+    workflow_run_id: `${runId}_extraction`, node_attempt_id: `${runId}_extraction`, search_run_handoff: ctx.searchRunHandoff,
+    execution_mode: 'codex_cli', run_mode: 'product', policy_version: 'v1', output_schema_version: 'v1',
+  };
+  try {
+    const extracted = await harness.runBuildEvidenceMapScenario(extractionInput);
+    await fs.writeFile(join(directory, `${runId}-extraction.json`), JSON.stringify(extracted, null, 2), { mode: 0o600 });
+    assert.equal(extracted.node_result.status, 'succeeded', JSON.stringify(extracted.node_result));
+    assert.ok(extracted.node_result.warning_codes.includes('ABSTRACT_ONLY_SUPPORT'));
+    const count = budget!.snapshot().attempts.length;
+    assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(extractionInput), extracted);
+    assert.equal(budget!.snapshot().attempts.length, count);
+    const mapRef = extracted.node_result.evidence_map_ref!;
+    await ctx.evidenceMaps.assessEvidenceStrength({ evidence_map_id: mapRef.ref_id, target_ref: mapRef, purpose: 'need_validation',
+      role_bundle: { support_unit_ids: extracted.node_result.evidence_unit_refs.map(ref => ref.ref_id) }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
+    const bundle = await ctx.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
+    for (const kind of ['single_agent', 'multi_agent_debate'] as const) {
+      const id = `${runId}_${kind}`;
+      const request = scenarioInput({ title_card_id: ctx.titleCard.title_card_id, workspace_id: null, node_attempt_id: id, workflow_run_id: id,
+        topic_scope_ref: ctx.topicSeedRef, evidence_map_ref: mapRef, evidence_strength_ref: bundle.strength_assessment_refs[0]!,
+        execution_mode: 'codex_cli', run_mode: 'product', executor_kind: kind, mocked_output: null, persist_admitted_candidates: false,
+        persistence_context: null, resource_sample_set_ref: null, candidate_pool_projection_ref: null,
+        search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref], expectations: {},
+        exploration_payload: { ...explorationPayload(),
+          topic_scope: { intent },
+          resource_sample_digest: { status: 'not_supplied' },
+          search_coverage_digest: { status: 'one_original_abstract', limitations: ['No verified prior-art coverage or challenge evidence.'] },
+        },
+        arbiter_payload: { ...arbiterPayload(), role_level_summaries: [] },
+      });
+      const result = await harness.runGenerateNeedCandidateScenario(request);
+      await fs.writeFile(join(directory, `${id}.json`), JSON.stringify(result, null, 2), { mode: 0o600 });
+      assert.equal(result.adapter_result.invocation_result.status, 'succeeded', JSON.stringify(result.adapter_result));
+      const adapter = result.adapter_result;
+      assert.equal(adapter.minimum_schema_validation_report?.valid, true, JSON.stringify(adapter.minimum_schema_validation_report));
+      assert.ok(adapter.candidate_draft_admission_report);
+      for (const result of adapter.candidate_draft_admission_report.draft_results) {
+        assert.ok(!result.reason_codes.some(code => code === 'UNRESOLVED_CANDIDATE_DRAFT_REFS' || code.startsWith('ROLE_BUNDLE_')), JSON.stringify(result));
+      }
+      const routing = adapter.supplemental_round_routing_decision?.routing_decision;
+      const ranked = adapter.ranked_candidate_draft_batch!;
+      const { TopicSelectionRankedCandidateDraftBatchValidatorService } = await import('./topic-selection-ranked-candidate-draft-batch-validator-service.js');
+      const allowedRefs: TopicSelectionFunctionalRef[] = [];
+      const collectRefs = (value: unknown): void => {
+        if (Array.isArray(value)) { value.forEach(collectRefs); return; }
+        if (!value || typeof value !== 'object') return;
+        const record = value as Record<string, unknown>;
+        if (typeof record.ref_type === 'string' && typeof record.ref_id === 'string') allowedRefs.push(record as unknown as TopicSelectionFunctionalRef);
+        else Object.values(record).forEach(collectRefs);
+      };
+      collectRefs(bundle);
+      collectRefs(result.node_input);
+      if (adapter.arbiter_context_packet.context_family === 'arbiter_context') collectRefs(adapter.arbiter_context_packet.payload.evidence_ref_table);
+      assert.equal(new TopicSelectionRankedCandidateDraftBatchValidatorService().validate({ node_input: result.node_input,
+        ranked_candidate_draft_batch: ranked, allowed_refs: allowedRefs }).valid, true, JSON.stringify(ranked));
+      assert.ok(['finalize_with_admitted_batch', 'expand_evidence', 'stop_without_candidate', 'reframe_scope', 'require_human_review'].includes(routing ?? '')
+        || (routing === 'block' && ranked.draft_batch.terminal_result === 'blocked' && ranked.drafts.length === 0), JSON.stringify(adapter));
+      for (const draft of ranked.drafts) {
+        for (const [role, refs] of Object.entries(draft.evidence_role_bundle)) {
+          const allowed = role === 'support_unit_refs' ? bundle.support_units : role === 'challenge_unit_refs' ? bundle.challenge_units
+            : role === 'baseline_unit_refs' ? bundle.baseline_units : bundle.context_units;
+          for (const ref of refs) assert.ok(allowed.some(unit => ref.ref_type === 'evidence_unit' && ref.ref_id === unit.evidence_unit_id
+            && ref.title_card_id === unit.title_card_id && ref.version_id === unit.evidence_map_version), JSON.stringify(ref));
+        }
+        for (const ref of draft.strength_assessment_refs) assert.ok(bundle.strength_assessment_refs.some(allowed =>
+          ref.ref_type === allowed.ref_type && ref.ref_id === allowed.ref_id && ref.title_card_id === allowed.title_card_id
+          && (ref.version_id ?? null) === (allowed.version_id ?? null)), JSON.stringify(ref));
+      }
+      if (routing === 'finalize_with_admitted_batch') {
+        assert.equal(adapter.status, 'succeeded');
+        assert.ok(adapter.candidate_draft_admission_report.valid_draft_count > 0);
+        assert.deepEqual(adapter.candidate_draft_admission_report.blocking_reason_codes, []);
+      }
+      if (kind === 'multi_agent_debate') {
+        const debate = adapter.debate_result!;
+        assert.equal(debate.status, 'succeeded');
+        assert.equal(debate.role_invocation_results.length, 4); // Two Explorers, one Critic and issue framing; final is separate.
+        assert.ok(debate.issue_frame_artifact && debate.final_synthesis_artifact);
+        assert.equal(debate.role_level_summary_artifacts.length, 2);
+        for (const invocation of [...debate.role_invocation_results, debate.final_invocation_result]) {
+          assert.equal(invocation.status, 'succeeded');
+          assert.equal(invocation.provenance.source_kind, 'codex_cli_response');
+          assert.ok(invocation.audit_artifact_ref);
+        }
+      }
+      assert.equal(ctx.llmGateway.calls.length, 0);
+      const attempts = budget!.snapshot().attempts.length;
+      assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(request), result);
+      assert.equal(budget!.snapshot().attempts.length, attempts);
+      assert.equal(result.adapter_result.persist_need_candidate_batch_result, null);
+    }
+  } finally {
+    for (const id of [`${runId}_extraction`, `${runId}_single_agent`, `${runId}_multi_agent_debate`]) {
+      await fs.writeFile(join(directory, `${id}-artifacts.json`), JSON.stringify(await ctx.controlPlane.listArtifactRefsByWorkflowRunId(id), null, 2), { mode: 0o600 });
+    }
+  }
+});
+
+test('product CLI extracts repository quotes, discovers a need and replays each node without more model work', async t => {
+  const ctx = await seedBuildEvidenceMapRuntime();
+  const home = await fs.mkdtemp(join(tmpdir(), 'v1a-cli-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const original = 'The paper reports a source-grounded RAG fine-tuning evaluation workflow.';
+  await ctx.literature.upsertAbstractProfile({ id: 'lit_001_abstract', literatureId: 'lit_001', abstractText: original,
+    abstractSource: 'collection_metadata', sourceRef: { ref_type: 'literature_source', source_id: 'source_001', source_url: 'file://lit_001.pdf' }, checksum: sha256Text(original), language: 'en',
+    confidence: 1, reasonCodes: [], generated: false, createdAt: '2026-05-19T00:00:00.000Z', updatedAt: '2026-05-19T00:00:00.000Z' });
+  const draft = evidenceMapExtractionDraft({ title_card_id: ctx.titleCard.title_card_id, handoff: ctx.searchRunHandoff,
+    literature_ref: ctx.literatureSnapshot.literature_refs[0]!, source_ref: ctx.literatureSnapshot.content_source_refs[0]!,
+    coverage_row_intent_ref: ctx.coverageRowIntentRefs[0]!,
+    input_refs_hash: ctx.evidenceMapMaterializer.inputRefsHashForSearchRunHandoff(ctx.searchRunHandoff) }, { producer_kind: 'codex_cli' });
+  let output: unknown = draft;
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls++;
+    assert.ok(options.stdin.includes(original), 'The actual original source crosses the model boundary.');
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'v1a-test-thread' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const testProfiles = new Set<string>([TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,
+    TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID]);
+  for (const profile of registry.profiles.filter(p => testProfiles.has(p.profile_id))) {
+    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+    profile.run_mode_eligibility.codex_cli = ['product'];
+  }
+  const profiles = new TopicSelectionModelProfileRegistryService({ registry });
+  const harness = ctx.buildCliHarness(runner, profiles);
+  const request = buildEvidenceMapScenarioInput({ title_card_id: ctx.titleCard.title_card_id, handoff: ctx.searchRunHandoff, draft }, {
+    extraction_draft: null, execution_mode: 'codex_cli', run_mode: 'product', node_attempt_id: 'cli-extraction-1', expectations: {} });
+  const simultaneous = await Promise.allSettled([harness.runBuildEvidenceMapScenario(request),
+    ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(request)]);
+  assert.equal(simultaneous.filter(result => result.status === 'fulfilled').length, 1);
+  const completed = simultaneous.find(result => result.status === 'fulfilled');
+  assert.ok(completed?.status === 'fulfilled');
+  const extracted = completed.value;
+  assert.equal(extracted.node_result.status, 'succeeded', JSON.stringify(extracted.node_result));
+  assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(request), extracted);
+  assert.equal(calls, 1);
+  const evidenceMapRef = extracted.node_result.evidence_map_ref!;
+  await ctx.evidenceMaps.assessEvidenceStrength({ evidence_map_id: evidenceMapRef.ref_id, target_ref: evidenceMapRef,
+    purpose: 'need_validation', role_bundle: { support_unit_ids: extracted.node_result.evidence_unit_refs.map(ref => ref.ref_id) },
+    assessment_workflow_version: 'v1', policy_version_id: 'v1' });
+  const bundle = await ctx.evidenceMaps.getNeedValidationEvidenceBundle(evidenceMapRef.ref_id);
+  const batch = rankedBatch('cli-need-1');
+  batch.drafts[0]!.evidence_role_bundle = { support_unit_refs: extracted.node_result.evidence_unit_refs, challenge_unit_refs: [], baseline_unit_refs: [], context_unit_refs: [] };
+  batch.drafts[0]!.strength_assessment_refs = [bundle.strength_assessment_refs[0]!];
+  batch.drafts[0]!.conflict_refs = [];
+  output = batch;
+  const discovery = scenarioInput({ title_card_id: ctx.titleCard.title_card_id, node_attempt_id: 'cli-need-1',
+    workflow_run_id: 'cli-need-workflow', topic_scope_ref: ctx.topicSeedRef, evidence_map_ref: evidenceMapRef,
+    evidence_strength_ref: bundle.strength_assessment_refs[0]!, execution_mode: 'codex_cli', run_mode: 'product',
+    mocked_output: null, persist_admitted_candidates: false, persistence_context: null, expectations: {},
+    resource_sample_set_ref: null, search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref] });
+  const result = await harness.runGenerateNeedCandidateScenario(discovery);
+  assert.equal(result.adapter_result.status, 'succeeded');
+  assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(discovery), result);
+  assert.equal(calls, 2);
+  assert.equal(ctx.llmGateway.calls.length, 0);
+  await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, policy_version: 'changed' }), /different input/);
+  output = { ...draft, draft_units: draft.draft_units.map(unit => ({ ...unit, source_statement: 'An invented empirical result.' })) };
+  await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-extraction-forged-quote' }), /quote or locator/);
+  await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, extraction_draft: draft }), /compiles its own context/);
+  assert.equal(calls, 3);
+  output = draft;
+  const record = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane);
+  ctx.controlPlane.recordArtifactRef = async input => {
+    if (input.stable_key?.startsWith('v1a-codex-submission:') && input.stable_key.endsWith(':result')) throw new Error('Completion receipt unavailable');
+    return record(input);
+  };
+  const interrupted = { ...request, node_attempt_id: 'cli-extraction-interrupted' };
+  await assert.rejects(harness.runBuildEvidenceMapScenario(interrupted), /Completion receipt unavailable/);
+  ctx.controlPlane.recordArtifactRef = record;
+  assert.equal(calls, 4);
+  await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(interrupted), /running or interrupted/);
+  assert.equal(calls, 4);
+  const stored = await ctx.literature.findAbstractProfileByLiteratureId('lit_001');
+  await ctx.literature.upsertLiteratureSource({ id: 'unselected-source', literatureId: 'lit_001', provider: 'manual',
+    sourceItemId: 'other', sourceUrl: 'https://example.test/other', rawPayload: { abstract: original }, fetchedAt: stored!.updatedAt });
+  await ctx.literature.upsertAbstractProfile({ ...stored!, sourceRef: { ref_type: 'literature_source', source_id: 'unselected-source', source_url: 'https://example.test/other' } });
+  await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-extraction-wrong-source' }), /source bound to this search run/);
+  assert.equal(calls, 4);
 });
 
 test('workflow harness builds EvidenceMap from a normalized extraction draft and emits Node 6 handoff', async () => {

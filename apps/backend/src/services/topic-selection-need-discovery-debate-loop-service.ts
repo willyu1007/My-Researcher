@@ -1426,7 +1426,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     if (typeof spec !== 'object' || Array.isArray(spec)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${path} must be an object.`);
     }
-    if (!['mocked_llm', 'codex_assisted', 'provider_llm'].includes(spec.execution_mode)) {
+    if (!['mocked_llm', 'codex_assisted', 'provider_llm', 'codex_cli'].includes(spec.execution_mode)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${path}.execution_mode is invalid.`);
     }
     if (
