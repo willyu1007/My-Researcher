@@ -166,7 +166,7 @@
 | T-124 paper-implementation-productization-hardening | archived | dev-docs/archive/paper-implementation-productization-hardening |
 | T-127 topic-selection-backend-hardening-and-expansion | archived | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
 | T-128 topic-selection-product-readiness-closure | archived | dev-docs/archive/topic-selection-product-readiness-closure |
-| T-129 topic-selection-calibration-release | planned | dev-docs/active/topic-selection-calibration-release |
+| T-129 topic-selection-calibration-release | blocked | dev-docs/active/topic-selection-calibration-release |
 | T-130 literature-productization-hardening | archived | dev-docs/archive/literature-productization-hardening |
 | T-131 experiment-foundation-first-promotion-closure | archived | dev-docs/archive/experiment-foundation-first-promotion-closure |
 | T-132 experiment-foundation-productization-closure | archived | dev-docs/archive/experiment-foundation-productization-closure |

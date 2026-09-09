@@ -4,10 +4,13 @@
 
 | Claim / reference | Check / procedure | Latest result | Evidence / limitation |
 |---|---|---|---|
-| C-1 is optional advisory tuning | Review D-30 disposition and maintained N8 calibration contract | passed | `docs/context/process/topic-selection-n8-calibration.md`; historical T-088/T-127/T-128 provenance. |
-| C-2 qualifying corpus exists | Validate labels, provider/profile boundaries, provenance, and independent assessor | not-run | No qualifying external corpus is currently recorded. |
-| C-3 complete provider wiring | Focused prompt anchors, runtime guards, role outputs, provenance, run mode, and execution-spec tests | not-run | Enabled only after C-2 kickoff. |
+| Supersession | User-selected new task package and approval through T-153 Phase 2, 2026-09-09 | confirmed | Full topic-selection Codex goal replaces the narrower release-tail route. |
+| C-1 optional calibration | D-30 and maintained N8 calibration contract | preserved | No release blocker or calibration result created. |
+| Original C-2 | Corpus qualification and six-prompt readiness | not completed | Prompt responsibility transferred to T-153; its qualification is separate evidence. |
+| Original C-3 | Provider Debate activation | not completed | Codex obligations transferred; other generation-provider activation explicitly deferred. |
+| Retirement preflight | Exact T-129 governance query | two checked-out occurrences, 2026-09-09 | Main checkout and cd1e worktree; no other worktree was edited or removed. |
 
 ## Outstanding verification
 
-- Qualifying external corpus evidence and all implementation checks remain intentionally outstanding while the task is planned.
+Reconcile the second occurrence before archival and validate the historical summary and generated
+views. Do not run the former corpus-first implementation plan or claim original acceptance passed.

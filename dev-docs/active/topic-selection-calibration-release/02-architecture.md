@@ -1,13 +1,17 @@
 # Architecture
 
 ## Context and current state
-T-129 is a deferred control record, not an active runtime subsystem. Current topic-selection code owns the N6/N8 prompt, debate, provenance, run-mode, execution-spec, and dormancy guards.
+T-129 is a superseded control record. T-153 owns the current Codex execution and qualification
+route; current topic-selection runtime and `.ai/llm` files remain implementation authorities.
 
 ## Settled design and boundaries
-- Calibration thresholds are advisory routing heuristics; synthetic runs cannot authorize adoption.
-- C-2 owns product-ready prompt content and stable drift anchors after real-corpus qualification.
-- C-3 changes dormancy only together with live role outputs, gate-bridge provenance, provider run mode, and execution-spec handling.
-- Incomplete activation remains fail-closed.
+- Calibration remains optional and advisory under D-30.
+- Codex prompt qualification uses actual role inputs and failure cases under T-153; the former blanket corpus dependency does not govern Codex implementation.
+- Other provider activation remains deferred and its existing dormancy guards remain authoritative.
+- No model profile is enabled merely by transferring task ownership.
+- Original C-2/C-3 were not completed by this supersession.
 
 ## Interfaces and contracts
-The implementation interfaces are the current topic-selection v1b debate runtime services and shared workflow harness. Their source contracts must be re-read at kickoff because historical task paths are provenance only.
+No runtime interface is owned or changed by this record transition. The successor obligation map
+is `dev-docs/active/topic-selection-codex-product-workflow/00-roadmap.md`; persisted runtime,
+Human decisions and historical provider artifacts retain their original provenance.
