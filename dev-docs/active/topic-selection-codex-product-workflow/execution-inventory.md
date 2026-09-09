@@ -76,7 +76,7 @@ Historical source: `git show 5cf904fb:dev-docs/active/topic-selection-calibratio
 
 | Historical prompt family | Current `.ai/llm/topic-selection/prompts/` source | Current observation |
 |---|---|---|
-| #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Prompt v2 covers evidence, role outputs and substantive resolution; live research-reasoning qualification pending |
+| #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Explorer/Critic v2 and Arbiter v3: actual insufficiency/apparent-conflict outputs inspected with substantive repairs; real regeneration and shipped activation pending |
 | #22 ordinary N8 assessment | `v1b/n8-topic-value-assessment/system.md` | Prompt v4 covers scoped value reasoning, exact admissible citations, consistent 0–100 scoring, insufficiency and non-advance; was part of the original six; live qualification pending |
 | #23 N8 bounded role family | `v1b/n8-bounded-micro-debate/system.md` | Prompt v4 covers four role behaviors, exact admissible citations, consistent 0–100 scoring and preserved objections; qualify each actual role |
 | #25 promotion N2 bounded family | `v1c/n2-bounded-micro-debate/system.md` | Already expanded for material risks and grouped conditions by later work; preserve that contract |

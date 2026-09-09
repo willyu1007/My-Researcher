@@ -1134,7 +1134,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.assessor_draft,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n8_topic_value_assessment',
-        estimated_input_token_target: 22000,
+        estimated_input_token_target: 28000,
         estimated_output_token_budget: 1800,
         preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
         post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],

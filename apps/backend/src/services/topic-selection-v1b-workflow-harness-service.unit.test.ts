@@ -142,7 +142,7 @@ test('Codex product qualification with pinned research sources', {
   const home = process.env.TOPIC_SELECTION_CODEX_HOME;
   if (!sourceFile || !outputRoot || !model || !home) throw new Error('Qualification needs explicit source/output paths and product CLI model/home.');
   const caseName = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'ordinary';
-  if (!['ordinary', 'insufficient', 'apparent-conflict', 'refinement-bounded', 'refinement-overclaim'].includes(caseName)) throw new Error('Unknown qualification case.');
+  if (!['ordinary', 'insufficient', 'apparent-conflict', 'refinement-bounded', 'refinement-overclaim', 'regeneration-gate', 'regeneration-loopback'].includes(caseName)) throw new Error('Unknown qualification case.');
   const live = process.env.TOPIC_SELECTION_CODEX_QUALIFICATION === 'live';
   const shipped = process.env.TOPIC_SELECTION_QUALIFICATION_SHIPPED === '1';
   const downstreamFixture = process.env.TOPIC_SELECTION_QUALIFICATION_DOWNSTREAM_FIXTURE === '1';
@@ -163,7 +163,7 @@ test('Codex product qualification with pinned research sources', {
   t.after(() => budget?.close());
   if (live) {
     writeFileSync(join(directory, `${runKey}-manifest.json`), JSON.stringify({ run_key: runKey, model,
-      limits, source_file: sourceFile, shipped_profiles: shipped, controlled_n6_fixture: downstreamFixture, started_at: new Date().toISOString() }, null, 2),
+      limits, source_file: sourceFile, shipped_profiles: shipped, controlled_n6_fixture: downstreamFixture, controlled_regeneration_trigger: caseName.startsWith('regeneration-'), started_at: new Date().toISOString() }, null, 2),
     { mode: 0o600, flag: 'wx' }); // Refuse re-running a case before it can overwrite its retained evidence.
   }
   const sources = await qualificationSources(sourceFile, TITLE_CARD_ID, caseName === 'insufficient');
@@ -227,8 +227,13 @@ test('Codex product qualification with pinned research sources', {
       topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
       valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository },
   });
-  const input = await n6Request(ctx, setup.n5, { execution_spec: { execution_mode: 'codex_cli', model_option_id: null },
+  const qualificationWorkflows = new Set(['workflow_run_v1b_n6', 'workflow_run_v1b_n7', 'workflow_run_v1b_n8', 'workflow_run_v1b_n9', `qualification_${runKey}_refinement`]);
+  let input = await n6Request(ctx, setup.n5, { execution_spec: { execution_mode: 'codex_cli', model_option_id: null },
     run_mode: 'product', node_attempt_id: `qualification_${runKey}_n6` });
+  if (caseName.startsWith('regeneration-')) {
+    assert.equal(downstreamFixture, false, 'Regeneration must execute N6 roles, not substitute their output.');
+    input = await qualificationRegenerationInput(ctx, input, runKey, caseName === 'regeneration-loopback', qualificationWorkflows);
+  }
   const research = await service.resolveCodexResearchContext(input);
   writeFileSync(join(directory, `${runKey}-research.json`), JSON.stringify({ research, isolated_upstream_and_human_fixtures: true,
     source_pins: QUALIFICATION_SOURCE_PINS.filter(pin => sources.units.some(unit => unit.evidence_unit_id === pin.unit)), shipped_profiles: shipped }, null, 2), { mode: 0o600 });
@@ -283,7 +288,7 @@ test('Codex product qualification with pinned research sources', {
     throw error;
   } finally {
     writeFileSync(join(directory, `${runKey}-results.json`), JSON.stringify(results, null, 2), { mode: 0o600 });
-    for (const workflow of ['workflow_run_v1b_n6', 'workflow_run_v1b_n7', 'workflow_run_v1b_n8', 'workflow_run_v1b_n9', `qualification_${runKey}_refinement`]) {
+    for (const workflow of qualificationWorkflows) {
       writeFileSync(join(directory, `${runKey}-${workflow}.json`), JSON.stringify(await ctx.controlPlane.listArtifactRefsByWorkflowRunId(workflow), null, 2), { mode: 0o600 });
     }
   }
@@ -333,6 +338,45 @@ async function qualificationN6Fixture(ctx: Awaited<ReturnType<typeof seedHarness
       objections: ['DPR and BEIR use different settings; their reported results are not a matched contradiction.'],
       human_review_triggers: ['A real researcher must verify resources, novelty and the exact protocol.'] }],
   } satisfies TopicSelectionV1bTopicQuestionCandidateSetDraftPayload;
+}
+
+// Materialize a labelled failed predecessor through canonical gates, then review its real projection.
+async function qualificationRegenerationInput(
+  ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>,
+  input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  runKey: string,
+  fromN7: boolean,
+  workflows: Set<string>,
+) {
+  const predecessor = { ...input, execution_spec: null, run_mode: null,
+    node_attempt_id: `qualification_${runKey}_controlled_predecessor` };
+  const draft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload = await qualificationN6Fixture(ctx, predecessor);
+  if (!fromN7) {
+    draft.candidates[0]!.answerability_verdict = 'not_answerable';
+    draft.candidates[0]!.risk_notes.push('Controlled rejected predecessor: no usable target evaluation or resource access has been established.');
+    const failed = await ctx.service.invokeNode({ ...predecessor,
+      semantic_artifacts: [await generateN6RegularDebateDraftArtifact(ctx, predecessor, draft)] });
+    assert.equal(failed.error_code, 'N6_NO_ADMISSIBLE_TOPIC_QUESTION_CANDIDATE', JSON.stringify(failed));
+    return n6InputWithN6GateFailureProjection(input, await n6GateFailureRetryProjectionRef(ctx, failed));
+  }
+  const n6 = await ctx.service.invokeNode({ ...predecessor,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, predecessor, draft)] });
+  assert.ok(n6.authority_ref && n6.handoff_ref, JSON.stringify(n6));
+  const n7Input = await n7Request(ctx, n6);
+  const n7 = await ctx.service.invokeNode(n7Input);
+  const feedbackInput = await n7FeedbackRequest(ctx, n7Input, n7);
+  workflows.add(feedbackInput.workflow_run_id);
+  const candidates = await ctx.topicQuestionRepository.listCandidatesByCandidateSetId(n6.authority_ref.ref_id);
+  const exhausted = await ctx.service.invokeNode({ ...feedbackInput,
+    semantic_artifacts: [await generateN7RuntimeSupportArtifact(ctx, feedbackInput, 'n7_failed_trial_synthesis', {
+      exhausted_candidate_refs: candidates.map(candidate => ref('topic_question_candidate', candidate.topic_question_candidate_id)),
+      failure_reason_codes: ['value_not_supported'],
+      synthesis_summary: 'Controlled qualification feedback: the single bounded comparison has unverified novelty and resources; its trial is exhausted.',
+      n6_regeneration_hints: ['Reconsider the frozen evidence and return evidence expansion if no answerable alternative exists. Do not invent availability or positive results.'],
+      affected_refs: [n6.authority_ref],
+    })] });
+  assert.equal(exhausted.error_code, 'N7_CANDIDATE_TRIALS_EXHAUSTED', JSON.stringify(exhausted));
+  return n6InputWithN7LoopbackProjection(input, await n7LoopbackProjectionRef(ctx, exhausted));
 }
 
 // Control the refinement disposition and exact Human delta; the predecessor may also be a disclosed N6 fixture.
@@ -421,7 +465,7 @@ async function qualifyExactRefinement(
     selected_research_slice_ref: active.selected_research_slice_ref, selected_research_slice_hash: active.selected_research_slice_hash,
     evidence_ceiling_refs: currentHandoff.required_refs, evidence_ceiling_hash: canonicalHash(currentHandoff.required_refs), source_refs: reviewed.frozen_input.source_refs,
   } });
-  const gate = debate.status === 'completed' ? await service.invokeNode({ ...reviewed, semantic_artifacts: [debate.semantic_artifact] }) : null;
+  const gate = 'semantic_artifact' in debate ? await service.invokeNode({ ...reviewed, semantic_artifacts: [debate.semantic_artifact] }) : null;
   const after = await ctx.topicQuestionRepository.findTopicQuestionContractById(refined.authority_ref.ref_id);
   assert.deepEqual(after, before, 'Review must not rewrite the exact Human-authored contract.');
   return { node: 'exact_refinement', controlled_disposition_and_human_fixture: true, overclaim, refinement, debate, gate };
@@ -503,6 +547,22 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
     },
   });
   const service = makeService();
+  if (generationMode !== 'initial_from_n5') {
+    const research = await service.resolveCodexResearchContext(request);
+    assert.ok(research.regeneration_context, 'Regeneration must include failed question bodies, not just hashes.');
+    assert.match(JSON.stringify(research.regeneration_context), /main_question/);
+    assert.match(JSON.stringify(research.regeneration_context), generationMode === 'regeneration_after_n6_gate_failure'
+      ? /How can AI improve research/ : /second candidate preserve N7 exhaustion/);
+    const read = ctx.controlPlane.getArtifactRef.bind(ctx.controlPlane);
+    ctx.controlPlane.getArtifactRef = async id => {
+      const artifact = await read(id);
+      return artifact?.payload && 'candidates' in artifact.payload
+        ? { ...artifact, payload: { ...artifact.payload, generation_notes: ['drifted failed proposal'] } } : artifact;
+    };
+    try { await assert.rejects(service.resolveCodexResearchContext(request), /proposal or feedback body.*drifted/); }
+    finally { ctx.controlPlane.getArtifactRef = read; }
+    assert.equal(calls, 0, 'Regeneration body drift must stop before model work.');
+  }
   let result: Awaited<ReturnType<typeof service.invokeNode>>;
   if (generationMode === 'initial_from_n5') {
     let releaseReceipt!: () => void;

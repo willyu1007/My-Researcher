@@ -149,3 +149,13 @@ Case manifests refuse evidence overwrite; preview writes stay in a separate chil
 The wrapper permits only App Server, checks remaining budget before a turn, and requests interruption
 on observed token exhaustion. Token reporting is asynchronous; this is not a strict billing cap.
 Inputs, role outcomes and domain artifacts are retained outside the repository for inspection.
+
+## Regeneration research bodies
+
+N6 CLI regeneration resolves its existing mode projection through the shared runtime resolver. Gate
+failure loads the checksum- and frozen-hash-bound failed draft. N7 exhaustion follows the frozen
+N6 handoff to the immutable generating draft, verifies exhausted ref/hash membership, and loads the
+exact feedback and failed-trial synthesis. Trial status updates are not treated as changes to the
+original proposal. Bodies enter the existing research-context hash; missing, scoped-out or drifted
+artifacts stop before model execution. The projection remains the recovery authority; these bodies
+supply reviewable content and create no new decision owner.

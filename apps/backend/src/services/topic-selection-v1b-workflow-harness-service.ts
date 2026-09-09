@@ -1091,10 +1091,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (dependencyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependencyBlocker.message);
     let bodies: N6LoadedContext | N8LoadedContext | (N7LoadedContext & Pick<N6LoadedContext, 'researchSlice' | 'evidenceRefs'>);
     let admissibleCitationRefs: TopicSelectionFunctionalRef[] | undefined;
+    let regenerationContext: Record<string, unknown> | undefined;
     if (input.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
       const prepared = await this.prepareN6Context(input);
       if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
       bodies = prepared.value;
+      regenerationContext = await this.resolveN6RegenerationBodies(input);
     } else if (input.node_id === 'topic-selection.v1b.assess-topic-value.v1') {
       const payload = parseN8Payload(input.frozen_input.payload);
       if (!payload.ok) throw new AppError(400, 'INVALID_PAYLOAD', payload.message);
@@ -1165,7 +1167,61 @@ export class TopicSelectionV1bWorkflowHarnessService {
       residual_risk_refs: bodies.n7Handoff.envelope.residual_risk_refs,
     } } : bodies;
     return { frozen_domain: frozenDomain, evidence_packets: evidencePackets,
+      ...(regenerationContext ? { regeneration_context: regenerationContext } : {}),
       ...(admissibleCitationRefs ? { admissible_citation_refs: admissibleCitationRefs } : {}) };
+  }
+
+  /** Resolve failed proposal bodies against the existing, validated regeneration projection. */
+  private async resolveN6RegenerationBodies(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<Record<string, unknown> | undefined> {
+    const n6 = await this.n6InputCarriesN6GateFailureProjection(input);
+    const n7 = await this.n6InputCarriesN7LoopbackProjection(input);
+    if (!n6.ok || !n7.ok || (n6.value && n7.value)) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N6 regeneration requires one unambiguous frozen projection.');
+    }
+    if (!n6.value && !n7.value) return undefined;
+    const { modeContext } = await this.n6DraftRuntime.resolveSharedN6RuntimeContext(input,
+      n6.value ? 'regeneration_after_n6_gate_failure' : 'regeneration_after_n7_loopback');
+    const artifactBody = async (ref: TopicSelectionFunctionalRef, hash: string, wholeArtifact = false) => {
+      const artifact = await this.controlPlane.getArtifactRef(ref.ref_id);
+      if (ref.ref_type !== 'artifact_ref' || !artifact?.payload || artifact.title_card_id !== input.title_card_id
+        || (ref.title_card_id != null && ref.title_card_id !== input.title_card_id) || ref.version_id != null
+        || artifact.checksum !== canonicalHash(artifact.payload)
+        || (wholeArtifact ? canonicalHash(artifact) : canonicalHash(artifact.payload)) !== hash) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N6 regeneration proposal or feedback body is missing, out of scope, or drifted.');
+      }
+      return artifact.payload;
+    };
+    if (modeContext.kind === 'regeneration_after_n6_gate_failure') {
+      const projection = modeContext.n6_gate_failure_projection;
+      return { failed_draft: await artifactBody(projection.failed_draft_ref, projection.failed_draft_hash) };
+    }
+    if (modeContext.kind !== 'regeneration_after_n7_loopback') return undefined;
+    const projection = modeContext.n7_loopback_projection;
+    // Candidate status changes during trials. Resolve the immutable generating draft through its
+    // frozen N6 handoff instead of comparing a rejected record with its pre-trial authority hash.
+    let generation: TopicSelectionV1bN7HarnessFrozenInputPayload | undefined;
+    for (const ref of projection.source_refs.filter(ref => ref.ref_type === 'artifact_ref')) {
+      const artifact = await this.controlPlane.getArtifactRef(ref.ref_id);
+      if (!isN6ToN7HandoffArtifactPayload(artifact?.payload)
+        || canonicalHash(artifact.payload) !== projection.n6_handoff_hash) continue;
+      await artifactBody(ref, projection.n6_handoff_hash);
+      const parsed = parseN7Payload({ ...artifact.payload.payload, input_mode: 'initial_from_n6', n6_handoff_hash: projection.n6_handoff_hash });
+      if (!parsed.ok || generation) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N6 regeneration generating handoff is invalid or ambiguous.');
+      generation = parsed.value;
+    }
+    if (!generation || !refsEqual(generation.topic_question_candidate_set_ref, projection.topic_question_candidate_set_ref)
+      || generation.topic_question_candidate_set_hash !== projection.topic_question_candidate_set_hash
+      || projection.exhausted_candidate_refs.length !== projection.exhausted_candidate_hashes.length
+      || projection.exhausted_candidate_refs.some((ref, index) => {
+        const sourceIndex = generation!.admissible_candidate_refs.findIndex(item => refsEqual(item, ref));
+        return sourceIndex < 0 || generation!.admissible_candidate_hashes[sourceIndex] !== projection.exhausted_candidate_hashes[index];
+      })) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N6 regeneration exhausted candidates differ from the frozen generating handoff.');
+    }
+    return { failed_candidate_set_draft: await artifactBody(generation.generation_artifact_ref, generation.generation_artifact_hash),
+      failed_trial_synthesis: await artifactBody(projection.failed_trial_synthesis_ref, projection.failed_trial_synthesis_hash),
+      n8_feedback: projection.n8_feedback_ref && projection.n8_feedback_hash
+        ? await artifactBody(projection.n8_feedback_ref, projection.n8_feedback_hash, true) : null };
   }
 
   private async prepareN6Context(

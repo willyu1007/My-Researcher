@@ -192,8 +192,8 @@ export class TopicSelectionV1bN6DraftRuntimeService {
 
   /**
    * Resolve the shared N6 runtime context (frozen payload + mode-context projection + decision memory +
-   * source hashes/refs) ONCE per run. The single-agent generateDraftArtifact and the divergent-debate
-   * runtime (T-127 W-07 f5) both call this so the two paths share ONE resolution (DMP-10 — no second
+   * source hashes/refs). The single-agent generateDraftArtifact and the divergent-debate
+   * runtime (T-127 W-07 f5) both call this so the paths share one resolver (DMP-10 — no second
    * context path); mirrors the N8 resolveSharedN8RuntimeContext seam. generationMode is required
    * (resolveModeContext throws on a missing/invalid mode). Byte-preserving: the single-agent draft
    * identity is unchanged (same frozen payload / mode context / decision memory / source hashes).
