@@ -343,7 +343,7 @@ real evidence-insufficiency and substantive-repair evidence, not a claim of nove
 N8 assessment and N7 feedback support (32–35). All 37 functional-ref occurrences in attempt 33
 belong to the gate-owned list, including null evidence versions. The N8 calls distinguish bounded
 value from missing originality/resources and request evidence recheck. N7 consumed actual feedback;
-the first conditional Debate role is in progress. Attempt 34 took 590.30 seconds but succeeded within
+the first conditional Debate role completed as attempt 36 (27,371 input + 5,312 output tokens), then the Critic was blocked before a model call by its input target. Attempt 34 took 590.30 seconds but succeeded within
 the unchanged 600-second timeout; no general low-latency/reliability claim follows.
 
 Inspection of N8 attempts 22/24/25/33 also found dimensions scored on 0–5 while totals were rescaled
@@ -355,3 +355,21 @@ were changed, and low scores cannot be mechanically assumed to mean a different 
 checks (5), N8 value-runtime checks (6) and independent review passed; prompt byte goldens align.
 The running process cached v3 before this change and does not qualify v4. Fresh v4 checks remain
 required before activating any N8 profile.
+
+
+## N8 later-role context sizing
+
+The conditional Critic preparation retained the actual assessor body and required scoped research
+context, estimating 24,829 input tokens against its old 24,000 target. Later-role targets were sized
+for earlier context shapes and did not accommodate the newly required full prior outputs. The
+existing context profiles now allocate 32,000 / 36,000 / 48,000 input targets to Critic / repair /
+final respectively, allowing progressive transcript growth without dropping scientific evidence or
+objections. The initial assessor and ordinary N8 retain 22,000; the 128,000 context window and all
+compression/post-compression, schema, lineage and semantic gates remain. These are bounded input
+targets, not token-billing guarantees or provider activation.
+
+Rebuilding the exact retained Critic packet with final v4 prompt yields 25,002 estimated input
+tokens and `within_budget` under the updated production profile. The profile content hash carries
+the changed values into execution/replay identity. All 21 context-profile/token-gate/N8-runtime
+checks, backend no-emit typecheck and independent review passed. Repair/final live sizing and
+semantic qualification remain pending; this preflight does not claim the four-role chain passed.

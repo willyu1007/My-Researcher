@@ -1140,6 +1140,9 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
         post_cache_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
       }),
+      // Later N8 roles carry full assessment bodies, not just artifact hashes. Targets reserve
+      // room for one draft, then findings, then both original/repaired drafts; the model-window
+      // and post-compression gates still bound the complete request.
       contextPolicyProfile({
         context_policy_profile_id:
           TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.value_critic,
@@ -1147,7 +1150,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.value_critic,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n8_topic_value_assessment',
-        estimated_input_token_target: 24000,
+        estimated_input_token_target: 32000,
         estimated_output_token_budget: 2000,
         preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
         post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
@@ -1160,7 +1163,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.assessor_repair,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n8_topic_value_assessment',
-        estimated_input_token_target: 24000,
+        estimated_input_token_target: 36000,
         estimated_output_token_budget: 2000,
         preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
         post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
@@ -1173,7 +1176,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_INVOCATION_SLOT_IDS.synthesizer_final,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n8_topic_value_assessment',
-        estimated_input_token_target: 26000,
+        estimated_input_token_target: 48000,
         estimated_output_token_budget: 4096,
         preserved_fact_kinds: [...V1B_N8_BOUNDED_DEBATE_PRESERVED_FACT_KINDS],
         post_reuse_gates: [...V1B_N8_BOUNDED_DEBATE_POST_RUNTIME_GATES],
