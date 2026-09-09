@@ -384,9 +384,31 @@ test('N8 CLI uses resolved research bodies, replays one attempt and refuses sour
   assert.equal(result.status, 'succeeded');
   assert.deepEqual(await makeRuntime().generateDraftArtifact(input), result);
   assert.equal(calls, 1);
+  let releaseOutput!: () => void;
+  let reachedOutput!: () => void;
+  const outputReached = new Promise<void>(resolve => { reachedOutput = resolve; });
+  const outputRelease = new Promise<void>(resolve => { releaseOutput = resolve; });
+  t.after(() => releaseOutput());
+  const originalRecord = controlPlane.recordArtifactRef.bind(controlPlane);
+  let firstOutput = true;
+  controlPlane.recordArtifactRef = async artifact => {
+    if (artifact.artifact_kind === 'structured_output' && firstOutput) {
+      firstOutput = false;
+      reachedOutput();
+      await outputRelease;
+    }
+    return originalRecord(artifact);
+  };
+  const concurrentInput = { ...input, request: { ...input.request, node_attempt_id: 'n8-concurrent' } };
+  const late = makeRuntime().generateDraftArtifact(concurrentInput);
+  await outputReached;
+  const winner = await makeRuntime().generateDraftArtifact(concurrentInput);
+  releaseOutput();
+  assert.deepEqual(await late, winner);
+  assert.equal(calls, 2, 'Concurrent callers reuse the completed model attempt and winning draft.');
   researchContext = { evidence: 'changed source' };
   await assert.rejects(makeRuntime().generateDraftArtifact(input), /drift|differs/);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test('v1b N8 value runtime generates a non-authority model_draft_for_gate from a codex_assisted draft', async () => {

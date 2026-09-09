@@ -41,6 +41,7 @@
 - N6/N8 Prompt v2 now states source-content requirements, evidence insufficiency/conflict and non-advance behavior. N6 admission rejects erased substantive Critic findings, duplicate finding codes, malformed findings and unresolved repairs. Joint review found the duplicate-code ambiguity; it was fixed and re-reviewed.
 - Canonical CLI composition now covers both N6 regeneration contexts and the actual N8 operator-triggered feedback producer → N7 CLI admission → four-role N8 Debate. Three directed cases passed. They check actual consumer source/mode, exact replay, Human stop, and no fifth draft call; model responses and upstream/Human fixture decisions remain controlled test input.
 - Prompt/composition checkpoint checks: N6/N8 runtime/admission plus full harness **184 passed**; LLM config **5 passed**, backend typecheck and matrix consistency passed.
+- Ordinary N8 concurrent draft recovery: a directed test first reproduced the post-model/pre-receipt content conflict, then passed after reusing the validated winning receipt. The N8 value runtime suite **6 passed**, backend typecheck passed, and joint review found no remaining issue. Source/config identity checks still apply and the competing requests execute one model attempt.
 - Limits: production prompt qualification and real-model checks remain unfinished. Node/slot types admit the integrated consumer, but shipped profiles still exclude CLI; no supported product rollout is claimed.
 
 ## Outstanding verification

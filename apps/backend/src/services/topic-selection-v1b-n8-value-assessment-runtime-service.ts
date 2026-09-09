@@ -279,11 +279,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     if (receiptHash) {
       const previous = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
       if (previous) {
-        const result = previous.payload?.result as TopicSelectionV1bN8RuntimeDraftGenerationResult | undefined;
-        if (!result || previous.checksum !== this.hash(previous.payload) || previous.payload?.request_hash !== receiptHash) {
-          throw new AppError(409, 'VERSION_CONFLICT', 'N8 CLI draft replay input or runtime identity drifted.');
-        }
-        return result;
+        return this.readReceiptResult(previous, receiptHash);
       }
     }
     const contextArtifact = await this.controlPlane.recordArtifactRef({
@@ -366,11 +362,26 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     };
     if (receiptHash) {
       const payload = { request_hash: receiptHash, result };
-      await this.controlPlane.recordArtifactRef({
-        stable_key: receiptKey, workspace_id: input.request.workspace_id ?? null,
-        title_card_id: input.request.title_card_id ?? null, workflow_run_id: input.request.workflow_run_id,
-        artifact_kind: 'diagnostic', storage_kind: 'inline', payload, checksum: this.hash(payload), created_by: 'system',
-      });
+      try {
+        await this.controlPlane.recordArtifactRef({
+          stable_key: receiptKey, workspace_id: input.request.workspace_id ?? null,
+          title_card_id: input.request.title_card_id ?? null, workflow_run_id: input.request.workflow_run_id,
+          artifact_kind: 'diagnostic', storage_kind: 'inline', payload, checksum: this.hash(payload), created_by: 'system',
+        });
+      } catch (error) {
+        // Concurrent callers may reuse the completed attempt before either stores the draft receipt.
+        const winner = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+        if (!winner) throw error;
+        return this.readReceiptResult(winner, receiptHash);
+      }
+    }
+    return result;
+  }
+
+  private readReceiptResult(record: TopicSelectionArtifactRefRecord, requestHash: string): TopicSelectionV1bN8RuntimeDraftGenerationResult {
+    const result = record.payload?.result as TopicSelectionV1bN8RuntimeDraftGenerationResult | undefined;
+    if (!result || record.checksum !== this.hash(record.payload) || record.payload?.request_hash !== requestHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'N8 CLI draft replay input or runtime identity drifted.');
     }
     return result;
   }
