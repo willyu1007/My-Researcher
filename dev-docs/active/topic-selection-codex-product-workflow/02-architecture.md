@@ -133,3 +133,19 @@ not a mechanical proof of scientific correctness; live qualification must inspec
 N8 requires both assessor repair and final synthesis to retain exactly one nonempty, resolved action
 per material/blocking finding; malformed or duplicate Critic identities and dropped final resolutions
 block admission even if an intermediate repair passed.
+
+### Bounded qualification tooling
+
+The opt-in canonical harness qualification reuses isolated upstream fixtures and the existing
+research-evidence packet owner with versioned original abstracts. It changes only a test-local
+profile registry during staging; production eligibility remains closed until real-role evidence is
+accepted. Qualification support lives in the harness test's `test-fixtures` helpers, not in the
+product configuration or an alternate workflow authority.
+
+One shared file ledger covers all live cases and staging/shipped passes under the explicitly
+selected numerical budget. It claims directory ownership before reading accounting, persists a
+pending attempt before runner execution, records failures and treats unknown usage conservatively.
+Case manifests refuse evidence overwrite; preview writes stay in a separate child directory.
+The wrapper permits only App Server, checks remaining budget before a turn, and requests interruption
+on observed token exhaustion. Token reporting is asynchronous; this is not a strict billing cap.
+Inputs, role outcomes and domain artifacts are retained outside the repository for inspection.

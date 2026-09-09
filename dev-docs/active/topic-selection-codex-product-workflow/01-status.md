@@ -5,8 +5,8 @@ Align the existing topic-selection agent execution policies and make the complet
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 — local implementation quality review and recovery fixes verified; live qualification preparation remains
-- Next step: Prepare the repeatable qualification entry, pinned evidence and rendered requests, with aggregate attempt/token/time accounting. After the budget in verification.md is confirmed, run real-role checks and open only proved profiles with matching scenarios/docs. Phases 3–5 remain required but outside this authorization.
+- Current phase: Phase 2 — pinned-input qualification entry and offline checks ready; real-role qualification and activation pending
+- Next step: Receive the live budget selection, then run the prepared canonical qualification entry with one shared budget directory across cases and staging/shipped runs. Inspect actual role outputs; extend exact-delta/regeneration coverage from supported producer results, and open only proved profiles with matching scenarios/docs. The user has authorized Phase 3 implementation after Phase 2 closeout; Phases 4–5 remain required but outside this authorization.
 - Blocker: Budget confirmation blocks live model calls, not offline qualification preparation. No live qualification or product profile activation has occurred. An interrupted CLI domain commit with no completion stays blocked pending inspection of persisted authority; it must not be blindly retried under a new identity. T-129 archival separately waits on its second worktree occurrence.
 
 ## Done when

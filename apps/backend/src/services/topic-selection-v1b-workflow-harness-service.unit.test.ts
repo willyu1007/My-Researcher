@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
@@ -60,6 +60,7 @@ import {
 import type {
   TopicSelectionEvidenceMapRecord,
   TopicSelectionEvidenceRoleBundle,
+  TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type {
   TopicSelectionNeedCandidateRecord,
@@ -128,6 +129,149 @@ import {
 
 const NOW = '2026-05-26T00:00:00.000Z';
 const TITLE_CARD_ID = 'title_card_v1b_harness';
+
+// Opt-in here reuses the existing canonical setup without creating a second workflow simulator.
+test('Codex product qualification with pinned research sources', {
+  skip: !['prepare', 'live'].includes(process.env.TOPIC_SELECTION_CODEX_QUALIFICATION ?? ''),
+}, async t => {
+  const { qualificationSources, QUALIFICATION_SOURCE_PINS } = await import('./test-fixtures/topic-selection-codex-qualification-sources.js');
+  const { qualificationRunner, QualificationPreviewComplete } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const sourceFile = process.env.TOPIC_SELECTION_QUALIFICATION_SOURCES;
+  const outputRoot = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  if (!sourceFile || !outputRoot || !model || !home) throw new Error('Qualification needs explicit source/output paths and product CLI model/home.');
+  const caseName = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'ordinary';
+  if (!['ordinary', 'insufficient', 'apparent-conflict'].includes(caseName)) throw new Error('Unknown qualification case.');
+  const live = process.env.TOPIC_SELECTION_CODEX_QUALIFICATION === 'live';
+  const shipped = process.env.TOPIC_SELECTION_QUALIFICATION_SHIPPED === '1';
+  const runKey = `${shipped ? 'shipped' : 'staging'}_${caseName}`;
+  const limits = live ? {
+    attempts: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPTS),
+    tokens: Number(process.env.TOPIC_SELECTION_QUALIFICATION_TOKENS),
+    duration_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_DURATION_MS),
+    attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS),
+  } : null;
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    timeout_ms: limits?.attempt_ms ?? 180_000 }, outputRoot, limits);
+  t.after(() => runner.shutdown());
+  t.after(() => budget?.close());
+  if (live) {
+    writeFileSync(join(directory, `${runKey}-manifest.json`), JSON.stringify({ run_key: runKey, model,
+      limits, source_file: sourceFile, shipped_profiles: shipped, started_at: new Date().toISOString() }, null, 2),
+    { mode: 0o600, flag: 'wx' }); // Refuse re-running a case before it can overwrite its retained evidence.
+  }
+  const sources = await qualificationSources(sourceFile, TITLE_CARD_ID, caseName === 'insufficient');
+  const ctx = await seedHarnessV1aBundle({ evidenceUnits: sources.units,
+    needStatement: 'Controlled qualification need: characterize dense versus lexical retrieval under domain shift and context placement. Novelty, dataset access and empirical benefits are not established by the supplied abstracts.' });
+  const constraint = acceptedConstraintProfilePayload({ target_community: 'Information retrieval researchers',
+    intended_contribution_style: 'empirical_study', method_constraints: ['One existing dense retriever and BM25; no foundation-model training'],
+    resource_constraints: ['Fixed held-out evaluation; data and compute access require verification'],
+    available_assets: sources.units.map(unit => `Versioned original abstract: ${unit.literature_ref.ref_id}`),
+    claim_ceiling: 'A bounded hypothesis about retrieval robustness under specified evaluation conditions; no universal superiority or measured gains are established.',
+    human_constraint_notes: 'Isolated test decision, not approval of an actual research direction.',
+    constraint_payload: { source: 'isolated_qualification_fixture', case: caseName } });
+  const draft = n4Draft();
+  const option = draft.options[0]!;
+  draft.recommended_option_key = 'bounded_retrieval_comparison';
+  draft.comparison_axes = ['domain transfer', 'retrieval baseline', 'context placement'];
+  draft.comparison_summary = 'Controlled retrieval slice for role qualification; scientific merit is unqualified.';
+  draft.options[0] = { ...option, option_key: draft.recommended_option_key, contribution_type_candidate: 'empirical_study',
+    dependency_risks: ['Dataset and compute access remain unverified'], main_risks: ['Abstract-only evidence does not establish novelty or empirical superiority'],
+    slice_budget: { retriever_count: 1, lexical_baseline_count: 1, dataset_access: 'unverified' },
+    slice_statement: 'Evaluate an existing dense retriever against BM25 under a fixed domain shift; separately vary relevant-passage placement.',
+    problem_space: 'Retrieval generalization and context placement', target_setting: 'Held-out open-domain question answering',
+    target_community: 'Information retrieval researchers', included_boundaries: ['One retriever, BM25 and a fixed held-out evaluation'],
+    excluded_boundaries: [...constraint.non_goals, 'Universal cross-domain superiority', 'Foundation-model training', 'Claims beyond the supplied evidence'],
+    support_evidence_refs: sources.units.filter(unit => unit.evidence_role === 'support').map(unit => ref('evidence_unit', unit.evidence_unit_id)),
+    baseline_evidence_refs: sources.units.filter(unit => unit.evidence_role === 'baseline').map(unit => ref('evidence_unit', unit.evidence_unit_id)),
+    context_evidence_refs: sources.units.filter(unit => unit.evidence_role === 'context').map(unit => ref('evidence_unit', unit.evidence_unit_id)),
+    resource_assumptions: ['Use existing models; verify access before implementation'], data_assumptions: ['Only versioned abstracts are currently supplied'],
+    evaluation_path: 'Specify held-out retrieval recall and QA outcome measurements; compare BM25 and context-position controls.',
+    baseline_assumptions: ['BM25 is required; dense superiority is a hypothesis rather than an input fact'],
+    expected_claim: 'A bounded comparison can characterize retrieval robustness under specified conditions.',
+    fallback_claim: 'No reliable superiority conclusion; report uncertainty and missing evidence.',
+    observable_success_criteria: ['Testable bounded questions and explicit evidence limitations'],
+    claim_ceiling_alignment: { status: 'aligned', rationale: 'No observed gain or universal transfer claim.', confidence: 0.8 },
+    details_payload: { isolated_qualification: true, case: caseName,
+      apparent_conflict_to_examine: caseName === 'apparent-conflict' ? 'DPR reports QA improvements whereas BEIR reports limited zero-shot generalization. Do these observations conflict under the same conditions?' : null },
+  };
+  const setup = await runReadyN5(ctx, constraint, draft);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  if (!shipped) {
+    // Qualification staging only. A later run without these overrides is required for product activation.
+    for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.')
+      || [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
+        TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
+        TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent,
+        TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support].some(id => id === profile.profile_id))) {
+      if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+      profile.run_mode_eligibility.codex_cli = ['product'];
+    }
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, { modelProfileRegistry,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry,
+      codexCliRunner: runner, codexCliModelId: model }), evidencePacketResolver: sources.resolver(ctx.evidenceRepository),
+    runnerDependencies: { evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
+      recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
+      researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
+      topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository },
+  });
+  const input = await n6Request(ctx, setup.n5, { execution_spec: { execution_mode: 'codex_cli', model_option_id: null },
+    run_mode: 'product', node_attempt_id: `qualification_${runKey}_n6` });
+  const research = await service.resolveCodexResearchContext(input);
+  writeFileSync(join(directory, `${runKey}-research.json`), JSON.stringify({ research, isolated_upstream_and_human_fixtures: true,
+    source_pins: QUALIFICATION_SOURCE_PINS.filter(pin => sources.units.some(unit => unit.evidence_unit_id === pin.unit)), shipped_profiles: shipped }, null, 2), { mode: 0o600 });
+  const results: unknown[] = [];
+  try {
+    const n6 = await service.invokeNode(input);
+    results.push({ node: 'n6', result: n6 });
+    if (n6.authority_ref && n6.handoff_ref && ['admitted', 'admitted_with_warnings'].includes(n6.gate_status)) {
+      const calls = budget!.snapshot().attempts.length;
+      assert.equal((await service.invokeNode(input)).replay_provenance?.replayed, true);
+      assert.equal(budget!.snapshot().attempts.length, calls);
+      const n7Input = { ...await n7Request(ctx, n6), node_attempt_id: `qualification_${runKey}_n7`, execution_spec: input.execution_spec, run_mode: 'product' as const };
+      const n7 = await service.invokeNode(n7Input);
+      results.push({ node: 'n7', result: n7 });
+      if (n7.authority_ref && n7.handoff_ref && ['admitted', 'admitted_with_warnings'].includes(n7.gate_status)) {
+        const n8Input = await n8Request(ctx, n7, { execution_spec: input.execution_spec, run_mode: 'product', node_attempt_id: `qualification_${runKey}_n8` }, { confirmQuestionCheckpoint: false });
+        await assert.rejects(service.invokeNode(n8Input), /checkpoint|advance|decision|confirmed/i);
+        await confirmQuestionCheckpoint(ctx); // Isolated test decision, never a real research-project approval.
+        results.push({ node: 'n8', result: await service.invokeNode(n8Input) });
+        if (caseName === 'ordinary') {
+          const forced = await service.invokeNode({ ...n8Input, node_attempt_id: `qualification_${runKey}_n8_request_debate`,
+            operator_debate_request: { reason: 'Isolated qualification requests the existing conditional review.', requested_by: 'qualification_fixture' } });
+          results.push({ node: 'n8_operator_debate_request', result: forced });
+          if (forced.error_code === 'N8_OPERATOR_FORCED_DEBATE_TRIGGER' && forced.authority_ref) {
+            const feedback = await ctx.controlPlane.getArtifactRef(forced.authority_ref.ref_id);
+            assert.ok(feedback?.payload);
+            const feedbackInput = { ...await n7FeedbackRequest(ctx, n7Input, n7, 'gate_rejected', {
+              artifact_ref: forced.authority_ref, artifact_hash: canonicalHash(feedback), payload_hash: canonicalHash(feedback.payload),
+            }), execution_spec: input.execution_spec, run_mode: 'product' as const, node_attempt_id: `qualification_${runKey}_n7_feedback` };
+            const readmitted = await service.invokeNode(feedbackInput);
+            results.push({ node: 'n7_feedback', result: readmitted });
+            if (readmitted.authority_ref && readmitted.handoff_ref) {
+              results.push({ node: 'n8_conditional_debate', result: await service.invokeNode(await n8Request(ctx, readmitted,
+                { execution_spec: input.execution_spec, run_mode: 'product', node_attempt_id: `qualification_${runKey}_n8_debate` })) });
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    if (!live && error instanceof QualificationPreviewComplete) return;
+    results.push({ failure: error instanceof Error ? error.message : String(error) });
+    throw error;
+  } finally {
+    writeFileSync(join(directory, `${runKey}-results.json`), JSON.stringify(results, null, 2), { mode: 0o600 });
+    for (const workflow of ['workflow_run_v1b_n6', 'workflow_run_v1b_n7', 'workflow_run_v1b_n8']) {
+      writeFileSync(join(directory, `${runKey}-${workflow}.json`), JSON.stringify(await ctx.controlPlane.listArtifactRefsByWorkflowRunId(workflow), null, 2), { mode: 0o600 });
+    }
+  }
+});
 
 for (const generationMode of ['initial_from_n5', 'regeneration_after_n6_gate_failure', 'regeneration_after_n7_loopback'] as const) {
 test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stops`, async (t) => {
@@ -1021,9 +1165,8 @@ async function generateN4RuntimeDraftArtifact(
   return generated.semantic_artifact;
 }
 
-async function runReadyN3(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>) {
+async function runReadyN3(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>, acceptedPayload = acceptedConstraintProfilePayload()) {
   const n1 = await ctx.service.invokeNode(n1Request(ctx.bundle));
-  const acceptedPayload = acceptedConstraintProfilePayload();
   const n2Input = n2Request(ctx.bundle, n1, acceptedPayload);
   const n2 = await invokeN2WithRuntimeSupport(ctx, n2Input, acceptedPayload);
   const n3Input = n3Request(n1, n2);
@@ -1041,12 +1184,12 @@ async function runReadyN3(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>)
   return { n1, n2, n3 };
 }
 
-async function runReadyN4(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>) {
-  const { n1, n2, n3 } = await runReadyN3(ctx);
+async function runReadyN4(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>, acceptedPayload = acceptedConstraintProfilePayload(), draft = n4Draft()) {
+  const { n1, n2, n3 } = await runReadyN3(ctx, acceptedPayload);
   const input = n4Request(n1, n2, n3);
   const n4 = await ctx.service.invokeNode({
     ...input,
-    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, n4Draft())],
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
   });
   return { n1, n2, n3, n4 };
 }
@@ -1087,7 +1230,7 @@ function acceptedSliceSelectionPayload(
     decision: 'select',
     selected_option_ref: ref('research_slice_option', option.research_slice_option_id, option.title_card_id),
     selected_option_hash: hashOptionForN5(option),
-    selection_rationale: 'Select the traceable workflow slice with the strongest bounded fit.',
+    selection_rationale: `Select the bounded slice: ${option.slice_statement}`,
     decision_basis: {
       selected_option_key: option.option_key,
     },
@@ -1108,7 +1251,7 @@ async function selectedN4Option(ctx: Awaited<ReturnType<typeof seedHarnessV1aBun
   authority_ref: TopicSelectionFunctionalRef | null;
 }) {
   if (!n4.authority_ref) {
-    throw new Error('N5 fixture requires admitted N4 result.');
+    throw new Error(`N5 fixture requires admitted N4 result: ${JSON.stringify(n4)}`);
   }
   const options = await ctx.researchSliceRepository.listOptionsByOptionSetId(n4.authority_ref.ref_id);
   const selected = options.find((option) => option.status === 'recommended') ?? options[0];
@@ -1155,8 +1298,8 @@ function n5Request(
   });
 }
 
-async function runReadyN5(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>) {
-  const { n1, n2, n3, n4 } = await runReadyN4(ctx);
+async function runReadyN5(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>, acceptedPayload = acceptedConstraintProfilePayload(), draft = n4Draft()) {
+  const { n1, n2, n3, n4 } = await runReadyN4(ctx, acceptedPayload, draft);
   const option = await selectedN4Option(ctx, n4);
   const n5 = await ctx.service.invokeNode(n5Request(n4, acceptedSliceSelectionPayload(option)));
   return { n1, n2, n3, n4, n5, option };
@@ -2426,8 +2569,18 @@ async function seedHarnessV1aBundle(options: {
   openRecheck?: boolean;
   acceptedRiskCoversRecheck?: boolean;
   acceptedRiskExpiresAt?: string | null;
+  evidenceUnits?: TopicSelectionEvidenceUnitRecord[];
+  needStatement?: string;
 } = {}) {
   const ctx = makeContext({ withRunnerDependencies: true });
+  const literatureRefs = options.evidenceUnits ? uniqueRefs(options.evidenceUnits.map(unit => unit.literature_ref)) : [ref('literature_record', 'lit_1', TITLE_CARD_ID)];
+  const qualification = Boolean(options.evidenceUnits);
+  const priorArtStatus = qualification ? 'unknown' : 'no_strong_solution_found';
+  const mechanism = { mechanism_type: qualification ? 'evaluation_gap' as const : 'workflow_gap' as const,
+    mechanism_summary: qualification ? 'Controlled hypothesis: characterize retrieval generalization and placement effects; not a verified unmet need.' : 'Traceability is brittle.',
+    mechanism_payload: qualification ? { isolated_upstream_fixture: true } : {},
+    scope_notes: qualification ? 'Bounded retrieval evaluation with supplied abstracts only.' : 'CS paper engineering assistants.',
+    non_goal_notes: qualification ? 'No universal superiority or established novelty claim.' : 'Do not solve final paper planning.' };
   const actor: TopicSelectionActorRef = { actor_type: 'human', actor_id: 'reviewer_1' };
   const evidenceMapRef = ref('evidence_map', 'evidence_map_1', TITLE_CARD_ID, 'v1');
   const searchRunRef = ref('search_run', 'search_run_1', TITLE_CARD_ID);
@@ -2435,10 +2588,10 @@ async function seedHarnessV1aBundle(options: {
   const literatureSnapshotRef = ref('literature_resource_pool_snapshot', 'literature_snapshot_1', TITLE_CARD_ID, 'v1');
   const supportUnitRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
   const roleBundle: TopicSelectionEvidenceRoleBundle = {
-    support_unit_refs: [supportUnitRef],
-    challenge_unit_refs: [],
-    baseline_unit_refs: [ref('evidence_unit', 'evidence_unit_baseline_1', TITLE_CARD_ID)],
-    context_unit_refs: [],
+    support_unit_refs: options.evidenceUnits?.filter(unit => unit.evidence_role === 'support').map(unit => ref('evidence_unit', unit.evidence_unit_id)) ?? [supportUnitRef],
+    challenge_unit_refs: options.evidenceUnits?.filter(unit => unit.evidence_role === 'challenge').map(unit => ref('evidence_unit', unit.evidence_unit_id)) ?? [],
+    baseline_unit_refs: options.evidenceUnits?.filter(unit => unit.evidence_role === 'baseline').map(unit => ref('evidence_unit', unit.evidence_unit_id)) ?? [ref('evidence_unit', 'evidence_unit_baseline_1', TITLE_CARD_ID)],
+    context_unit_refs: options.evidenceUnits?.filter(unit => unit.evidence_role === 'context').map(unit => ref('evidence_unit', unit.evidence_unit_id)) ?? [],
   };
   const humanDecisionRef = ref('human_confirmed_decision', 'human_decision_1', TITLE_CARD_ID);
   const validatedNeedRef = ref('validated_need', 'validated_need_1', TITLE_CARD_ID);
@@ -2469,17 +2622,17 @@ async function seedHarnessV1aBundle(options: {
     snapshot_version: 'v1',
     source_scope: 'title_card_evidence_basket',
     topic_seed_ref: ref('topic_seed', 'topic_seed_1', TITLE_CARD_ID),
-    literature_refs: [ref('literature_record', 'lit_1', TITLE_CARD_ID)],
+    literature_refs: literatureRefs,
     content_source_refs: [],
     source_health_summary: {
-      total_literature_count: 1,
+      total_literature_count: literatureRefs.length,
       missing_literature_ids: [],
       rights_class_counts: {},
-      pipeline_ready_count: 1,
-      abstract_ready_count: 1,
-      key_content_ready_count: 1,
-      fulltext_ready_count: 1,
-      source_count: 1,
+      pipeline_ready_count: literatureRefs.length,
+      abstract_ready_count: literatureRefs.length,
+      key_content_ready_count: qualification ? 0 : 1,
+      fulltext_ready_count: qualification ? 0 : 1,
+      source_count: literatureRefs.length,
       stale_count: 0,
       blocked_count: 0,
       warning_codes: [],
@@ -2496,7 +2649,7 @@ async function seedHarnessV1aBundle(options: {
     status: 'ready',
     topic_seed_ref: ref('topic_seed', 'topic_seed_1', TITLE_CARD_ID),
     literature_snapshot_ref: literatureSnapshotRef,
-    query_intents: ['reviewer traceability'],
+    query_intents: qualification ? ['Controlled pinned retrieval abstracts; no live search performed'] : ['reviewer traceability'],
     must_check_constraints: [],
     exclusion_rules: [],
     coverage_strategy: {},
@@ -2514,15 +2667,15 @@ async function seedHarnessV1aBundle(options: {
     run_status: 'succeeded',
     query_provenance: [],
     result_accounting: {
-      total_result_count: 1,
-      unique_literature_count: 1,
+      total_result_count: literatureRefs.length,
+      unique_literature_count: literatureRefs.length,
       duplicate_result_count: 0,
       failed_source_count: 0,
       skipped_source_count: 0,
     },
     source_health_summary: {},
     dedup_summary: {},
-    evidence_map_input_refs: [ref('literature_record', 'lit_1', TITLE_CARD_ID)],
+    evidence_map_input_refs: literatureRefs,
     artifact_refs: [],
     started_at: NOW,
     finished_at: NOW,
@@ -2546,18 +2699,18 @@ async function seedHarnessV1aBundle(options: {
       search_run_ref: searchRunRef,
       search_plan_ref: searchPlanRef,
       literature_snapshot_ref: literatureSnapshotRef,
-      unit_count: 1,
-      support_unit_count: 1,
-      challenge_unit_count: 0,
-      baseline_unit_count: 1,
-      context_unit_count: 0,
+      unit_count: options.evidenceUnits?.length ?? 1,
+      support_unit_count: roleBundle.support_unit_refs.length,
+      challenge_unit_count: roleBundle.challenge_unit_refs.length,
+      baseline_unit_count: roleBundle.baseline_unit_refs.length,
+      context_unit_count: roleBundle.context_unit_refs.length,
       digest_payload: {},
       stale_reason_codes: [],
       artifact_refs: [],
       created_by: 'system',
       created_at: NOW,
     } satisfies TopicSelectionEvidenceMapRecord,
-    evidence_units: [],
+    evidence_units: options.evidenceUnits ?? [],
     typed_links: [],
     clusters: [],
     patterns: [],
@@ -2573,16 +2726,12 @@ async function seedHarnessV1aBundle(options: {
     decision_status: 'resulted_in_validated_need',
     review_status: 'human_confirmed',
     freshness_status: 'current',
-    candidate_need: 'Evidence-to-need traceability is hard to audit.',
-    unmet_need_statement: 'Reviewer-aligned topic selection needs stronger evidence-to-need traceability.',
-    mechanism_type: 'workflow_gap',
-    mechanism_summary: 'Traceability is brittle.',
-    mechanism_payload: {},
+    candidate_need: options.needStatement ?? 'Evidence-to-need traceability is hard to audit.',
+    unmet_need_statement: options.needStatement ?? 'Reviewer-aligned topic selection needs stronger evidence-to-need traceability.',
+    ...mechanism,
     semantic_group_key: 'a'.repeat(64),
     current_arena_advisory: null,
-    scope_notes: 'CS paper engineering assistants.',
-    non_goal_notes: 'Do not solve final paper planning.',
-    prior_art_status: 'no_strong_solution_found',
+    prior_art_status: priorArtStatus,
     evidence_map_ref: evidenceMapRef,
     search_run_ref: searchRunRef,
     search_plan_ref: searchPlanRef,
@@ -2626,7 +2775,7 @@ async function seedHarnessV1aBundle(options: {
     residual_risk_refs: [],
     open_gap_codes: [],
     required_human_checks: ['confirm_unmet_need'],
-    prior_art_status: 'no_strong_solution_found',
+    prior_art_status: priorArtStatus,
     already_solved_review: {},
     packet_payload: {},
     artifact_refs: [],
@@ -2718,13 +2867,9 @@ async function seedHarnessV1aBundle(options: {
     adjudication_result_id: adjudicationRef.ref_id,
     support_packet_id: supportPacketRef.ref_id,
     human_decision_id: humanDecisionRef.ref_id,
-    validated_need_statement: 'Reviewer-aligned topic selection needs stronger evidence-to-need traceability.',
-    mechanism_type: 'workflow_gap',
-    mechanism_summary: 'Traceability is brittle.',
-    mechanism_payload: {},
-    scope_notes: 'CS paper engineering assistants.',
-    non_goal_notes: 'Do not solve final paper planning.',
-    prior_art_status: 'no_strong_solution_found',
+    validated_need_statement: options.needStatement ?? 'Reviewer-aligned topic selection needs stronger evidence-to-need traceability.',
+    ...mechanism,
+    prior_art_status: priorArtStatus,
     evidence_map_ref: evidenceMapRef,
     search_run_ref: searchRunRef,
     search_plan_ref: searchPlanRef,

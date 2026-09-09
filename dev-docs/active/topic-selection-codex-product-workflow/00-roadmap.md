@@ -115,11 +115,16 @@ T-129's successor handoff is recorded in e44e862c. Its current main-worktree rec
 Remaining execution order within the existing Phase 2 authorization:
 1. Prepare a repeatable qualification entry using the canonical consumers: materialize pinned source bodies through existing evidence owners, inspect exact rendered requests, and account for aggregate attempts/tokens/time. This preparation can proceed without live calls.
 2. After the explicit budget is confirmed, inspect actual role outputs for ordinary, insufficient, apparent-conflict and exact-delta cases. Exercise conditional/regeneration routes from actual producer results, or disclose isolated controlled setup; do not force an advancing verdict.
-3. Open only qualified profiles with permanent policy/scenario/operator documentation, then verify canonical progression, Human stops and recovery. Keep ambiguous partial domain commits fail-closed pending authority inspection; Phases 3–5 require the next authorization.
+3. Open only qualified profiles with permanent policy/scenario/operator documentation, then verify canonical progression, Human stops and recovery. Keep ambiguous partial domain commits fail-closed pending authority inspection. The user has authorized Phase 3 after this closeout; Phases 4–5 require the next authorization.
 
 ### Phase 3 — Connect upstream evidence and need discovery (integration detail provisional)
 - Outcome: Resource sampling, extraction, evidence convergence, need discovery/final synthesis, adjudication and human-confirmation support use Codex through product callers.
 - Approach: Reuse canonical evidence/retrieval owners; re-evaluate provider-only final synthesis against the unified admission criteria; preserve human confirmation and successor-map boundaries.
+- Revertible implementation units after Phase 2 closeout:
+  1. Resource sampling and extraction: connect canonical request execution settings through `topic-selection-resource-sampling-service.ts` and `topic-selection-v1a-llm-runtime-binding-service.ts` to the app-owned runner. Sampling currently hardcodes provider execution and provider-specific model resolution; align both with scoped profile admission. Preserve deterministic filtering and stop ambiguous CLI attempts without automatic provider fallback.
+  2. Need discovery and decision support: integrate single-agent generation, Explorer/DeepCritic/framing/final synthesis, adjudication and confirmation support. `topic-selection-need-discovery-debate-loop-service.ts` currently rejects CLI in execution validation and retains a provider/mock-only final slot; compile actual evidence and prior-role bodies, align final policy/profile/prompt together, and preserve no-need outcomes and exact Human confirmation.
+  3. Evidence convergence and optional Arena support: supply actual Codex outputs to the existing round/coordinator owners. The round input currently accepts mock/external modes; add the product execution branch while preserving managed-library retrieval, EvidenceDelta, successor-map and linked-round authority. Optional Arena remains advisory and does not acquire decision-quality activation.
+  4. Qualify each opened upstream role and compose canonical upstream progression into a fresh frozen v1b bundle. Verify material/no-delta/failed retrieval, quote integrity, non-advance, Human stops and recovery before enabling the proved profile slices and updating permanent operating contracts.
 - Exit criteria: CX-03 holds and a fresh approved upstream lineage can supply the frozen v1b input without manually authored model outputs.
 - Verification: Evidence scope/quote integrity, material/no-delta/failed retrieval, linked-round recovery, role output admission, no-topic disposition and strict-human stops; real Codex evidence for enabled roles.
 - Recovery: Preserve predecessors and exact Human decisions; route unresolved evidence to the existing owning stage.
@@ -141,13 +146,13 @@ Remaining execution order within the existing Phase 2 authorization:
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through phase 2
+- Authorized boundary: through phase 3
 - [x] Decisions: Full-workflow outcome, Codex-only generation rollout and N6/N8-first sequencing were confirmed by the user on 2026-09-09.
 - [x] Design: Source inventory, N6/N8 technical design and role-specific Codex qualification were approved by the user on 2026-09-09.
 - [x] Route: Five phases reach the complete workflow; later integration details are explicitly provisional rather than descoped.
 - [x] Verification: Stage coverage, real-model evidence and composed failure/recovery checks are specified in verification.md.
 
-The user approved this planning checkpoint and authorized implementation through Phase 2 on 2026-09-09. Phases 3–5 remain required task work outside the current implementation authorization. No model execution or Human research action occurred during planning.
+The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09. Phases 4–5 remain required task work outside the current implementation authorization. Operational live-run ceilings remain separate inputs; this authorization does not claim completed model verification or Human research decisions.
 
 ## Risks and recovery
 

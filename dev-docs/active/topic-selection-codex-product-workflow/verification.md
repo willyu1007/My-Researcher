@@ -4,7 +4,7 @@
 
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
-| Task scope and authorization | User selected full topic-selection Codex task; approved through Phase 2 on 2026-09-09 | confirmed | Phases 3–5 remain required; N6/N8 alone cannot complete T-153. |
+| Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 2 closeout then Phase 3 on 2026-09-09 | confirmed through Phase 3 | Phases 4–5 remain required and outside current authorization; N6/N8 alone cannot complete T-153. |
 | CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | Source inventory covers all profiles; all shipped profiles still exclude codex_cli. No activation claim. |
 | Runner prerequisite | T-152 code and evidence through a5263023 | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process, controlled upstream/Human fixtures and test-local profile admission. |
@@ -16,6 +16,7 @@
 | Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
 | Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; integrated consumer mode remains behind closed shipped profiles. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
+| Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. Budget selection and every shipped CLI profile remain pending. |
 | CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
 
 ## Implementation quality review
@@ -43,8 +44,7 @@ The earlier repository-sample fallback is not suitable: titleCardDemoFixtures.ts
 titles and example.com links. Use the following public original-paper inputs instead. Abstract
 pages and exact versions were inspected on 2026-09-09; full experimental details have not yet been
 validated. Abstract-level evidence supports a bounded reasoning check, not a novelty or calibration
-claim. Before execution, materialize the inspected source text through existing evidence owners,
-pin content hashes and source locations, and inspect the exact rendered role requests.
+claim. Source text is now materialized through the existing evidence-packet owner and its source/hash/quote checks. First-Explorer requests for all three cases were inspected without launching Codex; later role requests still require actual preceding outputs.
 
 | Input | Verified source and content boundary |
 |---|---|
@@ -61,7 +61,7 @@ approval or scientific labels. Do not write them into a live research project.
 | Case | Input difference | Required observation |
 |---|---|---|
 | Ordinary bounded evidence | Visible source bodies and scoped refs from the three originals | N6 proposes bounded, testable alternatives; N7 support respects the exact candidate; N8 distinguishes evidence from hypotheses and can legitimately decline advancement. No mandatory positive verdict. |
-| Insufficient evidence | Only titles/metadata, with absent bodies explicitly marked | Roles disclose missing evidence and avoid invented results or unsupported confident advancement. Gate/source refusal before a model call is recorded separately from a model's semantic response. |
+| Insufficient evidence | DPR abstract only; BEIR and context-placement evidence are absent from refs, source assets and role bundles | Roles disclose missing coverage and avoid unsupported cross-domain/context claims. This is a semantic coverage test; missing required source bodies remain a separate pre-call integrity rejection. |
 | Apparent conflict | DPR QA results alongside BEIR zero-shot generalization findings | Recognize the different evaluation conditions; do not erase either source or falsely call them a same-setting contradiction. This expected distinction is our inference from the inspected abstracts. |
 | Exact-delta review | Same source bundle and a controlled bounded-vs-overgeneralized question delta | Preserve immutable Human fields; carry material objections into admission; no silent rewrite. |
 
@@ -72,24 +72,95 @@ boundary. Inspect actual Critic resolutions, evidence support, failure behavior 
 consumption before accepting a role. Existing deterministic fixtures do not replace this inspection.
 
 Pending budget proposal: **40 model attempts, 1,000,000 aggregate tokens, 180 seconds per attempt,
-90 minutes overall**, stopping at the first ceiling. Alternative smaller first check: **12 attempts,
+90 minutes overall**. Attempts and launch deadlines are enforced locally. Token notifications trigger a best-effort interrupt at the first reported ceiling; the protocol does not provide a strict billing-token cap, so delayed usage reporting may overshoot. Alternative smaller first check: **12 attempts,
 300,000 tokens, 30 minutes overall**, retaining the 180-second per-attempt ceiling. Failed and
 interrupted attempts count; where usage is unavailable, retain a conservative reservation rather
 than treating it as zero. Keep existing runner/model configuration and product limits; no gateway
 fallback. No budget selection has been received. This proposal authorizes no live execution by itself.
 
+## Prepared qualification entry
+
+The opt-in test `Codex product qualification with pinned research sources` lives beside the existing
+canonical harness fixtures. `test-fixtures/topic-selection-codex-qualification-{sources,budget,runner}.ts`
+provide pinned abstract loading, a shared durable ledger and an App Server-only runner wrapper.
+The ordinary case attempts N6 → N7 → exact Human stop → N8, then uses actual N8 feedback for
+conditional Debate when the producer supports it. Admission may legitimately stop earlier. A passed
+diagnostic process is not a semantic qualification pass. Exact-delta and regeneration live cases
+still need supported producer setup; existing fixture coverage does not substitute for those runs.
+
+| Source | SHA-256 of whitespace-normalized original abstract |
+|---|---|
+| 2004.04906v3 | `1d92ab3f358bc517ca0fd9d5169dfe04832dadfdb47fd8baf2488f9d9f76fbc2` |
+| 2104.08663v4 | `42042f9170192744434569d6330ad1641fad51e3ce96957b2e5617922ef44115` |
+| 2307.03172v3 | `9597f645fa2ed241ae31cd867771e71ea15ede9d498117e1d1b409403c10aa88` |
+
+Offline previews contain 3 / 1 / 3 resolved evidence items and 37,318 / 30,263 / 37,621 prompt
+characters for ordinary / insufficient / apparent-conflict respectively. Old traceability-slice text
+is absent. Upstream readiness, N1–N5 semantic outputs and all Human decisions are explicitly isolated
+fixtures. No live retrieval, empirical outcome, verified novelty or real researcher approval is claimed.
+
+Environment inspected on 2026-09-09: `codex-cli 0.153.4` at `/Users/yurui/.bun/bin/codex`;
+product home `/Users/yurui/.codex-my-researcher` exists with authentication, but authentication was not
+read or validated by a model call. No product-home config file was present. Model/home must be
+explicit for this diagnostic; no production configuration was changed.
+
+Temporary source JSON and previews are under `/tmp/my-researcher-t153-phase2/`, outside the repo.
+Preview mode always writes in `TOPIC_SELECTION_QUALIFICATION_OUTPUT/preview`, preserving any live
+evidence at the output root even when preview and live are invoked against the same root.
+Retain them through live-result inspection, then remove them after durable verification evidence is
+recorded. If lost, fetch the three versioned abstract pages, extract `blockquote.abstract`, collapse
+whitespace, strip its `Abstract:` prefix, and create an array of `{id, url, abstract}`; the loader
+requires the exact hashes above. No synthetic substitute is accepted.
+
+From `apps/backend`, repeat a no-model preview with:
+
+```sh
+TOPIC_SELECTION_CODEX_QUALIFICATION=prepare \
+TOPIC_SELECTION_QUALIFICATION_CASE=ordinary \
+TOPIC_SELECTION_QUALIFICATION_SOURCES=/tmp/my-researcher-t153-phase2/sources.json \
+TOPIC_SELECTION_QUALIFICATION_OUTPUT=/tmp/my-researcher-t153-phase2/ordinary \
+TOPIC_SELECTION_CODEX_MODEL=gpt-6-astra \
+TOPIC_SELECTION_CODEX_HOME=/Users/yurui/.codex-my-researcher \
+node --import tsx --test --test-name-pattern='Codex product qualification with pinned' \
+src/services/topic-selection-v1b-workflow-harness-service.unit.test.ts
+```
+
+For authorized live execution, change mode to `live` and provide positive integer limits via
+`TOPIC_SELECTION_QUALIFICATION_ATTEMPTS`, `..._TOKENS`, `..._DURATION_MS` and `..._ATTEMPT_MS`.
+**Every case and staging/shipped pass must use the same output directory and budget ledger.**
+Use a dedicated shared live directory, not the separate preview directories. A process lock prevents
+concurrent use; a case manifest prevents overwriting prior case evidence. An uncertain pending call
+or a leftover lock requires inspection, not automatic deletion/retry. Failed calls count, cached and
+reasoning tokens are not double-counted, and unknown usage reserves the entire remaining budget.
+App Server setup counts toward the attempt deadline; an expired deadline cannot launch a turn.
+Budget arithmetic and preview retention are tested locally; delayed live startup, actual usage
+notifications and server interruption remain verification limits until exercised.
+
+Staging changes only an in-memory profile registry for qualification. Set
+`TOPIC_SELECTION_QUALIFICATION_SHIPPED=1` for the later no-override product pass, after verified
+activation. The stage is included in attempt and evidence names, while the budget stays shared.
+Before accepting results, inspect retained exact inputs, outcomes, domain results and control-plane
+artifacts; the opt-in runner never certifies scientific quality itself.
+
+The preparation delta after `7c66230a` was independently reviewed. The exec-budget bypass,
+post-deadline turn launch, live/preview evidence overwrite and insufficient-case description findings
+were corrected and re-reviewed; none remain reported unresolved. Same-directory ledger ownership is
+acquired before reading it, failed inspection releases the lock, and repeated live cases cannot
+replace retained evidence. Unit evidence: 128 harness checks plus 5 budget/runner checks; the opt-in
+live test is skipped by default. The three request previews are separate offline checks.
+
 ## Outstanding verification
 
-- Implement the chosen live-run execution/usage accounting around existing consumers, materialize
-  the pinned evidence inputs, verify the selected CLI binary/configuration and inspect rendered
-  packets before the first model call. No launch occurs before budget confirmation.
+- Receive the explicit live budget selection; no launch has occurred. Use the prepared entry and
+  inspect the first actual outputs before extending dependent exact-delta/regeneration scenarios.
 - Qualify N6 Explorer/Critic/Arbiter, N7 admission, ordinary/conditional N8 and exact-delta roles
   against actual inputs and failure cases. Validate live schema compatibility, evidence scope,
   substantive resolution and non-advance outcomes; record each actual attempt and limitations.
 - Open only the proved profiles together with scenario/policy/operating-doc alignment. No
   canary-only profile modification counts as supported product readiness.
-- Phases 3–5: resource/evidence/need final synthesis and convergence, remaining v1b support,
-  promotion/feedback and whole product API chain are unimplemented in this authorized slice.
+- Phase 3 is authorized after Phase 2 closeout but is not implemented. Its first unit is resource
+  sampling and extraction, followed by need discovery/final synthesis/adjudication/confirmation
+  support and evidence convergence. Phases 4–5 remain required outside current authorization.
 - CX-06/CX-08 whole-workflow proof must include legitimate non-advance, upstream loopback and
   exact recovery, distinguish real models from fixtures and preserve Human boundaries.
 - Task completion, phase closeout and T-129 archival have not been claimed. Governance checks and
