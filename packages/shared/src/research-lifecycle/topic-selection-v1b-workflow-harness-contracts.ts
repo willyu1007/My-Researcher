@@ -108,6 +108,7 @@ export type TopicSelectionV1bWorkflowHarnessRouteDecision =
 
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_EXECUTION_MODES = [
   'none',
+  'codex_cli',
   'codex_assisted',
   'provider_llm',
   'mocked_llm',
@@ -152,6 +153,7 @@ export type TopicSelectionV1bWorkflowHarnessSemanticFallbackPolicy =
 
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUNTIME_PROVENANCE_CLASSES = [
   'runtime_verified',
+  'debate_derived',
   'fixture_replay',
   'legacy_unverified',
 ] as const;
@@ -1586,6 +1588,15 @@ export interface TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef {
   slot_spec_hash: string;
   provenance_ref: TopicSelectionFunctionalRef;
   runtime_provenance_class: TopicSelectionV1bWorkflowHarnessRuntimeProvenanceClass;
+  /** A deterministic projection of an admitted final Debate role, not another model invocation. */
+  debate_derivation?: {
+    parent_output_ref: TopicSelectionFunctionalRef;
+    parent_output_hash: string;
+    parent_profile_id: string;
+    parent_slot_id: string;
+    projection_key: 'synthesized_candidate_set' | 'assessment_draft';
+    loop_transcript_hash: string;
+  };
   context_policy_profile_id: string | null;
   context_policy_profile_version: string | null;
   context_policy_profile_hash: string | null;
@@ -3638,6 +3649,16 @@ export const topicSelectionV1bWorkflowHarnessSemanticSupportArtifactRefSchema = 
     runtime_provenance_class: {
       enum: [...TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUNTIME_PROVENANCE_CLASSES],
     },
+    debate_derivation: {
+      type: 'object', additionalProperties: false,
+      required: ['parent_output_ref', 'parent_output_hash', 'parent_profile_id', 'parent_slot_id', 'projection_key', 'loop_transcript_hash'],
+      properties: {
+        parent_output_ref: strictFunctionalRefSchema, parent_output_hash: hashString,
+        parent_profile_id: stringId, parent_slot_id: stringId,
+        projection_key: { enum: ['synthesized_candidate_set', 'assessment_draft'] },
+        loop_transcript_hash: hashString,
+      },
+    },
     context_policy_profile_id: nullableStringId,
     context_policy_profile_version: nullableStringId,
     context_policy_profile_hash: nullableHashString,
@@ -3658,6 +3679,18 @@ export const topicSelectionV1bWorkflowHarnessSemanticSupportArtifactRefSchema = 
   },
   allOf: [
     ...semanticArtifactSlotRules,
+    {
+      if: { required: ['runtime_provenance_class'], properties: { runtime_provenance_class: { const: 'debate_derived' } } },
+      then: {
+        required: ['debate_derivation'],
+        properties: {
+          slot_id: { enum: ['n6_question_candidate_draft', 'n8_value_assessment_draft'] },
+          execution_mode: { const: 'codex_cli' }, allowed_effect: { const: 'model_draft_for_gate' },
+          runtime_audit_ref: strictArtifactFunctionalRefSchema, runtime_audit_hash: hashString,
+        },
+      },
+      else: { properties: { debate_derivation: false } },
+    },
     {
       if: {
         required: ['runtime_provenance_class'],

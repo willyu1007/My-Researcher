@@ -34,6 +34,7 @@ import {
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
+  topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
   type TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection,
   type TopicSelectionV1bN8BoundedDebateRoleSlotId,
   type TopicSelectionV1bN8HarnessFrozenInputPayload,
@@ -44,6 +45,7 @@ import { AppError } from '../errors/app-error.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
 import { defaultLlmConfig } from './llm-config-loader.js';
+import { recordDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
 import { resolveDebatePriorOutputs } from './topic-selection-debate-role-context.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import type { ResolvedTopicSelectionDecisionMemoryPacket } from './topic-selection-decision-memory-projection-service.js';
@@ -104,6 +106,28 @@ const ROLE_OUTPUT_SCHEMA = {
   },
 } as const;
 
+function cliRoleSchema(slot: TopicSelectionV1bN8BoundedDebateRoleSlotId): Record<string, unknown> {
+  const fields: Record<string, unknown> = slot === 'n8_debate_value_critic'
+    ? { critic_findings: { type: 'array', items: {
+      type: 'object', additionalProperties: false, required: ['finding_code', 'severity', 'statement'],
+      properties: { finding_code: { type: 'string' }, severity: { enum: ['note', 'material', 'blocking'] }, statement: { type: 'string' } },
+    } } }
+    : {
+      assessment_draft: topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
+      ...(slot === 'n8_debate_assessor_repair' || slot === 'n8_debate_synthesizer_final' ? {
+        repair_actions: { type: 'array', items: {
+          type: 'object', additionalProperties: false, required: ['finding_code', 'action', 'resolved'],
+          properties: { finding_code: { type: 'string' }, action: { type: 'string' }, resolved: { type: 'boolean' } },
+        } },
+      } : {}),
+    };
+  return {
+    type: 'object', additionalProperties: false,
+    required: ['schema_version', 'role_slot', ...Object.keys(fields)],
+    properties: { schema_version: { const: OUTPUT_CONTRACT }, role_slot: { const: slot }, ...fields },
+  };
+}
+
 const CONTEXT_PROFILE_BY_SLOT: Record<TopicSelectionV1bN8BoundedDebateRoleSlotId, string> = {
   n8_debate_assessor_draft: TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.assessor_draft,
   n8_debate_value_critic: TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.value_critic,
@@ -120,6 +144,7 @@ interface V1bN8DebateHandoff {
   projection: TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection;
   decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
   baseSourceHashes: Record<string, string>;
+  researchContext?: Record<string, unknown>;
   requiredStructureManifest: unknown;
   requiredStructureManifestHash: string;
   baseSourceRefs: TopicSelectionFunctionalRef[];
@@ -147,10 +172,10 @@ export type GenerateTopicSelectionV1bN8DebateInput = {
    *  threads from a named execution plan) but DORMANT — the runDebate entry guard rejects it while
    *  TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant holds. Live wiring (role outputs, gate-bridge
    *  provenance, runMode default) lands with the W-19 turn-on. */
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm' | 'provider_llm'>;
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm' | 'provider_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
   /** per-role codex/mock outputs (keyed by role slot id). */
-  role_outputs: Partial<Record<TopicSelectionV1bN8BoundedDebateRoleSlotId, V1bN8DebateInputs>>;
+  role_outputs?: Partial<Record<TopicSelectionV1bN8BoundedDebateRoleSlotId, V1bN8DebateInputs>>;
   created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
   /** T-127 W-09 (DP-3.5): optional named provider-diverse execution plan (debate_level -> named plan),
    *  per-role model_option_id override. Absent -> unchanged single-profile behavior. */
@@ -170,7 +195,7 @@ export type TopicSelectionV1bN8DebateRunResult =
     status: 'completed';
     admission: Extract<TopicSelectionV1bN8BoundedDebateAdmissionResult, { admitted: true }>;
     /** The semantic-support artifact the harness gate consumes (single-agent identity). */
-    gate_draft: Awaited<ReturnType<TopicSelectionV1bN8ValueAssessmentRuntimeService['generateDraftArtifact']>>;
+    gate_draft: Awaited<ReturnType<TopicSelectionV1bN8ValueAssessmentRuntimeService['generateDraftArtifact']>> | Awaited<ReturnType<typeof recordDebateDerivedDraft>>;
     loop_transcript_hash: string;
   };
 
@@ -180,6 +205,7 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
   private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
   private readonly core: TopicSelectionBoundedDebateCoreService;
+  private readonly resolveResearchContext: ((request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>) | undefined;
   private readonly singleAgent: TopicSelectionV1bN8ValueAssessmentRuntimeService;
   private readonly strategy: V1bN8DebateStrategy;
 
@@ -187,12 +213,14 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
     private readonly controlPlane: TopicSelectionControlPlaneService,
     options: {
       agentOrchestrator?: TopicSelectionAgentOrchestratorService;
+      resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
       promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
       singleAgentRuntime?: TopicSelectionV1bN8ValueAssessmentRuntimeService;
     } = {},
   ) {
+    this.resolveResearchContext = options.resolveResearchContext;
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -246,11 +274,20 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
     // input type (Pick<>) structurally excludes model_option_id, so the guard is unreachable via the only
     // production path; it guards a FUTURE direct caller separately wired to populate model_option_id (a live
     // provider_llm path landing does not by itself populate it).
+    if (input.execution_mode === 'codex_cli' && (input.role_outputs != null
+      || input.execution_plan != null || input.model_option_id != null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex CLI generates its own role outputs and does not accept external answers or gateway model options.');
+    }
     const mixingError = debateExecutionPlanMixingError(input.execution_plan ?? null, input.model_option_id);
     if (mixingError) {
       throw new AppError(400, 'INVALID_PAYLOAD', mixingError);
     }
-    const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+    const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : input.execution_mode === 'codex_cli' ? 'product' : 'acceptance');
+    if (input.execution_mode === 'codex_cli' && !this.resolveResearchContext) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex Debate requires the product frozen-research context resolver.');
+    }
+    const researchContext = input.execution_mode === 'codex_cli'
+      ? await this.resolveResearchContext!(input.request) : undefined;
     const shared = await this.singleAgent.resolveSharedN8RuntimeContext(input.request);
     const handoff: V1bN8DebateHandoff = {
       request: input.request,
@@ -259,7 +296,8 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
       projectionHash: shared.projection.hash,
       projection: shared.projection.payload,
       decisionMemory: shared.decisionMemory,
-      baseSourceHashes: shared.sourceHashes,
+      researchContext,
+      baseSourceHashes: { ...shared.sourceHashes, ...(researchContext ? { research_context_hash: canonicalHash(researchContext) } : {}) },
       requiredStructureManifest: shared.requiredStructureManifest,
       requiredStructureManifestHash: canonicalHash(shared.requiredStructureManifest),
       baseSourceRefs: this.strategy.baseSourceRefs(input.request, shared.frozenPayload, shared.projection.payload, shared.projection.ref),
@@ -285,7 +323,7 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
         modelOptionId: input.model_option_id ?? null,
         createdBy: input.created_by ?? input.request.created_by ?? 'system',
       },
-      (slot) => input.role_outputs[slot] ?? { codex_response: null, mocked_output: null },
+      (slot) => input.role_outputs?.[slot] ?? { codex_response: null, mocked_output: null },
     );
     if (loop.status !== 'completed') {
       return { status: 'role_blocked', loop };
@@ -315,7 +353,12 @@ export class TopicSelectionV1bN8BoundedDebateRuntimeService {
     // orchestrator by design — the honest mocked-cannot-run-in-product invariant, DMP-09.)
     const draftPayload = admissionResult.assessment_draft as unknown as TopicSelectionV1bTopicValueAssessmentDraftPayload;
     const bridgeFixtureId = `n8_debate_bridge_${input.request.node_attempt_id}`;
-    const gateDraft = await this.singleAgent.generateDraftArtifact({
+    const gateDraft = input.execution_mode === 'codex_cli'
+      ? await recordDebateDerivedDraft(this.controlPlane, {
+        request: input.request, slot_id: 'n8_value_assessment_draft', final_role: loop.final_role_artifact,
+        loop_transcript_hash: loop.loop_transcript_hash,
+      })
+      : await this.singleAgent.generateDraftArtifact({
       request: input.request,
       execution_mode: input.execution_mode,
       run_mode: runMode,
@@ -453,6 +496,7 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
       source_refs: ctx.handoff.baseSourceRefs,
       source_hashes: sourceHashes,
       frozen_input_payload: ctx.handoff.frozenPayload,
+      ...(ctx.handoff.researchContext ? { research_context: ctx.handoff.researchContext } : {}),
       n7_to_n8_projection_ref: ctx.handoff.projectionRef,
       n7_to_n8_projection_hash: ctx.handoff.projectionHash,
       n7_to_n8_projection: ctx.handoff.projection,
@@ -525,7 +569,7 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
       prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: PROMPT_TEMPLATE.version },
       prompt_variant_key: this.invocationSlotId(ctx.slotId),
       schema_name: OUTPUT_CONTRACT,
-      schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
+      schema: ctx.executionMode === 'codex_cli' ? cliRoleSchema(ctx.slotId) : ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
       created_by: ctx.createdBy,
     };
   }

@@ -5,8 +5,8 @@ Align the existing topic-selection agent execution policies and make the complet
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 — approved implementation begins with N6/N8 context and provenance
-- Next step: Complete role artifact recovery and the deterministic Debate-derived draft bridge, then hydrate frozen research bodies and connect canonical N6/N8 Codex routes. Prior-role body resolution and persisted CLI attempt exclusion/replay passed focused checks; product admission remains closed.
+- Current phase: Phase 2 — context, attempt recovery and derived-draft foundation implemented
+- Next step: Connect canonical CLI requests, ordinary N8, admission support and exact-delta refinement; qualify role prompts and product-entry behavior before opening profiles. Shared runner composition, frozen source compiler, deterministic Debate projection and relational attempt exclusion are implemented; product admission remains closed.
 - Blocker: None. Planning and implementation through Phase 2 were approved on 2026-09-09; kickoff is ready. Live qualification inputs and budget will be made concrete before model checks.
 
 ## Done when

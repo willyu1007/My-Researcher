@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -19,7 +22,11 @@ import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionContextPolicyProfileRegistryService } from './topic-selection-context-policy-profile-registry-service.js';
-import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
+import { TopicSelectionModelProfileRegistryService, createDefaultTopicSelectionModelProfileRegistry } from './topic-selection-model-profile-registry-service.js';
+import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { TopicSelectionBoundedDebateCoreService } from './topic-selection-bounded-debate-core-service.js';
+import { recordDebateDerivedDraft, verifyDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
 import { TopicSelectionPromptPacketRuntimeService } from './topic-selection-prompt-packet-runtime-service.js';
 import {
   PROMPT_TEMPLATE_ID_BY_SLOT,
@@ -61,6 +68,71 @@ const NA = 'na-1';
 const PV = 'pv-1';
 const EM = 'codex_assisted' as const;
 const RM = 'product' as const;
+
+test('CLI role replay keeps prior output refs stable and does not repeat the four model calls', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'n6-role-replay-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.'))) {
+    profile.allowed_execution_modes.push('codex_cli');
+    profile.run_mode_eligibility.codex_cli = ['acceptance'];
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const strategy = new V1bN6DivergentDebateStrategy(new TopicSelectionContextPolicyProfileRegistryService(),
+    modelProfileRegistry, new TopicSelectionPromptPacketRuntimeService(), controlPlane);
+  let calls = 0;
+  const makeCore = () => new TopicSelectionBoundedDebateCoreService({ controlPlane,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({
+      controlPlane, modelProfileRegistry, codexCliModelId: 'gpt-6-astra',
+      codexCliRunner: new TopicSelectionCodexCliRunnerService({
+        codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
+      }, async (args, options) => {
+        if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+        calls += 1;
+        const packet: { role_slot: TopicSelectionV1bN6DivergentDebateRoleSlotId } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+        const slot = packet.role_slot;
+        const stdout = [
+          { type: 'thread.started', thread_id: `thread-${calls}` },
+          { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify({
+            ...outputFor(slot, calls), ...(slot === 'n6_debate_arbiter' ? { synthesized_candidate_set: e2eCandidateSetDraft() } : {}),
+          }) } },
+        ].map(event => JSON.stringify(event)).join('\n');
+        return { stdout, stderr: '', exit_code: 0, timed_out: false };
+      }),
+    }),
+  });
+  const request = { ...e2eRequest(), run_mode: 'acceptance' as const, workflow_run_id: WFR, node_attempt_id: NA, title_card_id: 'tc-1', policy_version: PV };
+  const base = { handoff: { ...handoff, request, baseSourceHashes: {
+    ...handoff.baseSourceHashes, frozen_input_hash: request.frozen_input.frozen_input_hash ?? canonicalHash(request.frozen_input),
+  } }, workflowRunId: WFR, nodeAttemptId: NA, executionMode: 'codex_cli' as const,
+    runMode: 'acceptance' as const, policyVersion: PV, modelOptionId: null, createdBy: 'system' as const };
+  const inputs = (_slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, index: number) => ({
+    instance_index: index, codex_response: null, mocked_output: null,
+  });
+  const first = await makeCore().runDivergentLoop(strategy, base, inputs);
+  assert.equal(first.status, 'completed');
+  const replay = await makeCore().runDivergentLoop(strategy, base, inputs);
+  assert.equal(replay.status, 'completed');
+  assert.equal(calls, 4);
+  assert.deepEqual(replay.ordered_role_artifacts.map(role => role.normalized_output_ref),
+    first.ordered_role_artifacts.map(role => role.normalized_output_ref));
+  assert.equal(first.status, 'completed');
+  if (first.status !== 'completed') return;
+  const derived = await recordDebateDerivedDraft(controlPlane, {
+    request, slot_id: 'n6_question_candidate_draft', final_role: first.final_role_artifact,
+    loop_transcript_hash: first.loop_transcript_hash,
+  });
+  assert.equal(calls, 4, 'Projecting the final role must not invoke another model.');
+  assert.equal(derived.semantic_artifact.runtime_provenance_class, 'debate_derived');
+  assert.equal(derived.semantic_artifact.runtime_audit_ref?.ref_id, first.final_role_artifact.runtime_audit_ref?.ref_id);
+  assert.deepEqual(derived.structured_output, first.final_structured_output.synthesized_candidate_set);
+  await assert.rejects(verifyDebateDerivedDraft(controlPlane, request, {
+    ...derived.semantic_artifact, normalized_output_hash: 'f'.repeat(64),
+  }), /drifted/);
+  await assert.rejects(verifyDebateDerivedDraft(controlPlane, { ...request, node_attempt_id: 'different-attempt' },
+    derived.semantic_artifact), /drifted/);
+});
 
 test('CLI Critic receives both persisted Explorer bodies and refuses content drift', async () => {
   const repository = new InMemoryTopicSelectionControlPlaneRepository();
@@ -474,6 +546,7 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
   assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(input.request.workflow_run_id)).length, before.length,
     'completed replay after runtime reconstruction performs no role or bridge work');
   const changed = structuredClone(input);
+  assert.ok(changed.role_outputs);
   changed.role_outputs.n6_debate_arbiter![0]!.mocked_output!.output.synthesized_candidate_set = {
     ...e2eCandidateSetDraft(), generation_notes: ['Changed response under an existing attempt'],
   };

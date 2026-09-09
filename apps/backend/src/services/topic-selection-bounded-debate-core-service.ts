@@ -117,6 +117,9 @@ export class TopicSelectionBoundedDebateCoreService {
     const contextPacketHash = this.hash(contextPacket);
     const scope = strategy.contextArtifactScope(ctx);
     const contextArtifact = await this.deps.controlPlane.recordArtifactRef({
+      ...(ctx.executionMode === 'codex_cli' ? {
+        stable_key: `debate-context:${this.hash([ctx.workflowRunId, ctx.nodeAttemptId, runtimeInvocationContextHash, contextPacketHash])}`,
+      } : {}),
       workspace_id: scope.workspace_id,
       title_card_id: scope.title_card_id,
       artifact_kind: 'diagnostic',
@@ -163,6 +166,9 @@ export class TopicSelectionBoundedDebateCoreService {
     }
     const outputScope = strategy.outputArtifactScope(ctx);
     const outputArtifact = await this.deps.controlPlane.recordArtifactRef({
+      ...(ctx.executionMode === 'codex_cli' ? {
+        stable_key: `debate-output:${this.hash([ctx.workflowRunId, ctx.nodeAttemptId, invocation.provenance.invocation_attempt_id, outputHash])}`,
+      } : {}),
       workspace_id: outputScope.workspace_id,
       title_card_id: outputScope.title_card_id,
       artifact_kind: 'structured_output',

@@ -266,7 +266,7 @@ export class TopicSelectionAgentOrchestratorService {
     codexCliModelId?: string | null;
     mcpScopeStore?: TopicSelectionMcpScopeStore | null;
     /** Where the product serves its tool surface. Absent means the line runs without tools. */
-    mcpEndpointUrl?: string | null;
+    mcpEndpointUrl?: string | (() => string | null) | null;
     now?: () => string;
   } = {}) {
     this.codexCliRunner = options.codexCliRunner ?? null;
@@ -293,7 +293,7 @@ export class TopicSelectionAgentOrchestratorService {
 
   private readonly mcpScopeStore: TopicSelectionMcpScopeStore | null;
 
-  private readonly mcpEndpointUrl: string | null;
+  private readonly mcpEndpointUrl: string | (() => string | null) | null;
 
   async invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
@@ -1122,7 +1122,7 @@ export class TopicSelectionAgentOrchestratorService {
     invocationAttemptId: string,
   ): { handle: string } | null {
     const evidence = input.mcp_evidence ?? null;
-    if (!this.mcpScopeStore || !this.mcpEndpointUrl || !evidence || evidence.length === 0) {
+    if (!this.mcpScopeStore || !this.resolvedMcpEndpoint() || !evidence || evidence.length === 0) {
       return null;
     }
     return this.mcpScopeStore.mint({
@@ -1134,9 +1134,14 @@ export class TopicSelectionAgentOrchestratorService {
     });
   }
 
+  private resolvedMcpEndpoint(): string | null {
+    return typeof this.mcpEndpointUrl === 'function' ? this.mcpEndpointUrl() : this.mcpEndpointUrl;
+  }
+
   private codexCliMcpServers(scoped: boolean): TopicSelectionCodexCliMcpServer[] {
-    return scoped && this.mcpEndpointUrl
-      ? [{ name: 'research', url: this.mcpEndpointUrl }]
+    const endpoint = this.resolvedMcpEndpoint();
+    return scoped && endpoint
+      ? [{ name: 'research', url: endpoint }]
       : [];
   }
 

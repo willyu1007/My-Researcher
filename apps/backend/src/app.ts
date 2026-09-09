@@ -1,3 +1,4 @@
+import { createTopicSelectionCodexCliRunnerFromEnv } from './services/topic-selection-codex-cli-runner-service.js';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { AutoPullController } from './controllers/auto-pull-controller.js';
 import { ExperimentFoundationExecutionController } from './controllers/experiment-foundation-execution-controller.js';
@@ -150,7 +151,7 @@ import { registerTopicSettingsRoutes } from './routes/topic-settings-routes.js';
 import { registerTopicSelectionV1aRoutes } from './routes/topic-selection-v1a-routes.js';
 import { registerTopicSelectionV1bRoutes } from './routes/topic-selection-v1b-routes.js';
 import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-routes.js';
-import { registerTopicSelectionMcpRoutes } from './routes/topic-selection-mcp-routes.js';
+import { registerTopicSelectionMcpRoutes, TOPIC_SELECTION_MCP_ENDPOINT_PATH } from './routes/topic-selection-mcp-routes.js';
 import { TopicSelectionMcpProtocolService } from './services/topic-selection-mcp-protocol-service.js';
 import {
   TopicSelectionMcpScopeStore,
@@ -402,6 +403,7 @@ import { DurableOutboxGovernanceEventDeliveryAdapter } from './services/event-de
 type RepositoryStrategy = 'memory' | 'prisma';
 
 export type BuildAppOptions = {
+  topicSelectionCodexCli?: ReturnType<typeof createTopicSelectionCodexCliRunnerFromEnv>;
   topicSelectionV1aLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   topicSelectionV1cPromotionGateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationTraceIntegrityDebateLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
@@ -1231,6 +1233,23 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     createTopicSelectionResearchRoleTools(),
     topicSelectionMcpScopeStore,
   );
+  const topicSelectionCodexCli = options.topicSelectionCodexCli === undefined
+    ? createTopicSelectionCodexCliRunnerFromEnv() : options.topicSelectionCodexCli;
+  let topicSelectionMcpEndpoint: string | null = null;
+  app.addHook('onListen', async () => {
+    const address = app.server.address();
+    if (address && typeof address !== 'string') {
+      const host = address.family === 'IPv6' ? '[::1]' : '127.0.0.1';
+      topicSelectionMcpEndpoint = `http://${host}:${address.port}${TOPIC_SELECTION_MCP_ENDPOINT_PATH}`;
+    }
+  });
+  app.addHook('onClose', async () => { await topicSelectionCodexCli?.runner.shutdown(); });
+  const topicSelectionV1bAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService, llmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+    codexCliRunner: topicSelectionCodexCli?.runner, codexCliModelId: topicSelectionCodexCli?.model_id,
+    mcpScopeStore: topicSelectionMcpScopeStore, mcpEndpointUrl: () => topicSelectionMcpEndpoint,
+  });
   const topicSelectionContextPolicyProfileRegistryService =
     new TopicSelectionContextPolicyProfileRegistryService();
   const topicSelectionV1aAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
@@ -1322,6 +1341,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionV1bWorkflowHarnessService = new TopicSelectionV1bWorkflowHarnessService(
     topicSelectionControlPlaneService,
     {
+      agentOrchestrator: topicSelectionV1bAgentOrchestratorService,
+      evidencePacketResolver: topicSelectionResearchEvidencePacketService,
       runnerDependencies: {
         evidenceMapRepository: topicSelectionEvidenceMapRepository,
         needValidationRepository: topicSelectionNeedValidationRepository,
@@ -1341,14 +1362,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     controlPlane: topicSelectionControlPlaneService,
     researchCheckpointStatus: topicSelectionResearchCheckpointService,
     topicQuestionRepository: topicSelectionV1bTopicQuestionRepository,
-    // Caller-side debate runtimes the coordinator drives on an N6 escalation / N8 bounded-debate
-    // frontier (T-127 W-07 item a). They default-construct their own orchestrator/registries from
-    // the full control plane; the harness only detects + routes the escalation.
-    n6DivergentDebateRuntime: new TopicSelectionV1bN6DivergentDebateRuntimeService(topicSelectionControlPlaneService),
+    // Debate consumers share the application runner and scoped frozen-source compiler.
+    n6DivergentDebateRuntime: new TopicSelectionV1bN6DivergentDebateRuntimeService(topicSelectionControlPlaneService, {
+      agentOrchestrator: topicSelectionV1bAgentOrchestratorService,
+      resolveResearchContext: request => topicSelectionV1bWorkflowHarnessService.resolveCodexResearchContext(request),
+    }),
     n6RefinementDeltaDebateRuntime: new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(
       topicSelectionControlPlaneService,
     ),
-    n8BoundedDebateRuntime: new TopicSelectionV1bN8BoundedDebateRuntimeService(topicSelectionControlPlaneService),
+    n8BoundedDebateRuntime: new TopicSelectionV1bN8BoundedDebateRuntimeService(topicSelectionControlPlaneService, {
+      agentOrchestrator: topicSelectionV1bAgentOrchestratorService,
+      resolveResearchContext: request => topicSelectionV1bWorkflowHarnessService.resolveCodexResearchContext(request),
+    }),
   });
   const topicSelectionV1bController = new TopicSelectionV1bController(
     topicSelectionV1bResearchSliceService,

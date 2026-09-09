@@ -1,3 +1,6 @@
+import type { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
+import type { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
+import { verifyDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
 import crypto from 'node:crypto';
 import {
   type TopicSelectionAgentRunMode,
@@ -786,6 +789,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private readonly n8ValueAssessmentAdmission = new TopicSelectionV1bN8ValueAssessmentAdmissionService();
   private readonly n8ValueAssessmentRuntime: TopicSelectionV1bN8ValueAssessmentRuntimeService;
   private readonly runnerDependencies: HarnessRunnerDependencies;
+  private readonly evidencePacketResolver: Pick<TopicSelectionResearchEvidencePacketService, 'resolve'> | undefined;
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
@@ -793,34 +797,45 @@ export class TopicSelectionV1bWorkflowHarnessService {
       idFactory?: IdFactory;
       now?: () => string;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
+      agentOrchestrator?: TopicSelectionAgentOrchestratorService;
       runnerDependencies?: HarnessRunnerDependencies;
+      evidencePacketResolver?: Pick<TopicSelectionResearchEvidencePacketService, 'resolve'>;
     } = {},
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
     this.n4ResearchSliceRuntime = new TopicSelectionV1bN4ResearchSliceRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.earlySemanticSupportRuntime = new TopicSelectionV1bEarlySemanticSupportRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.n6DraftRuntime = new TopicSelectionV1bN6DraftRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.n6DebateRuntime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry, singleAgentRuntime: this.n6DraftRuntime,
+      resolveResearchContext: request => this.resolveCodexResearchContext(request),
     });
     this.n6LoopbackTriageRuntime = new TopicSelectionV1bN6LoopbackTriageRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.n7SupportRuntime = new TopicSelectionV1bN7SupportRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.n8ValueAssessmentRuntime = new TopicSelectionV1bN8ValueAssessmentRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.runnerDependencies = options.runnerDependencies ?? {};
+    this.evidencePacketResolver = options.evidencePacketResolver;
   }
 
   getNodePolicies(): readonly TopicSelectionV1bWorkflowHarnessNodePolicy[] {
@@ -1061,9 +1076,52 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
   }
 
+  /** Read the frozen domain bodies through the same lineage checks the product gates use. */
+  async resolveCodexResearchContext(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<Record<string, unknown>> {
+    const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
+    if (dependencyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependencyBlocker.message);
+    let bodies: N6LoadedContext | N8LoadedContext;
+    if (input.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
+      const prepared = await this.prepareN6Context(input);
+      if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
+      bodies = prepared.value;
+    } else if (input.node_id === 'topic-selection.v1b.assess-topic-value.v1') {
+      const payload = parseN8Payload(input.frozen_input.payload);
+      if (!payload.ok) throw new AppError(400, 'INVALID_PAYLOAD', payload.message);
+      const loaded = await this.loadN8Context(input, payload.value);
+      if (!loaded.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', loaded.message);
+      const blocker = this.n8LineageBlocker(payload.value, loaded.value);
+      if (blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', blocker.message);
+      bodies = loaded.value;
+    } else {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N6/N8.');
+    }
+    const evidenceRefs = uniqueRefs(bodies.evidenceRefs.map(row => row.evidence_ref));
+    if (!input.title_card_id || !this.evidencePacketResolver) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context requires a title and configured evidence packet resolver.');
+    }
+    if (evidenceRefs.some(ref => ref.ref_type !== 'evidence_unit')) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Frozen research evidence must resolve to scoped EvidenceUnits before Codex execution.');
+    }
+    const evidencePackets = [];
+    for (let offset = 0; offset < evidenceRefs.length; offset += 12) {
+      evidencePackets.push(await this.evidencePacketResolver.resolve({
+        schema_version: 'TopicSelectionResearchEvidencePacketRequest@v1', title_card_id: input.title_card_id,
+        participant_role: 'synthesis_arbiter',
+        query_intent: {
+          intent_type: 'support', query: bodies.researchSlice.slice_statement,
+          target_claim: bodies.researchSlice.expected_claim,
+          rationale: 'Resolve the frozen question/value review evidence without changing its scope.',
+        },
+        evidence_unit_refs: evidenceRefs.slice(offset, offset + 12),
+      }));
+    }
+    return { frozen_domain: bodies, evidence_packets: evidencePackets };
+  }
+
   private async prepareN6Context(
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
-  ): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+  ): Promise<{ ok: true; value: N6LoadedContext } | { ok: false; code: string; message: string }> {
     const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
     if (dependencyBlocker) {
       return { ok: false, code: dependencyBlocker.code, message: dependencyBlocker.message };
@@ -1080,7 +1138,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (lineageBlocker) {
       return { ok: false, code: lineageBlocker.code, message: lineageBlocker.message };
     }
-    return { ok: true };
+    return { ok: true, value: loaded.value };
   }
 
   private async prepareN4Context(
@@ -1325,6 +1383,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       'slot_spec_hash',
       'provenance_ref',
       'runtime_provenance_class',
+      'debate_derivation',
       'context_policy_profile_id',
       'context_policy_profile_version',
       'context_policy_profile_hash',
@@ -1384,6 +1443,25 @@ export class TopicSelectionV1bWorkflowHarnessService {
     assertFunctionalRef(value.provenance_ref, `${fieldName}.provenance_ref`, { allowLegacyRef: false });
     if (!RUNTIME_PROVENANCE_CLASS_SET.has(value.runtime_provenance_class as string)) {
       throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.runtime_provenance_class is invalid.`);
+    }
+    if (value.runtime_provenance_class === 'debate_derived') {
+      const derivation = value.debate_derivation;
+      const keys = ['parent_output_ref', 'parent_output_hash', 'parent_profile_id', 'parent_slot_id', 'projection_key', 'loop_transcript_hash'];
+      if (!isRecord(derivation) || Object.keys(derivation).some(key => !keys.includes(key))
+        || !['n6_question_candidate_draft', 'n8_value_assessment_draft'].includes(value.slot_id as string)
+        || value.execution_mode !== 'codex_cli' || value.allowed_effect !== 'model_draft_for_gate'
+        || !value.runtime_audit_ref || !value.runtime_audit_hash) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName} has an invalid Debate derivation contract.`);
+      }
+      assertFunctionalRef(derivation.parent_output_ref, `${fieldName}.debate_derivation.parent_output_ref`, { allowLegacyRef: false });
+      for (const key of ['parent_output_hash', 'loop_transcript_hash']) {
+        assertHash(derivation[key] as string | undefined, `${fieldName}.debate_derivation.${key}`);
+      }
+      for (const key of ['parent_profile_id', 'parent_slot_id', 'projection_key']) {
+        assertNonEmpty(derivation[key] as string | undefined, `${fieldName}.debate_derivation.${key}`);
+      }
+    } else if (value.debate_derivation !== undefined) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `${fieldName}.debate_derivation requires debate_derived provenance.`);
     }
     assertOptionalStringId(
       value.context_policy_profile_id as string | null | undefined,
@@ -7402,6 +7480,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N8 TopicValueAssessmentDraft payload hash does not match semantic artifact provenance.',
       };
     }
+    if (semanticArtifact.runtime_provenance_class === 'debate_derived') {
+      try {
+        await verifyDebateDerivedDraft(this.controlPlane, input, semanticArtifact);
+      } catch (error) {
+        if (!(error instanceof AppError)) throw error;
+        return { ok: false, code: 'N8_DRAFT_ARTIFACT_RUNTIME_CONTEXT_DRIFT', message: error.message };
+      }
+      return { ok: true, value: { artifactRefs: uniqueRefs([semanticArtifact.support_artifact_ref, semanticArtifact.normalized_output_ref, semanticArtifact.provenance_ref]), draft: draftPayload, draftHash, semanticArtifact } };
+    }
     if (
       semanticArtifact.runtime_provenance_class === 'runtime_verified'
       && semanticArtifact.execution_mode !== 'codex_assisted'
@@ -9750,6 +9837,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
         code: 'N6_FROZEN_DRAFT_ARTIFACT_HASH_MISMATCH',
         message: 'N6 TopicQuestionCandidateSetDraft payload hash does not match semantic artifact provenance.',
       };
+    }
+    if (semanticArtifact.runtime_provenance_class === 'debate_derived') {
+      try {
+        await verifyDebateDerivedDraft(this.controlPlane, input, semanticArtifact);
+      } catch (error) {
+        if (!(error instanceof AppError)) throw error;
+        return { ok: false, code: 'N6_DRAFT_ARTIFACT_RUNTIME_CONTEXT_DRIFT', message: error.message };
+      }
+      return { ok: true, artifactRefs: uniqueRefs([semanticArtifact.support_artifact_ref, semanticArtifact.normalized_output_ref, semanticArtifact.provenance_ref]), draft: draftPayload, draftHash, semanticArtifact };
     }
     if (
       semanticArtifact.runtime_provenance_class === 'runtime_verified'
