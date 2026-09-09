@@ -896,7 +896,7 @@ test('a standalone execution_spec is reserved-rejected before any harness call (
       workflow_run_id: RUN,
       node_inputs: { [N4]: { execution_spec: { execution_mode: 'provider_llm', model_option_id: 'm1' } } },
     }),
-    /execution_spec is reserved outside the integrated N6\/N8 codex_cli route/,
+    /execution_spec is reserved outside the integrated .* codex_cli route/,
   );
   assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 0);
 });

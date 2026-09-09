@@ -11253,7 +11253,7 @@ components:
         admitted semantic support artifact. Non-model nodes reject execution_spec; deterministic-only
         nodes reject semantic artifacts. N4/N6/N8 require runtime-admitted model drafts and matching
         provenance. Structural validation does not replace the harness admission gate or rewrite
-        historical blocked attempts. N6/N8 additionally consume codex_cli execution_spec without
+        historical blocked attempts. N6, N7 N8-Debate admission support, and N8 additionally consume codex_cli execution_spec without
         semantic_artifacts to generate drafts through the product runner; defaults to product mode,
         rejects gateway model options, and requires eligible profiles. Shipped CLI profiles remain
         closed pending real-input qualification. N8 checks the question Human checkpoint before execution.

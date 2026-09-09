@@ -502,7 +502,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N7TopicQuestionContractGate',
     required_for_progress: false,
     fallback_policy: 'deterministic_fallback',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -1328,7 +1328,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     model_option_id_allowed: false,
     codex_support_allowed: true,
     delegated_payload_allowed: true,
-    allowed_execution_modes: ['none', 'codex_assisted', 'human_delegated', 'mocked_llm'],
+    allowed_execution_modes: ['none', 'codex_cli', 'codex_assisted', 'human_delegated', 'mocked_llm'],
     semantic_support_slots: slotsFor('topic-selection.v1b.materialize-topic-question-contract.v1'),
     route_edges: [
       {

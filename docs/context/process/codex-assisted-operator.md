@@ -17,7 +17,7 @@ separates the immediate rehearsal from a later product integration.
 
 ## Product-driven CLI integration (qualification pending)
 
-N6/N8 canonical harness `invocations` and coordinator `advance` consume
+N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` consume
 `execution_spec: { execution_mode: "codex_cli", model_option_id: null }`. This branch defaults to
 `product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
@@ -37,8 +37,10 @@ The existing factory also accepts `TOPIC_SELECTION_CODEX_REASONING_EFFORT`,
 Completed attempts reuse persisted results; an interrupted claim without a recorded outcome
 requires an explicit new attempt identity. Never automatically retry ambiguous metered work.
 
-N7 admission support, exact-delta refinement, and live qualification remain unfinished in this
-integration checkpoint. The external operator paths below remain the usable shipped route.
+N7 consumes the CLI setting to generate `n7_n8_debate_admission_review` support on initial and
+N8-feedback entry. Its mechanical contract selection and Human boundary remain unchanged;
+completed entry requests reuse their support and gate results. Exact-delta refinement and live
+qualification remain unfinished in this integration checkpoint. The external operator paths below remain the usable shipped route.
 
 ## Regular N6 question candidates
 

@@ -828,6 +828,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.n7SupportRuntime = new TopicSelectionV1bN7SupportRuntimeService(controlPlane, {
+      resolveResearchContext: request => this.resolveCodexResearchContext(request),
       agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
@@ -1087,7 +1088,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   async resolveCodexResearchContext(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<Record<string, unknown>> {
     const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
     if (dependencyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependencyBlocker.message);
-    let bodies: N6LoadedContext | N8LoadedContext;
+    let bodies: N6LoadedContext | N8LoadedContext | (N7LoadedContext & Pick<N6LoadedContext, 'researchSlice' | 'evidenceRefs'>);
     if (input.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
       const prepared = await this.prepareN6Context(input);
       if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
@@ -1105,8 +1106,23 @@ export class TopicSelectionV1bWorkflowHarnessService {
           loaded.value.contract.title_card_id, loaded.value.contract.version),
       });
       bodies = loaded.value;
+    } else if (input.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1') {
+      const payload = parseN7Payload(input.frozen_input.payload);
+      if (!payload.ok) throw new AppError(400, 'INVALID_PAYLOAD', payload.message);
+      const loaded = await this.loadN7Context(input, payload.value);
+      if (!loaded.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', loaded.message);
+      const blocker = this.n7LineageBlocker(payload.value, loaded.value);
+      if (blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', blocker.message);
+      const repository = this.runnerDependencies.researchSliceRepository;
+      if (!repository) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N7 Codex requires a configured researchSliceRepository.');
+      const researchSlice = await repository.findResearchSliceById(payload.value.selected_research_slice_ref.ref_id);
+      if (!researchSlice || researchSlice.title_card_id !== input.title_card_id || researchSlice.status !== 'selected') {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N7 Codex requires the exact frozen ResearchSlice.');
+      }
+      const evidenceRefs = await repository.listEvidenceRefsByResearchSliceId(researchSlice.research_slice_id);
+      bodies = { ...loaded.value, researchSlice, evidenceRefs };
     } else {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N6/N8.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N6/N7/N8.');
     }
     const evidenceRefs = uniqueRefs(bodies.evidenceRefs.map(row => row.evidence_ref));
     if (!input.title_card_id || !this.evidencePacketResolver) {
@@ -1265,6 +1281,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private async invokeCliNode(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    if (input.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1') return this.invokeCliN7Admission(input);
     if (input.execution_spec?.model_option_id != null || ![
       'topic-selection.v1b.generate-topic-question-candidates.v1', 'topic-selection.v1b.assess-topic-value.v1',
     ].includes(input.node_id)) {
@@ -1312,6 +1329,47 @@ export class TopicSelectionV1bWorkflowHarnessService {
         artifact = generated.semantic_artifact;
       }
     }
+    return this.invokeNode({ ...request, semantic_artifacts: [artifact] });
+  }
+
+  private async invokeCliN7Admission(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    if (input.execution_spec?.model_option_id != null || input.profile_id != null) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI admission support uses its fixed slot profile without gateway options.');
+    }
+    const payload = parseN7Payload(input.frozen_input.payload);
+    if (!payload.ok || !['initial_from_n6', 'feedback_from_n8'].includes(payload.value.input_mode)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI admission support requires an initial or N8 feedback context.');
+    }
+    // The execution setting selects support generation; N7 itself remains deterministic.
+    const request = { ...input, execution_spec: undefined, run_mode: input.run_mode ?? 'product' as const };
+    const preflight = { ...request, run_mode: undefined };
+    const policy = this.getNodePolicy(request.node_id);
+    const blocker = this.policyBlocker(policy, preflight, this.hashContext(preflight, null));
+    if (blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', blocker.message);
+    const receiptKey = `n7-cli-admission-input:${canonicalHash([request.workflow_run_id, request.node_attempt_id])}`;
+    const requestHash = canonicalHash({ request, runtime: this.n7SupportRuntime.cliAdmissionIdentity(request.run_mode) });
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+    let artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    if (receipt) {
+      if (receipt.checksum !== canonicalHash(receipt.payload) || receipt.payload?.request_hash !== requestHash || !isRecord(receipt.payload.artifact)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'N7 CLI admission request or runtime identity drifted.');
+      }
+      artifact = receipt.payload.artifact as unknown as TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    } else {
+      const generated = await this.n7SupportRuntime.generateSupportArtifact({
+        request, slot_id: 'n7_n8_debate_admission_review', execution_mode: 'codex_cli', run_mode: request.run_mode,
+      });
+      if (generated.status !== 'succeeded') throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N7 CLI admission support did not succeed.', {
+        blocker_codes: generated.invocation_result.blocker_codes,
+      });
+      artifact = generated.semantic_artifact;
+      const receiptPayload = { request_hash: requestHash, artifact };
+      await this.controlPlane.recordArtifactRef({ stable_key: receiptKey,
+        workspace_id: request.workspace_id ?? null, title_card_id: request.title_card_id ?? null,
+        workflow_run_id: request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+        payload: receiptPayload, checksum: canonicalHash(receiptPayload), created_by: 'system' });
+    }
+    // On replay, the harness checks the persisted gate result/current authority before loading mutable N7 rows.
     return this.invokeNode({ ...request, semantic_artifacts: [artifact] });
   }
 
@@ -5675,12 +5733,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const admission = this.n7SupportAdmission.admit({
       artifact,
-      expected: this.n7SupportRuntime.buildAdmissionExpectedIdentity({
+      expected: await this.n7SupportRuntime.buildAdmissionExpectedIdentity({
         request: input,
         frozenPayload: payload,
         slotId: slotId as TopicSelectionV1bN7SupportSlotId,
         normalizedPayloadHash: payloadHash,
-        executionMode: artifact.execution_mode as Extract<typeof artifact.execution_mode, 'codex_assisted' | 'mocked_llm'>,
+        executionMode: artifact.execution_mode as Extract<typeof artifact.execution_mode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>,
         runMode: artifact.run_mode,
         profileId: artifact.profile_id,
         modelOptionId: artifact.model_option_id,
@@ -5730,7 +5788,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return n7RuntimeAuditDrift('N7 runtime support audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
-    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
+    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : artifact.execution_mode === 'codex_cli' ? 'codex_cli_response' : 'codex_response';
     if (
       auditPayload.node_id !== input.node_id
       || auditPayload.workflow_run_id !== input.workflow_run_id

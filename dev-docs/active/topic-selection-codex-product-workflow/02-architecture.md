@@ -70,3 +70,15 @@ Open each Codex slice only with its consumer, prompt/evidence contract, profile 
 Other generation providers remain outside activation scope. Existing non-provider meaning (“not the gateway line”) must not turn a paid/account-metered Codex call into a free local operation in continuation/cost policy. Exact configuration, account provisioning and live-run budget are operational inputs, not secrets to record here.
 
 The full-chain operating surface must show the current stage, pending Human decision, failure/recovery boundary and evidence references. It must not depend on canary-only profile changes, direct DB writes or manually authored role outputs. T-129 retirement and affected historical references are reconciled with the explicit obligation dispositions in the roadmap; opening alone changes no runtime protection.
+
+
+### N7 N8-Debate admission support
+
+The canonical CLI setting at initial/feedback N7 selects only `n7_n8_debate_admission_review`.
+The support runtime compiles current frozen candidate/frame/feedback bodies and scoped ResearchSlice
+evidence, binds their hashes to the prompt/attempt, and records actual CLI audit provenance. The
+harness consumes the setting before executing mechanical N7 with that support. A persisted entry
+receipt binds the exact request and current runtime/profile/prompt identity to its generated artifact;
+repeat entry can replay the existing gate result without reloading rows changed by that gate. An
+unfinished gate still performs normal source and support admission. Other N7 support roles remain
+outside this enabled consumer slice, and shipped profile eligibility remains closed pending qualification.

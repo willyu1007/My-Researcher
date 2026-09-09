@@ -10,6 +10,12 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -441,4 +447,64 @@ test('v1b N7 support system prompts are product-grade and drift-anchored per slo
   // The grouping / failed-trial slots stay scoped — they must not mention the debate tier field.
   assert.ok(!grouping.includes('debate_level'), 'candidate-grouping slot must not mention debate_level.');
   assert.ok(!failedTrial.includes('debate_level'), 'failed-trial slot must not mention debate_level.');
+});
+
+
+test('N7 CLI admission support resolves evidence, reuses a completed attempt and rejects source drift/external answers', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'n7-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const { controlPlane } = makeSubject();
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(profile => profile.output_contract === 'N8DebateAdmissionReviewSupport@v1')!;
+  profile.allowed_execution_modes.push('codex_cli');
+  profile.run_mode_eligibility.codex_cli = ['product'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  let researchContext = { evidence: 'The study contradicts the proposed generalization beyond the selected slice.' };
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
+    async (args, options) => {
+      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      calls += 1;
+      assert.ok(options.stdin.includes(researchContext.evidence));
+      return { stdout: [
+        { type: 'thread.started', thread_id: 'n7-thread' },
+        { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(debateAdmissionReviewOutput()) } },
+      ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    });
+  const makeRuntime = () => new TopicSelectionV1bN7SupportRuntimeService(controlPlane, {
+    modelProfileRegistry, resolveResearchContext: async () => researchContext,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+  });
+  const input = { request: makeRequest({ run_mode: 'product' }), slot_id: 'n7_n8_debate_admission_review' as const, execution_mode: 'codex_cli' as const };
+  const result = await makeRuntime().generateSupportArtifact(input);
+  assert.equal(result.status, 'succeeded');
+  assert.equal(result.invocation_result.provenance.source_kind, 'codex_cli_response');
+  assert.deepEqual(await makeRuntime().generateSupportArtifact(input), result);
+  assert.equal(calls, 1);
+  let releaseOutput!: () => void;
+  let reachedOutput!: () => void;
+  const outputReached = new Promise<void>(resolve => { reachedOutput = resolve; });
+  const outputRelease = new Promise<void>(resolve => { releaseOutput = resolve; });
+  t.after(() => releaseOutput());
+  const originalRecord = controlPlane.recordArtifactRef.bind(controlPlane);
+  let firstOutput = true;
+  controlPlane.recordArtifactRef = async artifact => {
+    if (artifact.artifact_kind === 'structured_output' && firstOutput) {
+      firstOutput = false;
+      reachedOutput();
+      await outputRelease;
+    }
+    return originalRecord(artifact);
+  };
+  const concurrentInput = { ...input, request: { ...input.request, node_attempt_id: 'n7-concurrent' } };
+  const late = makeRuntime().generateSupportArtifact(concurrentInput);
+  await outputReached;
+  const winner = await makeRuntime().generateSupportArtifact(concurrentInput);
+  releaseOutput();
+  assert.deepEqual(await late, winner);
+  assert.equal(calls, 2, 'Concurrent callers must share the already completed model attempt.');
+  researchContext = { evidence: 'changed source' };
+  await assert.rejects(makeRuntime().generateSupportArtifact(input), /drift/);
+  await assert.rejects(makeRuntime().generateSupportArtifact({ ...input, mocked_output: { fixture_id: 'external', output: debateAdmissionReviewOutput() } }), /without external answers/);
+  assert.equal(calls, 2);
 });

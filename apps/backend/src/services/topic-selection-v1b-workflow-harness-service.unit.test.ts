@@ -129,7 +129,7 @@ import {
 const NOW = '2026-05-26T00:00:00.000Z';
 const TITLE_CARD_ID = 'title_card_v1b_harness';
 
-test('canonical N6/N8 CLI invokes real consumers, replays results and stops before an unconfirmed question', async (t) => {
+test('canonical N6/N7/N8 CLI invokes real consumers, replays results and stops before an unconfirmed question', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'harness-n6-cli-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const ctx = await seedHarnessV1aBundle();
@@ -139,7 +139,8 @@ test('canonical N6/N8 CLI invokes real consumers, replays results and stops befo
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.')
     || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent
-    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent)) {
+    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent
+    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support)) {
     profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
   }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
@@ -149,10 +150,11 @@ test('canonical N6/N8 CLI invokes real consumers, replays results and stops befo
   const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
     if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
     calls += 1;
-    const packet: { role_slot: string; context_packet: { research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+    const packet: { slot_id?: string; role_slot: string; context_packet: { research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
     assert.ok(packet.context_packet.research_context.frozen_domain.researchSlice);
     if (packet.role_slot) assert.equal(packet.context_packet.prior_role_outputs.length, calls < 3 ? 0 : calls - 1);
-    const output = valueDraft ?? { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: packet.role_slot,
+    const output = packet.slot_id === 'n7_n8_debate_admission_review' ? { debate_level: 'compact_assessment_debate',
+      recommended_profile_id: 'topic-selection.v1b.assess-topic-value.compact.v1', high_value_signal_codes: [], risk_signal_codes: [], rationale: 'The frozen slice permits a bounded assessment.' } : valueDraft ?? { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: packet.role_slot,
       ...(packet.role_slot === 'n6_debate_explorer' ? { candidate_seeds: [{ seed_id: `seed-${calls}`, question_framing: 'Measure retrieval errors.', evidence_refs: [] }] }
         : packet.role_slot === 'n6_debate_critic' ? { critic_findings: [] } : { synthesized_candidate_set: draft }),
     };
@@ -187,18 +189,28 @@ test('canonical N6/N8 CLI invokes real consumers, replays results and stops befo
   assert.equal(replay.replay_provenance?.replayed, true);
   assert.equal(calls, 4);
   assert.equal(replay.authority_ref?.ref_id, result.authority_ref?.ref_id);
-  const n7 = await service.invokeNode(await n7Request(ctx, result));
+  const n7Input = { ...await n7Request(ctx, result), execution_spec: request.execution_spec, run_mode: 'product' as const };
+  const missingEvidenceRepository = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, {
+    runnerDependencies: { topicQuestionRepository: ctx.topicQuestionRepository, researchCheckpointService: ctx.researchCheckpointService },
+  });
+  await assert.rejects(missingEvidenceRepository.resolveCodexResearchContext(n7Input), /researchSliceRepository/);
+  assert.equal(calls, 4, 'Missing evidence dependency stops before model work.');
+  const n7 = await service.invokeNode(n7Input);
+  assert.ok(['admitted', 'admitted_with_warnings'].includes(n7.gate_status), JSON.stringify(n7));
+  assert.equal(calls, 5);
+  assert.equal((await service.invokeNode(n7Input)).replay_provenance?.replayed, true);
+  assert.equal(calls, 5);
   const n8Input = await n8Request(ctx, n7, { execution_spec: request.execution_spec, run_mode: 'product' }, { confirmQuestionCheckpoint: false });
   valueDraft = n8ValueDraft(n8Input);
   await assert.rejects(service.invokeNode(n8Input), /checkpoint|advance|decision|confirmed/i);
-  assert.equal(calls, 4, 'An unconfirmed Human checkpoint must stop before model work.');
+  assert.equal(calls, 5, 'An unconfirmed Human checkpoint must stop before model work.');
   await confirmQuestionCheckpoint(ctx);
   const n8 = await service.invokeNode(n8Input);
   assert.equal(n8.gate_status, 'admitted_with_warnings', JSON.stringify(n8));
-  assert.equal(calls, 5);
+  assert.equal(calls, 6);
   const n8Replay = await service.invokeNode(n8Input);
   assert.equal(n8Replay.replay_provenance?.replayed, true);
-  assert.equal(calls, 5);
+  assert.equal(calls, 6);
 });
 
 function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
