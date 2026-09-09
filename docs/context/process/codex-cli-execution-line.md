@@ -8,12 +8,11 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
 
 ## Current runtime truth
 
-- Shipped topic-selection model profiles still exclude `codex_cli` pending T-153 qualification.
-  Canonical N6, N7 admission support, N8 and exact-delta recovery consumers are implemented;
-  qualification uses an explicit in-memory registry override until the corresponding profiles
-  are enabled. See `codex-assisted-operator.md` for these consumer contracts. The separate
-  `provider_llm` Debate dormancy gate and its historical `calibration_gate_release` scope remain
-  deferred; they do not govern Codex qualification or justify a blanket profile flip.
+- The default registry admits product CLI for 11 qualified N6/N7-admission/N8/refinement profiles.
+  Canonical consumers compile their inputs, execute roles and preserve the deterministic gates;
+  other topic-selection profiles remain closed. See `codex-assisted-operator.md` for supported
+  requests, Human stops and recovery. The separate `provider_llm` Debate dormancy gate and its
+  historical `calibration_gate_release` scope remain deferred.
 - Provenance carries an authoritative runner identity, not a metered gateway identity:
   `source_kind: codex_cli_response`, `provider_id: "codex"`, `model_id`, `runner_version` (read
   from the binary that ran, never declared), `thread_id`, and `trace_artifact_ref` / `_hash`.

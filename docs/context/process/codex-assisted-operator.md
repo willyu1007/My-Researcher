@@ -1,7 +1,7 @@
 # Codex-assisted research operator
 
 This note fixes the current meaning of `codex_assisted` for API-first research operation and
-separates the immediate rehearsal from a later product integration.
+separates externally authored operation from product-driven CLI execution.
 
 ## Current runtime truth
 
@@ -9,20 +9,20 @@ separates the immediate rehearsal from a later product integration.
   app. The backend accepts an externally produced, contract-shaped `codex_response` and records its
   workflow, attempt, hash, approval, and reuse provenance.
 - The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
-  execution traces. Shipped topic-selection profiles still exclude it pending T-153 qualification.
-  This does not change the external-output meaning of `codex_assisted`.
+  execution traces. Its qualified N6/N7-admission/N8 and exact-delta profiles admit product mode.
+  Other topic-selection profiles remain closed; `codex_assisted` still means external output.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
   path.
 
-## Product-driven CLI integration (qualification pending)
+## Product-driven CLI operation
 
 N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` consume
 `execution_spec: { execution_mode: "codex_cli", model_option_id: null }`. This branch defaults to
 `product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
-remain reserved. Profiles remain closed until real-input qualification; this is an implemented
-consumer contract, not an instruction to bypass eligibility.
+remain reserved. The default registry admits the 11 profiles used by this slice; no registry override
+is needed. Upstream evidence/need discovery and other selection/promotion roles are not yet enabled.
 
 N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
 one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact
@@ -56,7 +56,9 @@ contract and opens a fresh pending Human checkpoint. Canonical no-op refinement 
 The support artifact's audit is a deterministic derivation record linking all three real CLI role
 outputs, audits and traces; it is not an extra model invocation. Completed reviews remain bound to
 the exact source decision/delta and runtime identity, including when reused at a later node attempt.
-Live qualification and the remaining Phase 2 recovery coverage remain unfinished. The external operator paths below remain the usable shipped route.
+A supported result may request more evidence or block an unchanged overclaim. Model completion
+and draft admission do not establish scientific readiness or authorize a Human decision. The external
+operator paths below remain available under their separate provenance contract.
 
 ## Regular N6 question candidates
 

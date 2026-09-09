@@ -454,8 +454,8 @@ async function qualifyExactRefinement(
         source_checkpoint_ref: checkpointRef, source_checkpoint_decision_ref: decisionRef,
         evidence_ceiling_refs: currentHandoff.required_refs, evidence_ceiling_hash: canonicalHash(currentHandoff.required_refs) } } });
   const before = await ctx.topicQuestionRepository.findTopicQuestionContractById(refined.authority_ref.ref_id);
-  const debate = await runtime.runDebate({ request: reviewed, execution_mode: 'codex_cli', context: {
-    source_kind: 'question_checkpoint_loopback', source_decision_ref: decisionRef, checkpoint_ref: checkpointRef,
+  const context = {
+    source_kind: 'question_checkpoint_loopback' as const, source_decision_ref: decisionRef, checkpoint_ref: checkpointRef,
     previous_topic_question_contract_ref: source.previous_topic_question_contract_ref,
     previous_topic_question_contract_hash: source.previous_topic_question_contract_hash,
     current_topic_question_contract_ref: refined.authority_ref, current_topic_question_contract_hash: refined.hashes.authority_hash!,
@@ -464,8 +464,28 @@ async function qualifyExactRefinement(
     selected_candidate_ref: active.active_candidate_ref, selected_candidate_hash: active.active_candidate_hash,
     selected_research_slice_ref: active.selected_research_slice_ref, selected_research_slice_hash: active.selected_research_slice_hash,
     evidence_ceiling_refs: currentHandoff.required_refs, evidence_ceiling_hash: canonicalHash(currentHandoff.required_refs), source_refs: reviewed.frozen_input.source_refs,
-  } });
+  };
+  const debate = await runtime.runDebate({ request: reviewed, execution_mode: 'codex_cli', context });
+  assert.ok(debate.status === 'completed' || debate.status === 'blocked', 'Qualification requires a terminal semantic review.');
+  // A negative verdict and a binding failure share a gate code; prove the exact context first.
+  const { refinement: _refinement, evidence_ceiling_refs: _ceilingRefs, source_refs: _sourceRefs, ...binding } = context;
+  for (const key of Object.keys(binding) as (keyof typeof binding)[]) {
+    assert.deepEqual(debate.admission[key], binding[key], `Refinement admission binding: ${key}`);
+  }
+  assert.equal(debate.admission.workflow_run_id, reviewed.workflow_run_id);
+  assert.equal(debate.admission.policy_version, reviewed.policy_version);
+  assert.equal(debate.admission.refinement_id, refinement.refinement_id);
   const gate = 'semantic_artifact' in debate ? await service.invokeNode({ ...reviewed, semantic_artifacts: [debate.semantic_artifact] }) : null;
+  assert.ok(gate, 'Qualification must reach the final N7 gate, including blocked reviews.');
+  if (overclaim) {
+    assert.equal(debate.status, 'blocked');
+    assert.equal(gate.gate_status, 'blocked');
+    assert.equal(gate.authority_ref, null);
+    assert.equal(gate.error_message, 'The exact refinement delta is blocked by its one-pass Debate; a new Human refinement hash is required.');
+  } else {
+    assert.equal(debate.status, 'completed');
+    assert.ok(['admitted', 'admitted_with_warnings'].includes(gate.gate_status), JSON.stringify(gate));
+  }
   const after = await ctx.topicQuestionRepository.findTopicQuestionContractById(refined.authority_ref.ref_id);
   assert.deepEqual(after, before, 'Review must not rewrite the exact Human-authored contract.');
   return { node: 'exact_refinement', controlled_disposition_and_human_fixture: true, overclaim, refinement, debate, gate };
@@ -496,13 +516,6 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
     draft.recommended_candidate_keys = ['cli_regenerated_candidate'];
   }
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.')
-    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate
-    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent
-    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent
-    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support)) {
-    profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
-  }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let evidenceReads = 0;
@@ -8389,10 +8402,6 @@ test(`v1b workflow harness N9 refine_question prevents package creation and emit
     const home = mkdtempSync(join(tmpdir(), 'harness-delta-cli-'));
     t.after(() => rmSync(home, { recursive: true, force: true }));
     const registry = createDefaultTopicSelectionModelProfileRegistry();
-    for (const profile of registry.profiles.filter(profile => profile.output_contract === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION
-      || profile.output_contract === 'N6RefinementDeltaDebateAdmission@v1')) {
-      profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
-    }
     const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
     let calls = 0;
     const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {

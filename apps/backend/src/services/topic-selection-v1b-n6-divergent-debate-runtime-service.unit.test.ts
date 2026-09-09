@@ -74,10 +74,6 @@ test('CLI role replay keeps prior output refs stable and does not repeat the fou
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.'))) {
-    profile.allowed_execution_modes.push('codex_cli');
-    profile.run_mode_eligibility.codex_cli = ['acceptance'];
-  }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   const strategy = new V1bN6DivergentDebateStrategy(new TopicSelectionContextPolicyProfileRegistryService(),
     modelProfileRegistry, new TopicSelectionPromptPacketRuntimeService(), controlPlane);
@@ -102,11 +98,11 @@ test('CLI role replay keeps prior output refs stable and does not repeat the fou
       }),
     }),
   });
-  const request = { ...e2eRequest(), run_mode: 'acceptance' as const, workflow_run_id: WFR, node_attempt_id: NA, title_card_id: 'tc-1', policy_version: PV };
+  const request = { ...e2eRequest(), run_mode: 'product' as const, workflow_run_id: WFR, node_attempt_id: NA, title_card_id: 'tc-1', policy_version: PV };
   const base = { handoff: { ...handoff, request, baseSourceHashes: {
     ...handoff.baseSourceHashes, frozen_input_hash: request.frozen_input.frozen_input_hash ?? canonicalHash(request.frozen_input),
   } }, workflowRunId: WFR, nodeAttemptId: NA, executionMode: 'codex_cli' as const,
-    runMode: 'acceptance' as const, policyVersion: PV, modelOptionId: null, createdBy: 'system' as const };
+    runMode: 'product' as const, policyVersion: PV, modelOptionId: null, createdBy: 'system' as const };
   const inputs = (_slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, index: number) => ({
     instance_index: index, codex_response: null, mocked_output: null,
   });

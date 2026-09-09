@@ -357,9 +357,6 @@ test('N8 CLI uses resolved research bodies, replays one attempt and refuses sour
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const controlPlane = makeControlPlane();
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  const profile = registry.profiles.find(profile => profile.output_contract === 'TopicValueAssessmentDraft@v1')!;
-  profile.allowed_execution_modes.push('codex_cli');
-  profile.run_mode_eligibility.codex_cli = ['acceptance'];
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let researchContext = { evidence: 'The source reports retrieval failures under vocabulary shift.' };
@@ -378,7 +375,7 @@ test('N8 CLI uses resolved research bodies, replays one attempt and refuses sour
     agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
   });
   const projectionRef = await recordProjectionRef(controlPlane, makeRequest());
-  const request = makeRequest({ projectionRef });
+  const request = { ...makeRequest({ projectionRef }), run_mode: 'product' as const };
   const input = { request, execution_mode: 'codex_cli' as const };
   const result = await makeRuntime().generateDraftArtifact(input);
   assert.equal(result.status, 'succeeded');

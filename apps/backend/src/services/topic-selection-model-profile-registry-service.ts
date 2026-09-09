@@ -676,7 +676,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'surface_candidate_overlap_and_residual_risk',
         'prepare_deterministic_topic_question_candidate_gate',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicQuestionCandidateSetDraft@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID).map(
         (option) => ({
@@ -699,7 +700,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_residual_risks_warnings_and_coverage_gaps',
         'prepare_deterministic_value_assessment_gate',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicValueAssessmentDraft@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1B_TOPIC_VALUE_ASSESSMENT_SINGLE_AGENT_PROFILE_ID).map(
         (option) => ({
@@ -812,8 +814,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_high_value_candidate_signals',
         'prepare_deterministic_n8_invocation_admission',
       ],
-      allowed_execution_modes: ['mocked_llm', 'codex_assisted'],
-      run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
+      allowed_execution_modes: ['mocked_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'N8DebateAdmissionReviewSupport@v1',
       model_options: [],
     }),
@@ -827,8 +829,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_human_refinement_payload_immutability',
         'admit_current_contract_reuse_without_authority_write',
       ],
-      allowed_execution_modes: ['mocked_llm', 'codex_assisted'],
-      run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
+      allowed_execution_modes: ['mocked_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'N6RefinementDeltaDebateAdmission@v1',
       model_options: [],
     }),
@@ -846,7 +848,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_n7_frozen_context_refs_and_prior_role_hashes',
         'prepare_synthesizer_final_for_n8_deterministic_value_gate',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_PROFILE_ID).map(
         (option) => ({
@@ -859,12 +862,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         }),
       ),
     }),
-    // T-127 W-07 (D-T127-02, DP-3.5) — v1b N6 divergent topic-question candidate debate roles.
-    // explorer/critic FAN OUT (instance arity from the scenario instance_policy) then a single
-    // terminal arbiter; the arbiter is the only candidate-bearing role (emits the gate-facing
-    // TopicQuestionCandidateSet draft). All three share the N8 shared-profile execution eligibility
-    // (mocked_llm / provider_llm / codex_assisted) — the arbiter's codex eligibility was opened in
-    // f0 to mirror N8's gate-facing synthesizer; see the f0 note on the arbiter profile below.
+    // N6 uses one execution mode across its role sequence. Product CLI eligibility belongs
+    // to these qualified profiles; it does not activate the separate provider Debate path.
     profileBase({
       profile_id: TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
       profile_function: 'v1b_n6_divergent_debate_exploration',
@@ -875,7 +874,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'surface_latent_value_and_scope_points',
         'preserve_prior_candidate_and_input_grounding',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
     }),
     profileBase({
@@ -888,7 +888,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'surface_method_evidence_and_scope_failure_modes',
         'identify_missing_counterevidence_and_risk_coverage',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
     }),
     profileBase({
@@ -901,20 +902,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'separate_rejected_framings_with_authority_preservation',
         'prepare_deterministic_n6_candidate_set_gate',
       ],
-      // f0 (T-127 W-07 step f): the arbiter is codex-eligible like N8's gate-facing synthesizer
-      // (the shared N8 bounded-debate profile allows codex on all roles, see ~L739). The N8-mirror
-      // debate runtime threads ONE execution_mode across all roles (codex_assisted | mocked_llm —
-      // provider_llm is NOT a debate-runtime mode) and product run_mode forbids mocked_llm, so
-      // barring the arbiter from codex (the prior v1a arbiter-final stance) would DEADLOCK a codex
-      // N6 debate in product. The scenario's per-slot codex_substitution_policy.allowed:false still
-      // holds and is unaffected: it forbids OVERLAYING codex on the arbiter within a non-codex base
-      // run — a distinct substitution-overlay concern. NOTE: that policy is enforced ONLY by the v1a
-      // need-discovery loop (topic-selection-need-discovery-debate-loop-service.ts:1245), NOT by the
-      // N8/N6 shared-core runDivergentLoop path, which threads ONE uniform execution_mode and never
-      // consults it. For N6 the field is declarative — f3/f4 mirror N8 and MUST NOT port the v1a
-      // enforcement, else the codex arbiter re-deadlocks at a second layer. Default
-      // run_mode_eligibility applies (codex_assisted in acceptance + product).
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
     }),
     profileBase({
@@ -927,7 +916,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'test_coherence_against_frozen_candidate_slice_and_evidence',
         'preserve_support_only_authority_boundary',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1',
     }),
     profileBase({
@@ -940,7 +930,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'challenge_evaluation_validity_within_frozen_evidence',
         'preserve_human_payload_immutability',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1',
     }),
     profileBase({
@@ -953,7 +944,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'bind_the_terminal_decision_to_the_complete_role_chain',
         'prevent_candidate_slice_contract_or_human_content_mutation',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1',
     }),
     profileBase({

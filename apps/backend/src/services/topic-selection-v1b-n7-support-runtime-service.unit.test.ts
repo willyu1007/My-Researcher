@@ -455,9 +455,6 @@ test('N7 CLI admission support resolves evidence, reuses a completed attempt and
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const { controlPlane } = makeSubject();
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  const profile = registry.profiles.find(profile => profile.output_contract === 'N8DebateAdmissionReviewSupport@v1')!;
-  profile.allowed_execution_modes.push('codex_cli');
-  profile.run_mode_eligibility.codex_cli = ['product'];
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let researchContext = { evidence: 'The study contradicts the proposed generalization beyond the selected slice.' };

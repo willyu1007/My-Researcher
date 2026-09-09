@@ -160,10 +160,6 @@ test('CLI delta review reads exact Human context and prior bodies, preserves aud
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const { controlPlane } = makeSubject();
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  for (const profile of registry.profiles.filter(profile => profile.output_contract === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION
-    || profile.output_contract === 'N6RefinementDeltaDebateAdmission@v1')) {
-    profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
-  }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let researchContext = { previous_contract: { metrics: ['Accuracy'] }, current_contract: { metrics: ['Brier Score'] } };

@@ -99,6 +99,7 @@ T-129's successor handoff is recorded in e44e862c. Its current main-worktree rec
 - Recovery: Keep all runtime gates unchanged until a reviewed integrated change is ready.
 
 ### Phase 2 — Deliver N6/N8 Codex execution and local recovery
+- Closeout: Complete. Real regular/conditional/regeneration/refinement roles and default-profile product admission verified through attempt 91. CX-02 and this phase’s CX-06/CX-07/CX-08 boundary hold; scientific and Human-fixture limitations remain explicit in verification.md.
 - Outcome: Product-driven ordinary N6 Debate, N8 assessment/conditional Debate and applicable regeneration/refinement paths, with complete provenance and honest failure handling.
 - Approach: Reuse the existing role sequence and deterministic gates; replace operator-authored role responses at the product boundary with fresh Codex attempts.
 - Entry points: v1b public runtime/coordinator APIs, N6/N8/refinement services, profiles, prompts and domain draft bridges.
@@ -112,7 +113,7 @@ T-129's successor handoff is recorded in e44e862c. Its current main-worktree rec
 - Verification: Focused role/admission/replay tests, real-input Codex checks and product-entry runs through the next human checkpoint, including non-advance and failure.
 - Recovery: Disable only the new route while retaining trace/domain history and existing truthful operator paths.
 
-Remaining execution order within the existing Phase 2 authorization:
+Completed Phase 2 execution order:
 1. Prepare a repeatable qualification entry using the canonical consumers: materialize pinned source bodies through existing evidence owners, inspect exact rendered requests, and account for aggregate attempts/tokens/time. This preparation can proceed without live calls.
 2. Under the user-confirmed uncapped accounting policy, inspect actual role outputs for ordinary, insufficient, apparent-conflict and exact-delta cases. Exercise conditional/regeneration routes from actual producer results, or disclose isolated controlled setup; do not force an advancing verdict.
 3. Open only qualified profiles with permanent policy/scenario/operator documentation, then verify canonical progression, Human stops and recovery. Keep ambiguous partial domain commits fail-closed pending authority inspection. The user has authorized Phase 3 after this closeout; Phases 4–5 require the next authorization.

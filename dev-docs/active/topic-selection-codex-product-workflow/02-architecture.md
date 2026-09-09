@@ -6,7 +6,7 @@ Topic selection composes resource sampling and evidence → candidate needs and 
 
 The maintained workflow matrix already names node semantics and model/support slots. Runtime admission is distributed across shared node/scenario/slot contracts, the model-profile registry and product callers. Matrix consistency proves declared policy alignment, not that every admitted mode has a complete product consumer or sufficient live verification.
 
-The T-151 orchestrator has a `codex_cli` branch and a runner outcome with trace provenance. T-153 composes one app-owned runner, CLI semantic artifact/derived-draft types and canonical N6/N8 consumers. Their node/draft-slot types admit CLI, while shipped profiles remain closed pending qualification. T-152 completed its App Server transport at `a5263023`; App Server is the default and the runner contract remains the consumer boundary. Its canaries are foundation evidence, not T-153 product-node evidence.
+The T-151 orchestrator has a `codex_cli` branch and a runner outcome with trace provenance. T-153 composes one app-owned runner, CLI semantic artifact/derived-draft types and canonical N6/N8 consumers. Their node/draft-slot types admit CLI, with 11 qualified profiles admitted for product CLI. T-152 completed its App Server transport at `a5263023`; App Server is the default and the runner contract remains the consumer boundary. Its canaries are foundation evidence, not T-153 product-node evidence.
 
 N6 regular initial question generation already requires two Explorer outputs, one Critic and one Arbiter over frozen input. N8 assessment conditionally routes through its existing bounded Debate and admission. Their gateway-provider branches have dormancy plus incomplete-live-path guards; changing the shared constant cannot supply missing role output/provenance wiring. Refinement-delta and promotion callers have their own execution restrictions. The v1a need-discovery final-synthesis profile admits only provider/mock today; that is a concrete full-workflow integration issue, not an exception to hide from completion.
 
@@ -25,7 +25,7 @@ T-150 provides evidence-stage managed-library retrieval, admitted claim delta, s
 
 ## Interfaces and contracts
 
-The source-backed profile and operation index is in `execution-inventory.md`. All 36 topic-selection profiles currently exclude CLI. Resource classification and ordinary promotion support are provider-only; need-discovery final synthesis permits provider/mock only. These require consumer and policy changes, not just wiring the runner into N6/N8.
+The source-backed profile and operation index is in `execution-inventory.md`. The default registry opens the 11 Phase 2 profiles; the remaining 25 topic-selection profiles exclude CLI. Resource classification and ordinary promotion support are provider-only; need-discovery final synthesis permits provider/mock only. These require consumer and policy changes, not just wiring the runner into N6/N8.
 
 ### Application-owned execution
 
@@ -78,7 +78,7 @@ integrity and existing authority. Publicly submitted traces cannot stand in for 
 An interrupted domain writer may have persisted authority before its completion trace: the claim
 does not expire, and recovery must inspect that authority before choosing any new attempt. There
 is no automatic repair of this ambiguous partial commit. Existing external-output replay remains
-separate; no qualified historical CLI product run needs migration while profiles remain closed.
+separate; historical staging qualification does not require a domain migration.
 
 ## Migration and operation
 
@@ -98,7 +98,7 @@ harness consumes the setting before executing mechanical N7 with that support. A
 receipt binds the exact request and current runtime/profile/prompt identity to its generated artifact;
 repeat entry can replay the existing gate result without reloading rows changed by that gate. An
 unfinished gate still performs normal source and support admission. Other N7 support roles remain
-outside this enabled consumer slice, and shipped profile eligibility remains closed pending qualification.
+outside this enabled consumer slice.
 
 
 ### Exact Human refinement review
@@ -120,12 +120,12 @@ can be reused across node attempts without relabeling the originating model call
 The whole review plus final N7 gate shares node/run timeout and existing in-flight exclusion. A
 successful substantive review reuses the current contract and reopens a pending Human checkpoint;
 material findings block the unchanged delta. Canonical no-op recovery runs mechanically without
-model settings or support. Shipped profiles remain closed until qualification.
+model settings or support. The three review profiles and derived admission profile admit product CLI.
 
 
 ### N6/N8 evidence and Critic handling
 
-N6 Explorer, Critic and Arbiter and N8 ordinary/conditional Prompt v2 distinguish visible source
+N6 Explorer/Critic v2, Arbiter v4, and N8 ordinary v4/conditional v5 prompts distinguish visible source
 content from refs/hashes and model assertions, preserve insufficient/conflicting evidence, and
 allow legitimate non-advance outcomes. Production prompt and persisted N6 scenario versions match.
 The N6 Arbiter CLI schema requires repair_actions; admission requires unique Critic finding codes
@@ -140,8 +140,8 @@ block admission even if an intermediate repair passed.
 
 The opt-in canonical harness qualification reuses isolated upstream fixtures and the existing
 research-evidence packet owner with versioned original abstracts. It changes only a test-local
-profile registry during staging; production eligibility remains closed until real-role evidence is
-accepted. Qualification support lives in the harness test's `test-fixtures` helpers, not in the
+profile registry during staging; a no-override pass checks the default registry after real-role evidence
+is accepted. Qualification support lives in the harness test's `test-fixtures` helpers, not in the
 product configuration or an alternate workflow authority.
 
 One shared file ledger covers all live cases and staging/shipped passes under the explicitly
@@ -161,3 +161,21 @@ exact feedback and failed-trial synthesis. Trial status updates are not treated 
 original proposal. Bodies enter the existing research-context hash; missing, scoped-out or drifted
 artifacts stop before model execution. The projection remains the recovery authority; these bodies
 supply reviewable content and create no new decision owner.
+
+
+## Phase 3 sampling integration boundary
+
+The resource-sampling request will consume `execution_spec.execution_mode=codex_cli` with a null
+model option. The existing `model` selection remains the provider-route input and cannot accompany
+CLI execution. Resolve profile eligibility and the app-owned runner identity before compiling or
+writing a sample; an unavailable runner or closed profile must not become a successful empty sample.
+Workflow/sample/audit model identity uses `codex` and the runner's actual configured model, while
+per-batch invocation audits retain trace and usage. No provider model option is assigned to CLI.
+
+Keep the existing prompt, candidate pool, batching, classification guards and deterministic sample
+assembly. Each CLI batch executes once; its failure stays visible and cannot trigger the provider
+batch retry loop or a provider fallback. The existing provider retry behavior remains scoped to that
+route. A new sampling submission is a new operation, not an automatic continuation of an interrupted
+batch; stable request recovery must be settled before public activation. The initial consumer wiring
+keeps the sampling profile closed until real-input qualification and recovery verification. Sampling
+and v1a orchestrators share the existing app-owned runner and its shutdown/tool-scope owners.

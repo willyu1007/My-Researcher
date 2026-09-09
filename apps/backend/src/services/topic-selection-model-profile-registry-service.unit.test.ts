@@ -22,6 +22,10 @@ import {
   TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
   TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
   TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
   createDefaultTopicSelectionModelProfileRegistry,
@@ -73,6 +77,35 @@ function cloneRegistry(
 ): TopicSelectionModelProfileRegistry {
   return JSON.parse(JSON.stringify(registry)) as TopicSelectionModelProfileRegistry;
 }
+
+test('only qualified N6/N8 profiles admit product CLI execution without provider options', () => {
+  const service = new TopicSelectionModelProfileRegistryService();
+  const ids = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS;
+  const qualified = new Set<string>([
+    ids.topic_question_candidates_single_agent, ids.topic_value_assessment_single_agent,
+    ids.n7_n8_debate_admission_support, ids.n7_n6_refinement_delta_admission,
+    ids.n8_bounded_debate, TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+    TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID, TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
+    TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID,
+    TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID,
+    TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID,
+  ]);
+  assert.equal(qualified.size, 11);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
+    .map(profile => profile.profile_id)), qualified);
+  for (const profile of registry.profiles) {
+    const resolve = () => service.resolveProfile({ profile_id: profile.profile_id,
+      execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null });
+    if (qualified.has(profile.profile_id)) {
+      assert.equal(resolve().selected_model_option, null);
+      assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
+    } else {
+      assert.throws(resolve, AppError);
+      assert.deepEqual(profile.run_mode_eligibility.codex_cli, []);
+    }
+  }
+});
 
 test('model profile registry validates default DMP v1 profiles and resolves provider option', () => {
   const service = new TopicSelectionModelProfileRegistryService();

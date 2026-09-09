@@ -1,10 +1,10 @@
 # Execution inventory
 
-Inventory established at `a5263023`, reconciled with the current Phase 2 implementation on 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; no row below claims live Codex readiness.
+Inventory established at `a5263023`, reconciled with the current Phase 2 implementation on 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. All 36 currently have empty `run_mode_eligibility.codex_cli` and exclude CLI from `allowed_execution_modes`. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; the remaining 25 stay closed. Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
@@ -23,17 +23,17 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 13 | `topic-selection.need-discovery.arbiter-framing.v1` | Need-discovery loop; frame issues from verified role bodies | Phase 3 / CX-03 |
 | 14 | `topic-selection.need-discovery.arbiter-final.v1` | Provider/mock only; both final-slot policy and profile need deliberate CLI alignment | Phase 3 / CX-03 |
 | 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | N4 draft generation; preserve N5 human selection | Phase 4 / CX-04 |
-| 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; qualification pending | Phase 2 / CX-02 |
-| 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; qualification pending | Phase 2 / CX-02 |
+| 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; product CLI qualified | Phase 2 / CX-02 |
+| 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; product CLI qualified | Phase 2 / CX-02 |
 | 18 | `topic-selection.v1b.constraint-profile-support.codex.v1` | External support today; prepare suggestions, retain Human constraint authority | Phase 4 / CX-04 |
 | 19 | `topic-selection.v1b.intake-readiness-support.codex.v1` | External support today; cannot override deterministic readiness | Phase 4 / CX-04 |
 | 20 | `topic-selection.v1b.slice-selection-support.codex.v1` | External support today; cannot make the researcher's slice choice | Phase 4 / CX-04 |
 | 21 | `topic-selection.v1b.n6-loopback-triage-support.codex.v1` | External support today; preserve existing loopback targets/currentness | Phase 4 / CX-04 |
 | 22 | `topic-selection.v1b.candidate-grouping-support.codex.v1` | External support today; no candidate authority writes | Phase 4 / CX-04 |
 | 23 | `topic-selection.v1b.failed-trial-synthesis-support.codex.v1` | External support today; retain trial history and non-advance outcomes | Phase 4 / CX-04 |
-| 24 | `topic-selection.v1b.n8-debate-admission-support.codex.v1` | Canonical N7 CLI support integrated; protected generation receipt required; qualification pending | Phase 2 / CX-02 |
-| 25 | `topic-selection.v1b.n6-refinement-delta-admission.v1` | Exact Human delta CLI review derives admission from three actual roles; no extra model call; qualification pending | Phase 2 / CX-02 |
-| 26 | `topic-selection.v1b.n8-bounded-debate.v1` | Four ordered CLI roles integrated; repair and final must both resolve substantive Critic findings; qualification pending | Phase 2 / CX-02 |
+| 24 | `topic-selection.v1b.n8-debate-admission-support.codex.v1` | Canonical N7 CLI support integrated; protected generation receipt required; product CLI qualified | Phase 2 / CX-02 |
+| 25 | `topic-selection.v1b.n6-refinement-delta-admission.v1` | Exact Human delta CLI review derives admission from three actual roles; no extra model call; product CLI qualified | Phase 2 / CX-02 |
+| 26 | `topic-selection.v1b.n8-bounded-debate.v1` | Four ordered CLI roles integrated; repair and final must both resolve substantive Critic findings; product CLI qualified | Phase 2 / CX-02 |
 | 27 | `topic-selection.v1b.n6-debate.explorer.v1` | Two independent initial Explorer instances over the same frozen evidence | Phase 2 / CX-02 |
 | 28 | `topic-selection.v1b.n6-debate.critic.v1` | Review both actual Explorer outputs, not only their artifact hashes | Phase 2 / CX-02 |
 | 29 | `topic-selection.v1b.n6-debate.arbiter.v1` | Synthesize actual drafts/objections; deterministic candidate projection after admission | Phase 2 / CX-02 |
@@ -76,9 +76,9 @@ Historical source: `git show 5cf904fb:dev-docs/active/topic-selection-calibratio
 
 | Historical prompt family | Current `.ai/llm/topic-selection/prompts/` source | Current observation |
 |---|---|---|
-| #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Explorer/Critic v2 and Arbiter v4: earlier v3 insufficiency/apparent-conflict outputs inspected with substantive repairs; v4 clarifies non-advancing treatment of Critic findings after real regeneration exposed ambiguity; requalification and shipped activation pending |
+| #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Explorer/Critic v2 and Arbiter v4: earlier v3 insufficiency/apparent-conflict outputs inspected with substantive repairs; v4 clarifies non-advancing treatment of Critic findings after real regeneration exposed ambiguity; both real regeneration paths admitted with evidence expansion; default-profile activation verified |
 | #22 ordinary N8 assessment | `v1b/n8-topic-value-assessment/system.md` | Prompt v4 covers scoped value reasoning, exact admissible citations, consistent 0–100 scoring, insufficiency and non-advance; was part of the original six; real ordinary assessments admitted with explicit evidence limitations |
-| #23 N8 bounded role family | `v1b/n8-bounded-micro-debate/system.md` | Prompt v5 covers four role behaviors, exact citations, 0–100 scoring and resolution of assessment defects while retaining actual research blockers; real four-role chain and business gate admitted with evidence recheck; default-profile activation pending |
+| #23 N8 bounded role family | `v1b/n8-bounded-micro-debate/system.md` | Prompt v5 covers four role behaviors, exact citations, 0–100 scoring and resolution of assessment defects while retaining actual research blockers; real four-role chain and business gate admitted with evidence recheck; default-profile activation verified |
 | #25 promotion N2 bounded family | `v1c/n2-bounded-micro-debate/system.md` | Already expanded for material risks and grouped conditions by later work; preserve that contract |
 | Later refinement-delta family | `v1b/n6-refinement-delta-debate/system.md` | Additional substantive support-only contract; outside the historical six but inside T-153 |
 
