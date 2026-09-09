@@ -137,8 +137,8 @@ export interface TopicSelectionCodexCliRunnerConfig {
   reasoning_effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   binary?: string;
   timeout_ms?: number;
-  /** `exec` (default) until the recorded exit in T-152 D-6; `app_server` is the long-lived child. */
-  transport?: TopicSelectionCodexCliTransport;
+  /** `app_server` is the line's transport; `exec` stays selectable until its recorded exit (T-152 D-6). */
+  transport: TopicSelectionCodexCliTransport;
   /** Finished ephemeral threads stay loaded in the App Server child until it exits, so the child is
    *  replaced after this many attempts. */
   app_server_recycle_after?: number;
@@ -519,6 +519,8 @@ export class TopicSelectionCodexCliRunnerService {
     const scratch = await mkdtemp(path.join(tmpdir(), 'codex-cli-'));
     let threadId: string | null = null;
     let collected: Omit<TopicSelectionCodexAppServerTurn, 'turn'> | null = null;
+    let rateLimitRecord: { rate_limits: unknown } | null = null;
+    const traceEvents = (): unknown[] => [...summarizeAppServerTurn(collected).events, ...(rateLimitRecord ? [rateLimitRecord] : [])];
     const failure = (errorCode: TopicSelectionCodexCliErrorCode, message: string): TopicSelectionCodexCliRunOutcome => {
       const summary = summarizeAppServerTurn(collected);
       return {
@@ -531,7 +533,7 @@ export class TopicSelectionCodexCliRunnerService {
         thread_id: threadId,
         usage: summary.usage,
         tool_calls: summary.toolCalls,
-        trace_events: summary.events,
+        trace_events: traceEvents(),
         stderr_tail: session.stderrTail().slice(-500),
       };
     };
@@ -553,6 +555,11 @@ export class TopicSelectionCodexCliRunnerService {
         effort: this.config.reasoning_effort,
       }, { timeout_ms: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS });
       collected = turn;
+      // Account state after the attempt, as evidence beside the usage; never a reason to fail.
+      const rateLimits = await session.request('account/rateLimits/read', undefined).catch(() => null);
+      if (rateLimits !== null) {
+        rateLimitRecord = { rate_limits: rateLimits };
+      }
 
       if (turn.turn.status !== 'completed') {
         const reason = turn.turn.error ? `: ${turn.turn.error.message}` : '.';
@@ -571,7 +578,7 @@ export class TopicSelectionCodexCliRunnerService {
         final_message: summary.finalMessage,
         usage: summary.usage,
         tool_calls: summary.toolCalls,
-        trace_events: summary.events,
+        trace_events: traceEvents(),
       };
     } catch (error) {
       if (error instanceof CodexAppServerTurnAbortedError) {
@@ -691,7 +698,7 @@ export class TopicSelectionCodexCliRunnerService {
  *    TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
  *    TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
  *    TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
- *    TOPIC_SELECTION_CODEX_TRANSPORT         exec (default) | app_server
+ *    TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
  *
  *  Returns null when the line is not configured, which leaves it unavailable rather than
  *  half-configured. */
@@ -714,7 +721,7 @@ export function createTopicSelectionCodexCliRunnerFromEnv(
   if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)) {
     throw new Error('TOPIC_SELECTION_CODEX_TIMEOUT_MS must be a positive integer.');
   }
-  const transportRaw = env.TOPIC_SELECTION_CODEX_TRANSPORT?.trim() || 'exec';
+  const transportRaw = env.TOPIC_SELECTION_CODEX_TRANSPORT?.trim() || 'app_server';
   const transport = TOPIC_SELECTION_CODEX_CLI_TRANSPORTS.find((candidate) => candidate === transportRaw);
   if (!transport) {
     throw new Error(`TOPIC_SELECTION_CODEX_TRANSPORT must be one of ${TOPIC_SELECTION_CODEX_CLI_TRANSPORTS.join(', ')}.`);

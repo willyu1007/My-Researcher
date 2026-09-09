@@ -77,6 +77,18 @@ void test('the codex_cli line runs through the product orchestrator and lands a 
     mcpReadBudget: 2,
   });
 
+  // Read the trace first: when the run fails, what it recorded is the diagnostic.
+  const traceRef = evidence.trace_artifact_ref;
+  const traceStored = traceRef ? await repository.findArtifactRefById(traceRef.ref_id) : null;
+  const trace = traceStored?.payload as { events?: unknown[]; usage?: { input_tokens: number } | null; tool_calls?: unknown[] } | undefined;
+  const counts = new Map<string, number>();
+  for (const event of trace?.events ?? []) {
+    const record = event as { method?: string; server_request?: { method: string }; rate_limits?: unknown };
+    const key = record.method ?? (record.server_request ? `server_request:${record.server_request.method}` : record.rate_limits !== undefined ? 'rate_limits' : 'other');
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  t.diagnostic(`status=${evidence.status} trace: ${[...counts].map(([key, count]) => `${key}×${String(count)}`).join(' ') || '(none)'} | tool_calls=${JSON.stringify(trace?.tool_calls ?? [])}`);
+
   assert.equal(evidence.status, 'succeeded', `canary failed: ${JSON.stringify(evidence)}`);
   assert.equal(evidence.source_kind, 'codex_cli_response');
   // An authoritative runner identity, which is what the whole line was built to carry.

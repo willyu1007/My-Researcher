@@ -79,7 +79,7 @@ async function makeRunner(result?: Partial<TopicSelectionCodexCliSpawnResult>) {
   const home = await mkdtemp(path.join(tmpdir(), 'codex-cli-runner-'));
   const { spawn, calls } = recordingSpawn(result);
   const runner = new TopicSelectionCodexCliRunnerService(
-    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' },
+    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
     spawn,
   );
   return { runner, calls, home };
@@ -310,6 +310,9 @@ function fakeAppServers(turn: TurnScript = async (params) => appServerTurn(param
         server.thread_starts.push(params as v2.ThreadStartParams);
         return { thread: { id: `thread_${String(++threads)}` } };
       }
+      if (method === 'account/rateLimits/read') {
+        return { rateLimits: { primary: { usedPercent: 5 } } };
+      }
       return method === 'thread/unsubscribe' ? { status: 'unsubscribed' } : {};
     };
     return {
@@ -387,9 +390,11 @@ void test('codex_cli runner maps an App Server turn to the artifact, the usage, 
     input_tokens: 100, cached_input_tokens: 10, cache_write_input_tokens: 0, output_tokens: 25, reasoning_output_tokens: 5,
   });
   assert.deepEqual(outcome.tool_calls, [{ server: 'research', tool: 'list_evidence', status: 'completed', error: null }]);
-  // Streaming deltas are dropped from the trace; the completed item carries the text.
-  assert.equal(outcome.trace_events.length, 5);
+  // Streaming deltas are dropped from the trace; the completed item carries the text. The account
+  // state read after the turn is the last entry.
+  assert.equal(outcome.trace_events.length, 6);
   assert.ok(!outcome.trace_events.some((event) => (event as { method?: string }).method === 'item/agentMessage/delta'));
+  assert.deepEqual(outcome.trace_events.at(-1), { rate_limits: { rateLimits: { primary: { usedPercent: 5 } } } });
 });
 
 void test('codex_cli runner reports App Server failures as results that keep their trace', async () => {
@@ -421,17 +426,20 @@ void test('codex_cli runner reports App Server failures as results that keep the
 void test('codex_cli runner recycles the App Server child after the bound without cutting an attempt still on it', async () => {
   let releaseFirst: () => void = () => {};
   const firstTurnReleased = new Promise<void>((resolve) => { releaseFirst = resolve; });
-  let attempts = 0;
   const { runner, servers } = await makeAppServerRunner({
     recycle_after: 1,
+    // The first attempt's turn stays open until the test releases it; keyed on the prompt, not on
+    // call order, so the two attempts cannot swap roles.
     turn: async (params) => {
-      if (++attempts === 1) { await firstTurnReleased; }
+      const [text] = params.input;
+      if (text?.type === 'text' && text.text === 'first') { await firstTurnReleased; }
       return appServerTurn(params.threadId);
     },
   });
 
   const first = runner.run({ prompt: 'first', output_schema: SCHEMA, invocation_attempt_id: 'attempt_1' });
-  await new Promise((resolve) => setImmediate(resolve));
+  // Start the second attempt only once the first is inside its turn on the first child.
+  while ((servers[0]?.turns.length ?? 0) === 0) { await new Promise((resolve) => setImmediate(resolve)); }
   const second = await runner.run({ prompt: 'second', output_schema: SCHEMA, invocation_attempt_id: 'attempt_2' });
 
   // The second attempt got a fresh child; the first child stays up while its attempt is running.

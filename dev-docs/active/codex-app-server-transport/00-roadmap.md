@@ -42,7 +42,7 @@
 | D-3 Session rule in thread terms | `thread/start` per invocation attempt, closed with the attempt in a finally; never `thread/resume` or `thread/fork` across attempts | As stated, with the close being `thread/unsubscribe`: the thread is `ephemeral`, so it has no rollout and neither `thread/archive` nor `thread/delete` applies (both return -32600). An unsubscribed ephemeral thread stays in `thread/loaded/list` until the child exits, so the runner recycles the child after a bounded number of attempts. | decided | Spike evidence, 2026-09-09 | Spike case 3: archive → "no rollout found", delete → "thread is not persisted", unsubscribe → `unsubscribed`; `thread/list` never shows ephemeral threads. | Keeps `delta_hash` and `prior_role_artifact_hashes` as the only cross-round carry-over. Memory of finished threads is bounded by the recycle count, not by a close call. |
 | D-4 `requestUserInput` and elicitation in this task | (a) record in the trace and refuse by policy; (b) plumb to the product now | (a) | decided | Spike evidence, 2026-09-09 | The client answers every server request by policy (`answerServerRequestByPolicy`) and exposes the answer to the trace; no request fired in the spike, so Phase 3 provokes one. | (b) is the orchestration follow-up; (a) proves the channel exists without building a surface around it. |
 | D-5 Compaction | (a) allow, record `thread/compacted` in the trace; (b) disable or fail the attempt | (a) | decided | Spike evidence, 2026-09-09 | The binding carries `thread/compacted` (`ContextCompactedNotification`, deprecated in favour of the `contextCompaction` item) and `thread/compact/start` can force one; Phase 3 records it in a trace. | T-151 already accepts intra-attempt compaction; the App Server makes it visible, which `exec --json` never did. |
-| D-6 The `codex exec` path during transition | (a) keep it selectable by an environment switch with a recorded exit; (b) delete it in the same change | (a) | decided | User direction at planning; nothing in the spike argues against it | Exit recorded before completion | The completion contract forbids an unrecorded dual path; (a) needs its removal scheduled, (b) has no fallback if the experimental server regresses. |
+| D-6 The `codex exec` path during transition | (a) keep it selectable by an environment switch with a recorded exit; (b) delete it in the same change | (a): `app_server` is the default transport; `exec` stays selectable via `TOPIC_SELECTION_CODEX_TRANSPORT=exec` as the fallback if the experimental server regresses; its removal is a registry Idea due once the next Codex upgrade re-validates the App Server path. | decided | User direction at planning; executed 2026-09-09 | Registry Idea recorded; both transports pass the four live checks. | The completion contract forbids an unrecorded dual path; the exit is recorded and dated by an external event rather than a wish. |
 
 ### Assumptions
 
@@ -130,7 +130,7 @@
   the new unit tests in the default suite.
 - Recovery: the switch defaults to `exec`; removing the App Server branch restores Phase 1.
 
-### Phase 3 — Capability proofs and transition exit (provisional)
+### Phase 3 — Capability proofs and transition exit (done 2026-09-09)
 - Outcome: compaction and `requestUserInput` observed and governed in the trace; usage and
   rate-limit reads recorded; the `exec` path's exit executed or explicitly rescheduled.
 - Approach: force a compaction with `thread/compact/start` on a live thread and assert the

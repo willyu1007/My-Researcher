@@ -26,6 +26,7 @@ provenance shape or MCP tool surface.
       stream, with the `codex_cli_response` provenance branch itself unchanged.
 - [x] Protocol types are generated from the upstream `app-server-protocol` schema, pinned to the
       Codex version the product runs, with a check that regeneration yields no diff.
-- [ ] The two capabilities the swap exists for are each observed end to end: a `thread/compacted`
-      event recorded in a trace, and an `item/tool/requestUserInput` request recorded and answered by
+- [x] The two capabilities the swap exists for are each observed end to end: a compaction
+      (`contextCompaction` items; the `thread/compacted` notification is deprecated and not emitted)
+      recorded in a trace, and an `item/tool/requestUserInput` request recorded and answered by
       product policy rather than left hanging.

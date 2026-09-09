@@ -4,6 +4,7 @@
 //   ask       the turn first raises item/tool/requestUserInput; the final message echoes the answer
 //   hang      the turn never completes; turn/interrupt is acknowledged and logged on stderr
 //   exit      the process dies right after the turn starts
+//   silent    thread/start is never answered
 
 import { createInterface } from 'node:readline';
 
@@ -50,6 +51,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     case 'initialized':
       return;
     case 'thread/start': {
+      if (scenario === 'silent') { return; }
       const threadId = `thread_${String(++threads)}`;
       send({ id, result: { thread: { id: threadId, ephemeral: params.ephemeral === true }, model: params.model ?? 'fake' } });
       send({ method: 'thread/started', params: { thread: { id: threadId } }, emittedAtMs: Date.now() });

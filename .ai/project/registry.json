@@ -47,6 +47,9 @@
   "ideas": [
     {
       "idea": "Route a real research node (an N6/N8 debate role) to the codex_cli line once the calibration_gate_release sign-off lifts the T-128 W-14 dormancy gate. Blocked today because the debate prompts are pre-calibration skeletons — a reason that applies to codex_cli as much as to provider_llm. Activation is a researcher decision, not a process-completion one."
+    },
+    {
+      "idea": "Remove the codex_cli runner's `exec` transport (TOPIC_SELECTION_CODEX_TRANSPORT=exec, `codex exec --json` per attempt) once the next Codex upgrade re-validates the App Server path: bindings `--check` clean and the four codex_cli live checks green on `app_server`. Until then `exec` is the fallback if the experimental App Server regresses (T-152 D-6)."
     }
   ],
   "tasks": [

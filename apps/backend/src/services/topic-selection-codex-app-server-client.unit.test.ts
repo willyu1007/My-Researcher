@@ -15,12 +15,16 @@ import {
 const FAKE = fileURLToPath(new URL('./test-fixtures/codex-app-server-fake.mjs', import.meta.url));
 
 // Every test closes its child, even on a failed assertion: a live child holds the test process open.
-async function attachFake(t: { after: (fn: () => Promise<unknown>) => void }, scenario: string): Promise<TopicSelectionCodexAppServerClient> {
+async function attachFake(
+  t: { after: (fn: () => Promise<unknown>) => void },
+  scenario: string,
+  requestTimeoutMs?: number,
+): Promise<TopicSelectionCodexAppServerClient> {
   const child = spawn(process.execPath, [FAKE, scenario], {
     cwd: tmpdir(),
     env: { CODEX_HOME: '/fake/home', PATH: process.env.PATH ?? '' },
   });
-  const client = await TopicSelectionCodexAppServerClient.attach(child, { client_name: 'unit' });
+  const client = await TopicSelectionCodexAppServerClient.attach(child, { client_name: 'unit', request_timeout_ms: requestTimeoutMs });
   t.after(() => client.close());
   return client;
 }
@@ -77,4 +81,10 @@ void test('a turn that outruns its budget is interrupted and reported as a timeo
   );
   await client.close();
   assert.match(client.stderrTail(), /interrupt turn_1/);
+});
+
+void test('a request the server never answers fails after the request timeout instead of hanging the attempt', async (t) => {
+  const client = await attachFake(t, 'silent', 200);
+  await assert.rejects(client.request('thread/start', {}), /thread\/start got no response within 200ms/);
+  assert.equal(client.hasExited(), false);
 });

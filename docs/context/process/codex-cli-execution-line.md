@@ -39,7 +39,7 @@ TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6-astra
 TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
 TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
 TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
-TOPIC_SELECTION_CODEX_TRANSPORT         exec (default) | app_server
+TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
 ```
 
 Provision the home once with its own login; nothing is copied from a developer's `~/.codex`:
@@ -62,10 +62,11 @@ One fresh thread per invocation attempt on either transport; the runner has no r
 path, cross-round carry-over stays product-authored (`delta_hash`, `prior_role_artifact_hashes`),
 and forking was measured to amortise nothing.
 
-- `exec` (default): one `codex exec` per attempt, `--ephemeral`, `--json`, `-s read-only`,
-  `--output-schema`, an explicit model and reasoning effort. This path has a recorded exit
-  (T-152 D-6) once the App Server path has carried the line for a while.
-- `app_server`: one `codex app-server` child per runner instance, spawned from the product home
+- `exec`: one `codex exec` per attempt, `--ephemeral`, `--json`, `-s read-only`,
+  `--output-schema`, an explicit model and reasoning effort. Kept selectable as the fallback if the
+  experimental App Server regresses; its removal is a recorded follow-up (registry Idea, T-152
+  D-6) due once the next Codex upgrade re-validates the App Server path.
+- `app_server` (default): one `codex app-server` child per runner instance, spawned from the product home
   with `CODEX_HOME` and `PATH` only and a neutral working directory, handshaken with
   `initialize` (`capabilities.experimentalApi`, which the granular approval policy needs) — the
   response's `codexHome` is what the trace records as the isolation proof. Per attempt:
@@ -79,7 +80,16 @@ and forking was measured to amortise nothing.
   backend dies because that closes its stdin. Server-initiated requests (`item/tool/requestUserInput`,
   approvals, MCP elicitation) are declined by product policy and recorded in the trace with the
   answer given; nothing is approved and nothing is left hanging. Two threads on one child run
-  concurrently.
+  concurrently. After each turn the runner reads `account/rateLimits/read` into the trace as the
+  account state beside the usage.
+- Two capabilities the App Server makes visible, both observed end to end in a runner trace:
+  a compaction inside an attempt appears as `contextCompaction` items (the `thread/compacted`
+  notification is deprecated and was not emitted) — accepted, since the line is not replayed by
+  input hash; and a model question via `request_user_input` arrives as an
+  `item/tool/requestUserInput` server request, declined with `{answers: {}}` and recorded. That
+  tool only exists behind the under-development feature `default_mode_request_user_input`, which
+  the product does not enable for research threads: plumbing a question to a researcher is the
+  orchestration follow-up, and until then a model that asks would only be declined.
 
 - The output schema is prepared exactly as the gateway prepares it — the fail-closed encodability
   guardrail, then strict normalisation — because the CLI enforces the same OpenAI structured-output
@@ -142,8 +152,8 @@ cd apps/backend && TOPIC_SELECTION_CODEX_LIVE=1 node --test --import tsx --env-f
   src/services/topic-selection-provider-canary-codex-cli.live.test.ts
 ```
 
-Run them once per transport (`TOPIC_SELECTION_CODEX_TRANSPORT=app_server` for the second pass);
-their assertions are transport-neutral. `src/services/topic-selection-codex-app-server.live.test.ts`
+Run them once per transport (`TOPIC_SELECTION_CODEX_TRANSPORT=exec` for the second pass); their
+assertions are transport-neutral. `src/services/topic-selection-codex-app-server.live.test.ts`
 is the App Server spike: it re-answers the protocol questions (schema enforcement per turn,
 `config.mcp_servers` reachability, concurrency, what closing an ephemeral thread does) on the
 binary actually installed.

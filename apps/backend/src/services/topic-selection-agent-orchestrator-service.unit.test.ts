@@ -1308,6 +1308,7 @@ function codexCliRunner(): TopicSelectionCodexCliRunnerService {
       codex_home: mkdtempSync(join(tmpdir(), 'orchestrator-codex-')),
       model: 'gpt-6-astra',
       reasoning_effort: 'high',
+      transport: 'exec',
     },
     async (args) => (args[0] === '--version'
       ? { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false }
@@ -1383,7 +1384,7 @@ function capturingCodexRunner(): {
   const home = mkdtempSync(join(tmpdir(), 'orchestrator-mcp-'));
   const seen: { prompt: string; argv: string }[] = [];
   const runner = new TopicSelectionCodexCliRunnerService(
-    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' },
+    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
     async (args, opts) => {
       if (args[0] === '--version') {
         return { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false };

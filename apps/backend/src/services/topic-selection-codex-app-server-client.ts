@@ -100,6 +100,8 @@ interface PendingRequest {
 }
 
 const CLOSE_GRACE_MS = 3_000;
+/** A request the server never answers must not hang an attempt; turns have their own budget. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /** The JSON-RPC framing over one child's stdio. Untyped at this level: the typed surface is the
  *  client below, and the wire boundary is where the casts live. */
@@ -112,7 +114,10 @@ class CodexAppServerTransport {
   private exit: CodexAppServerExit | null = null;
   readonly exited: Promise<CodexAppServerExit>;
 
-  constructor(private readonly child: ChildProcessWithoutNullStreams) {
+  constructor(
+    private readonly child: ChildProcessWithoutNullStreams,
+    private readonly requestTimeoutMs: number,
+  ) {
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', (chunk: string) => { this.stderr = (this.stderr + chunk).slice(-4_000); });
     // EPIPE on a child that died is a failed request, not an uncaught exception in the backend.
@@ -139,7 +144,16 @@ class CodexAppServerTransport {
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { method, resolve, reject });
+      const timer = setTimeout(() => {
+        if (this.pending.delete(id)) {
+          reject(new Error(`${method} got no response within ${String(this.requestTimeoutMs)}ms`));
+        }
+      }, this.requestTimeoutMs).unref();
+      this.pending.set(id, {
+        method,
+        resolve: (value) => { clearTimeout(timer); resolve(value); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
+      });
       this.send(params === undefined ? { jsonrpc: '2.0', id, method } : { jsonrpc: '2.0', id, method, params });
     });
   }
@@ -246,6 +260,8 @@ function describeExit(exit: CodexAppServerExit): string {
 export interface TopicSelectionCodexAppServerAttachOptions {
   client_name?: string;
   client_version?: string;
+  /** How long any single request may wait for its response (default 60 s). */
+  request_timeout_ms?: number;
 }
 
 export interface TopicSelectionCodexAppServerSpawnOptions extends TopicSelectionCodexAppServerAttachOptions {
@@ -282,7 +298,7 @@ export class TopicSelectionCodexAppServerClient {
     child: ChildProcessWithoutNullStreams,
     options: TopicSelectionCodexAppServerAttachOptions = {},
   ): Promise<TopicSelectionCodexAppServerClient> {
-    const transport = new CodexAppServerTransport(child);
+    const transport = new CodexAppServerTransport(child, options.request_timeout_ms ?? DEFAULT_REQUEST_TIMEOUT_MS);
     try {
       const initialized = await transport.request('initialize', {
         clientInfo: { name: options.client_name ?? 'my-researcher', title: null, version: options.client_version ?? '0' },

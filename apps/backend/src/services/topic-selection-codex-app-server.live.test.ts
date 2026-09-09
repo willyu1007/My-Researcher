@@ -20,6 +20,13 @@ import {
   type CodexAppServerNotification,
   type TopicSelectionCodexAppServerTurn,
 } from './topic-selection-codex-app-server-client.js';
+import {
+  TopicSelectionCodexCliRunnerService,
+  defaultCodexCliSpawn,
+  type TopicSelectionCodexAppServerFactory,
+  type TopicSelectionCodexAppServerSession,
+  type TopicSelectionCodexCliRunOutcome,
+} from './topic-selection-codex-cli-runner-service.js';
 import { TopicSelectionMcpProtocolService } from './topic-selection-mcp-protocol-service.js';
 import {
   TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
@@ -30,7 +37,8 @@ import {
 
 const codexHome = process.env.TOPIC_SELECTION_CODEX_HOME?.trim();
 const model = process.env.TOPIC_SELECTION_CODEX_MODEL?.trim();
-const effort = process.env.TOPIC_SELECTION_CODEX_REASONING_EFFORT?.trim() || 'high';
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+const effort = EFFORTS.find((candidate) => candidate === process.env.TOPIC_SELECTION_CODEX_REASONING_EFFORT?.trim()) ?? 'high';
 const binary = process.env.TOPIC_SELECTION_CODEX_BINARY?.trim() || undefined;
 const skip = codexHome && model && process.env.TOPIC_SELECTION_CODEX_LIVE === '1'
   ? false
@@ -268,4 +276,120 @@ void test('app-server spike: one child serves two concurrent threads; what closi
   const homeAfter = await readdir(codexHome!, { recursive: true });
   const added = homeAfter.filter((entry) => !homeBefore.has(entry));
   t.diagnostic(`new entries under CODEX_HOME: ${added.length === 0 ? 'none' : added.join(', ')}`);
+});
+
+// ---- Phase 3: the two capabilities the transport exists for, observed in the runner's own trace.
+// Each needs one thing the line's contract deliberately does not expose (a compaction limit, an
+// experimental feature), injected into `thread/start.config` through the runner's session factory.
+
+function runnerWithThreadConfig(extra: Record<string, unknown>): TopicSelectionCodexCliRunnerService {
+  const factory: TopicSelectionCodexAppServerFactory = async (options) => {
+    const client = await TopicSelectionCodexAppServerClient.spawn(options);
+    const request = async (method: string, params: unknown): Promise<unknown> => {
+      if (method === 'thread/start') {
+        const start = params as v2.ThreadStartParams;
+        return client.request('thread/start', { ...start, config: { ...start.config, ...extra } as v2.ThreadStartParams['config'] });
+      }
+      return (client.request as (method: string, params: unknown) => Promise<unknown>)(method, params);
+    };
+    return {
+      initialized: client.initialized,
+      request: request as TopicSelectionCodexAppServerSession['request'],
+      runTurn: (params, options) => client.runTurn(params, options),
+      hasExited: () => client.hasExited(),
+      stderrTail: () => client.stderrTail(),
+      close: () => client.close(),
+    };
+  };
+  return new TopicSelectionCodexCliRunnerService(
+    { codex_home: codexHome!, model: model!, reasoning_effort: effort, binary, transport: 'app_server', timeout_ms: TURN_TIMEOUT_MS },
+    defaultCodexCliSpawn,
+    factory,
+  );
+}
+
+function traceMethods(outcome: TopicSelectionCodexCliRunOutcome): string[] {
+  return outcome.trace_events.map((event) => {
+    const record = event as { method?: string; server_request?: { method: string }; rate_limits?: unknown };
+    return record.method ?? (record.server_request ? `server_request:${record.server_request.method}` : record.rate_limits !== undefined ? 'rate_limits' : 'other');
+  });
+}
+
+function histogram(values: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts].map(([value, count]) => `${value}×${String(count)}`).join(' ');
+}
+
+void test('app-server spike: a compaction inside an attempt lands in the runner trace', { skip, timeout: TURN_TIMEOUT_MS + 60_000 }, async (t) => {
+  const scopes = new TopicSelectionMcpScopeStore();
+  const surface = new TopicSelectionMcpToolSurfaceService(createTopicSelectionResearchRoleTools(), scopes);
+  const scope = scopes.mint({
+    invocation_attempt_id: 'spike_compaction',
+    workflow_run_id: 'spike_mcp_run',
+    scope_id: TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
+    read_budget: READ_BUDGET,
+    evidence: EVIDENCE,
+  });
+  const app = Fastify();
+  app.get('/health', async () => ({ ok: true }));
+  await registerTopicSelectionMcpRoutes(app, new TopicSelectionMcpProtocolService(surface));
+  await app.listen({ port: 0, host: '127.0.0.1' });
+  t.after(async () => { await app.close(); });
+  const address = app.server.address();
+  assert.ok(address && typeof address === 'object');
+
+  // A limit under what the tool loop consumes: the first tool result pushes the context past it.
+  const runner = runnerWithThreadConfig({ model_auto_compact_token_limit: 16_000 });
+  t.after(() => runner.shutdown());
+  const outcome = await runner.run({
+    prompt: [
+      'You are the PROPONENT role in a research debate.',
+      'Question: does intervention family X produce durable effects?',
+      '',
+      `Your handle for this task is "${scope.handle}". Every tool call must include it.`,
+      'Use list_evidence first, then read only the units that bear on durability.',
+      `You may read at most ${String(READ_BUDGET)} units.`,
+    ].join('\n'),
+    output_schema: EVIDENCE_SCHEMA,
+    invocation_attempt_id: 'spike_compaction',
+    mcp_servers: [{ name: 'research', url: `http://127.0.0.1:${String(address.port)}${TOPIC_SELECTION_MCP_ENDPOINT_PATH}` }],
+  });
+  const methods = traceMethods(outcome);
+  t.diagnostic(`status=${outcome.status}${outcome.status === 'failed' ? ` ${outcome.error_code}: ${outcome.message}` : ''} | trace: ${histogram(methods)}`);
+  const compactionItems = outcome.trace_events.filter((event) => {
+    const record = event as { method?: string; params?: { item?: { type?: string } } };
+    return record.method === 'item/completed' && record.params?.item?.type === 'contextCompaction';
+  });
+  t.diagnostic(`thread/compacted×${String(methods.filter((method) => method === 'thread/compacted').length)} contextCompaction items×${String(compactionItems.length)}`);
+  assert.ok(methods.includes('thread/compacted') || compactionItems.length > 0, 'no compaction observed in the trace');
+  assert.ok(methods.includes('rate_limits'));
+});
+
+void test('app-server spike: a request_user_input lands in the runner trace with the policy answer', { skip, timeout: TURN_TIMEOUT_MS + 60_000 }, async (t) => {
+  // The tool exists only behind an under-development feature; the product never enables it for
+  // research threads (D-4), so this is the only place the channel is exercised end to end.
+  const runner = runnerWithThreadConfig({ features: { default_mode_request_user_input: true } });
+  t.after(() => runner.shutdown());
+  const outcome = await runner.run({
+    prompt: [
+      'Before you answer, you MUST ask the user one clarifying question with the request_user_input',
+      'tool: whether they want a strict or a lenient judgement. Do not answer without asking.',
+      'If the user gives no answer, judge strictly.',
+      '',
+      'Judge this claim: "The Earth orbits the Sun."',
+    ].join('\n'),
+    output_schema: SCHEMA,
+    invocation_attempt_id: 'spike_ask',
+  });
+  const methods = traceMethods(outcome);
+  t.diagnostic(`status=${outcome.status}${outcome.status === 'failed' ? ` ${outcome.error_code}: ${outcome.message}` : ''} | trace: ${histogram(methods)}`);
+  const asked = outcome.trace_events.filter((event) => (event as { server_request?: { method: string } }).server_request?.method === 'item/tool/requestUserInput');
+  assert.ok(asked.length > 0, 'the model never asked; is default_mode_request_user_input reaching the thread?');
+  assert.deepEqual((asked[0] as { answer: unknown }).answer, { kind: 'declined', result: { answers: {} } });
+  if (outcome.status === 'succeeded') {
+    t.diagnostic(`final: ${outcome.final_message}`);
+  }
 });
