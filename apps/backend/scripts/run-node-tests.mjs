@@ -26,6 +26,13 @@ const srcDir = fileURLToPath(srcDirUrl);
 const repoRoot = resolve(rootDir, '../..');
 
 const PRESERVE_REAL_ENV_FLAG = 'BACKEND_TEST_PRESERVE_REAL_ENV';
+// The product's Codex home is a paid credential and the backend composes a real codex_cli runner
+// from these variables at build time, so the default suite must never see them: a test that
+// reached them would run a real Codex process from the product home. Live checks pass their
+// environment explicitly (see docs/context/process/codex-cli-execution-line.md) or opt in with
+// BACKEND_TEST_PRESERVE_REAL_ENV=1.
+const PRODUCT_CODEX_ENV_PREFIX = 'TOPIC_SELECTION_CODEX_';
+
 const REPOSITORY_STRATEGY_ENV_KEYS = [
   'TITLE_CARD_REPOSITORY',
   'RESEARCH_LIFECYCLE_REPOSITORY',
@@ -212,6 +219,11 @@ function buildTestEnv() {
   }
   for (const key of PROVIDER_SECRET_ENV_KEYS) {
     delete env[key];
+  }
+  for (const key of Object.keys(env)) {
+    if (key.startsWith(PRODUCT_CODEX_ENV_PREFIX)) {
+      delete env[key];
+    }
   }
 
   env.AUTO_PULL_SCHEDULER_ENABLED = 'false';

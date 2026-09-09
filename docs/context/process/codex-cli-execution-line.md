@@ -153,8 +153,11 @@ missing.
 ## Live checks
 
 Four live checks call a paid model and are skipped unless opted in; the default suites stay fast and
-deterministic. Re-run them after any Codex upgrade — they are what re-establish schema enforcement
-and tool reachability on the binary actually installed.
+deterministic. The backend suite runner strips every `TOPIC_SELECTION_CODEX_*` variable before
+running tests (the app composes a real runner from them at build time), so run live checks with
+`node --test` and an explicit environment as below, or through the suite runner with
+`BACKEND_TEST_PRESERVE_REAL_ENV=1`. Re-run them after any Codex upgrade — they are what
+re-establish schema enforcement and tool reachability on the binary actually installed.
 
 ```bash
 cd apps/backend && TOPIC_SELECTION_CODEX_LIVE=1 node --test --import tsx --env-file=../../.env.local \
