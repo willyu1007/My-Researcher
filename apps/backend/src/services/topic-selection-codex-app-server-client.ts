@@ -79,6 +79,20 @@ export interface CodexAppServerExit {
   signal: NodeJS.Signals | null;
 }
 
+/** A turn that ended without `turn/completed`: it outran its budget (`timeout`) or the child died
+ *  (`exited`). What was collected until then travels with the error, because a failed run's
+ *  trace is evidence too. */
+export class CodexAppServerTurnAbortedError extends Error {
+  constructor(
+    readonly reason: 'timeout' | 'exited',
+    message: string,
+    readonly partial: Omit<TopicSelectionCodexAppServerTurn, 'turn'>,
+  ) {
+    super(message);
+    this.name = 'CodexAppServerTurnAbortedError';
+  }
+}
+
 interface PendingRequest {
   method: string;
   resolve: (value: unknown) => void;
@@ -146,6 +160,10 @@ class CodexAppServerTransport {
 
   stderrTail(): string {
     return this.stderr;
+  }
+
+  hasExited(): boolean {
+    return this.exit !== null;
   }
 
   /** End stdin and wait; escalate to the process group so whatever the server spawned goes too. */
@@ -225,13 +243,16 @@ function describeExit(exit: CodexAppServerExit): string {
   return exit.signal ? `signal ${exit.signal}` : `code ${String(exit.code)}`;
 }
 
-export interface TopicSelectionCodexAppServerSpawnOptions {
+export interface TopicSelectionCodexAppServerAttachOptions {
+  client_name?: string;
+  client_version?: string;
+}
+
+export interface TopicSelectionCodexAppServerSpawnOptions extends TopicSelectionCodexAppServerAttachOptions {
   codex_home: string;
   /** Working directory for the child. Never the repository: a project-local `.codex` would load. */
   cwd: string;
   binary?: string;
-  client_name?: string;
-  client_version?: string;
 }
 
 /** Everything one turn produced, in arrival order, filtered to its thread. */
@@ -242,15 +263,25 @@ export interface TopicSelectionCodexAppServerTurn {
 }
 
 export class TopicSelectionCodexAppServerClient {
-  /** Spawns the child from the product home with the runner's deliberately small environment and
-   *  completes the `initialize` / `initialized` handshake. */
-  static async spawn(options: TopicSelectionCodexAppServerSpawnOptions): Promise<TopicSelectionCodexAppServerClient> {
+  /** Spawns the child from the product home with the runner's deliberately small environment. The
+   *  child is detached so a timeout can reach its process group; it still exits on its own when
+   *  the backend dies, because that closes its stdin. */
+  static spawn(options: TopicSelectionCodexAppServerSpawnOptions): Promise<TopicSelectionCodexAppServerClient> {
     const child = spawn(options.binary ?? 'codex', ['app-server'], {
       cwd: options.cwd,
       env: { CODEX_HOME: options.codex_home, PATH: process.env.PATH ?? '/usr/bin:/bin' },
       shell: false,
       detached: true,
     });
+    return TopicSelectionCodexAppServerClient.attach(child, options);
+  }
+
+  /** Completes the `initialize` / `initialized` handshake on an already-spawned child. Unit tests
+   *  attach a scripted stand-in here; production goes through `spawn`. */
+  static async attach(
+    child: ChildProcessWithoutNullStreams,
+    options: TopicSelectionCodexAppServerAttachOptions = {},
+  ): Promise<TopicSelectionCodexAppServerClient> {
     const transport = new CodexAppServerTransport(child);
     try {
       const initialized = await transport.request('initialize', {
@@ -271,6 +302,15 @@ export class TopicSelectionCodexAppServerClient {
     private readonly transport: CodexAppServerTransport,
     readonly initialized: InitializeResponse,
   ) {}
+
+  /** Resolves when the child is gone, however it went. */
+  get exited(): Promise<CodexAppServerExit> {
+    return this.transport.exited;
+  }
+
+  hasExited(): boolean {
+    return this.transport.hasExited();
+  }
 
   request<M extends keyof CodexAppServerResults>(method: M, params: CodexAppServerParams<M>): Promise<CodexAppServerResults[M]> {
     return this.transport.request(method, params) as Promise<CodexAppServerResults[M]>;
@@ -309,11 +349,16 @@ export class TopicSelectionCodexAppServerClient {
     let timer: NodeJS.Timeout | undefined;
     try {
       const started = await this.request('turn/start', params);
+      const partial = { notifications, server_requests: serverRequests };
       const timedOut = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`turn ${started.turn.id} exceeded ${String(options.timeout_ms)}ms`)), options.timeout_ms);
+        timer = setTimeout(() => reject(new CodexAppServerTurnAbortedError(
+          'timeout', `turn ${started.turn.id} exceeded ${String(options.timeout_ms)}ms`, partial,
+        )), options.timeout_ms);
       });
       const died = this.transport.exited.then((exit) => {
-        throw new Error(`codex app-server exited (${describeExit(exit)}) during turn ${started.turn.id}`);
+        throw new CodexAppServerTurnAbortedError(
+          'exited', `codex app-server exited (${describeExit(exit)}) during turn ${started.turn.id}`, partial,
+        );
       });
       try {
         const turn = await Promise.race([completed, timedOut, died]);

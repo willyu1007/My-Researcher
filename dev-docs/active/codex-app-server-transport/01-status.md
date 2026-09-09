@@ -8,20 +8,21 @@ provenance shape or MCP tool surface.
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 — runner swap behind a switch. Phase 1 landed: bindings generated from
-  the installed binary with a drift check, a stdio JSON-RPC client with policy answers, and three
-  live spike cases that answered all four assumptions and closed D-3 through D-6.
-- Next step: Give the runner an App Server path behind `TOPIC_SELECTION_CODEX_TRANSPORT`, with an
-  injectable child so unit tests run without Codex, and rerun the four T-151 live checks on it.
+- Current phase: Phase 3 — capability proofs and transition exit. Phase 2 landed: the runner
+  drives the App Server behind `TOPIC_SELECTION_CODEX_TRANSPORT=app_server`, the four T-151 live
+  checks pass on it with assertions unchanged, D-3 is pinned by a unit test, and every trace on
+  that path records the server-reported `codex_home`.
+- Next step: Force a compaction and provoke a `requestUserInput` on live threads and assert both
+  land in the trace with the policy answer; then execute the `exec` exit per D-6.
 - Blocker: none
 
 ## Done when
-- [ ] The `codex_cli` runner drives the App Server and the four existing live checks pass with
+- [x] The `codex_cli` runner drives the App Server and the four existing live checks pass with
       their assertions unchanged: schema enforcement, tool reachability, server-enforced budget, and
       the product-path trace.
-- [ ] The T-151 session rule holds in App Server terms: every invocation attempt starts its own
+- [x] The T-151 session rule holds in App Server terms: every invocation attempt starts its own
       thread and that thread is closed with the attempt; a test pins that no attempt reuses another's.
-- [ ] Provenance carries the App Server thread id and the trace carries the App Server event
+- [x] Provenance carries the App Server thread id and the trace carries the App Server event
       stream, with the `codex_cli_response` provenance branch itself unchanged.
 - [x] Protocol types are generated from the upstream `app-server-protocol` schema, pinned to the
       Codex version the product runs, with a check that regeneration yields no diff.

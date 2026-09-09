@@ -62,9 +62,20 @@ the turn on timeout.
 
 ## Interfaces and contracts
 
-- Runner boundary: unchanged `TopicSelectionCodexCliRunInput` → `TopicSelectionCodexCliRunOutcome`.
-  The `TopicSelectionCodexCliSpawn` injection point is replaced or wrapped by an App Server client
-  injection point so the unit tests keep running without a Codex installation.
+- Runner boundary: unchanged `TopicSelectionCodexCliRunInput` → `TopicSelectionCodexCliRunOutcome`,
+  which gained `transport` and `codex_home` (null on `exec`, the server's `initialize` answer on
+  `app_server`) and the App-Server-only failure code `CODEX_CLI_TURN_FAILED`. The runner takes a
+  second injection point beside `TopicSelectionCodexCliSpawn`: a `TopicSelectionCodexAppServerFactory`
+  producing the `TopicSelectionCodexAppServerSession` slice of the client, so its unit tests run
+  with a scripted session; the client's own unit tests attach to a scripted child process
+  (`test-fixtures/codex-app-server-fake.mjs`) so framing, policy answers, death mid-turn and
+  timeouts are exercised over real pipes.
+- Child lifecycle in the runner: one slot per runner instance holding the session promise (so
+  concurrent first attempts share one spawn), an attempt count and an in-flight count. The slot is
+  retired after `app_server_recycle_after` attempts (default 32) or when the child has exited; a
+  retired child is closed by the last attempt still on it, and `shutdown()` retires the current
+  one. A turn aborted by timeout or child death raises `CodexAppServerTurnAbortedError` carrying
+  what was collected, so the failed outcome keeps its partial trace.
 - Trace: `topic-selection-codex-cli-trace-v1` keeps its shape; the `events` array carries App Server
   notifications instead of `exec --json` lines, and gains `thread/compacted`, usage updates and any
   server requests with the policy answer the product gave. Field mapping, observed in the spike:

@@ -20,8 +20,11 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
   `model_option_id` and `normalized_params_hash` are pinned null. `non_provider` is `true`, which in
   this codebase means "not the `provider_llm` gateway path" rather than "no model ran". An
   invocation blocked before any run keeps the identity and has no run fields.
-- The trace artifact (`topic-selection-codex-cli-trace-v1`) holds the full `--json` event stream,
-  the `usage` totals and the tool-call list, and is recorded on success and on failure alike.
+- The trace artifact (`topic-selection-codex-cli-trace-v1`) holds the full event stream of the
+  transport that ran (`exec`: the `--json` lines; `app_server`: the App Server notifications plus
+  every server request with the product's answer), the `usage` totals, the tool-call list, the
+  `transport`, and on `app_server` the `codex_home` the server reported in `initialize`. It is
+  recorded on success and on failure alike.
   This line is not replayable by input hash: `prompt_packet_hash` asserts what the product
   authored, not what the model consumed, and Codex's own intra-turn context management is accepted.
 
@@ -36,6 +39,7 @@ TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6-astra
 TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
 TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
 TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
+TOPIC_SELECTION_CODEX_TRANSPORT         exec (default) | app_server
 ```
 
 Provision the home once with its own login; nothing is copied from a developer's `~/.codex`:
@@ -45,17 +49,37 @@ mkdir -p ~/.codex-my-researcher && chmod 700 ~/.codex-my-researcher
 CODEX_HOME=~/.codex-my-researcher codex login
 ```
 
-A run never writes into that directory. Everything per-invocation travels as `-c` overrides and a
-per-run scratch directory that is removed afterwards. Isolation comes from the product-owned home,
-not from flags: `--ignore-user-config` suppresses a user's config but not their skills, and a probe
-run read a developer skill out of `~/.codex` and changed behaviour because of it.
+A run never writes into that directory. Everything per-invocation travels as `-c` overrides (or
+`thread/start` parameters on `app_server`) and a per-run scratch directory that is removed
+afterwards; the App Server keeps its own sqlite state there, as any Codex process does. Isolation
+comes from the product-owned home, not from flags: `--ignore-user-config` suppresses a user's
+config but not their skills, and a probe run read a developer skill out of `~/.codex` and changed
+behaviour because of it.
 
 ## Invocation
 
-One `codex exec` per invocation attempt, `--ephemeral`, `--json`, `-s read-only`,
-`--output-schema`, an explicit model and reasoning effort, and one fresh thread every time. The
-runner has no resume or fork path; cross-round carry-over stays product-authored
-(`delta_hash`, `prior_role_artifact_hashes`), and forking was measured to amortise nothing.
+One fresh thread per invocation attempt on either transport; the runner has no resume or fork
+path, cross-round carry-over stays product-authored (`delta_hash`, `prior_role_artifact_hashes`),
+and forking was measured to amortise nothing.
+
+- `exec` (default): one `codex exec` per attempt, `--ephemeral`, `--json`, `-s read-only`,
+  `--output-schema`, an explicit model and reasoning effort. This path has a recorded exit
+  (T-152 D-6) once the App Server path has carried the line for a while.
+- `app_server`: one `codex app-server` child per runner instance, spawned from the product home
+  with `CODEX_HOME` and `PATH` only and a neutral working directory, handshaken with
+  `initialize` (`capabilities.experimentalApi`, which the granular approval policy needs) — the
+  response's `codexHome` is what the trace records as the isolation proof. Per attempt:
+  `thread/start` (`ephemeral`, granular no-approvals, `sandbox: read-only`, the attempt's MCP
+  servers under `config.mcp_servers`, a per-attempt scratch `cwd`) → `turn/start` (`input`,
+  `outputSchema`, `effort`) → notifications until `turn/completed` → `thread/unsubscribe`. An
+  ephemeral thread has no rollout, so `thread/archive` and `thread/delete` do not apply and the
+  finished thread stays loaded in the child; the runner therefore replaces the child after a
+  bounded number of attempts (32), without cutting an attempt still running on the old one. The
+  child is detached so a timeout can signal its process group, and it exits on its own when the
+  backend dies because that closes its stdin. Server-initiated requests (`item/tool/requestUserInput`,
+  approvals, MCP elicitation) are declined by product policy and recorded in the trace with the
+  answer given; nothing is approved and nothing is left hanging. Two threads on one child run
+  concurrently.
 
 - The output schema is prepared exactly as the gateway prepares it — the fail-closed encodability
   guardrail, then strict normalisation — because the CLI enforces the same OpenAI structured-output
@@ -67,8 +91,15 @@ runner has no resume or fork path; cross-round carry-over stays product-authored
   `auto` does not work despite its name. This keeps the sandbox read-only and adds no
   `codex-auto-review` call, unlike `--approve-for-me`.
 - A failed run is a result, not an exception, and keeps its trace. Configuration problems throw
-  before any gate. A timeout settles the caller itself, signals the process group and escalates to
-  SIGKILL; a large prompt against a child that exits early is a failed result, not a crash.
+  before any gate. On `exec` a timeout settles the caller itself, signals the process group and
+  escalates to SIGKILL; a large prompt against a child that exits early is a failed result, not a
+  crash. On `app_server` a timeout interrupts the turn (`CODEX_CLI_TIMEOUT`), a turn that ends
+  `failed` or `interrupted` is `CODEX_CLI_TURN_FAILED`, and a child that dies fails the attempt at
+  once and is respawned for the next.
+- Protocol bindings for the App Server are generated from the installed binary
+  (`node apps/backend/scripts/codex-app-server-bindings-generate.mjs`, `--check` for drift) into
+  `apps/backend/src/generated/codex-app-server/`, with the producing version in `codex-version.ts`.
+  Regenerate after a Codex upgrade; the live checks below re-establish behaviour.
 
 ## Tool surface
 
@@ -110,3 +141,9 @@ cd apps/backend && TOPIC_SELECTION_CODEX_LIVE=1 node --test --import tsx --env-f
   src/routes/topic-selection-mcp-codex.live.test.ts \
   src/services/topic-selection-provider-canary-codex-cli.live.test.ts
 ```
+
+Run them once per transport (`TOPIC_SELECTION_CODEX_TRANSPORT=app_server` for the second pass);
+their assertions are transport-neutral. `src/services/topic-selection-codex-app-server.live.test.ts`
+is the App Server spike: it re-answers the protocol questions (schema enforcement per turn,
+`config.mcp_servers` reachability, concurrency, what closing an ephemeral thread does) on the
+binary actually installed.

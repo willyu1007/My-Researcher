@@ -10,7 +10,7 @@
 // inadmissible everywhere else.
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 import Fastify from 'fastify';
 
@@ -31,6 +31,8 @@ const live = createTopicSelectionCodexCliRunnerFromEnv();
 // Live checks call a paid model, so presence of the deployment config is not enough to run
 // them: the default suite must stay fast, free and deterministic. Opt in explicitly.
 const liveOptIn = process.env.TOPIC_SELECTION_CODEX_LIVE === '1';
+// On the App Server transport the runner holds a child; release it so the test process can exit.
+after(async () => { await live?.runner.shutdown(); });
 const skip = live && liveOptIn
   ? false
   : 'set TOPIC_SELECTION_CODEX_LIVE=1 (with TOPIC_SELECTION_CODEX_HOME and TOPIC_SELECTION_CODEX_MODEL) to run this live check';

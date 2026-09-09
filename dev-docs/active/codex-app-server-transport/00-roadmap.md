@@ -99,7 +99,7 @@
 - Recovery: everything is additive and unreachable from production; deleting the spike and the
   bindings restores the tree.
 
-### Phase 2 — Runner swap behind a switch
+### Phase 2 — Runner swap behind a switch (done 2026-09-09)
 - Outcome: the runner drives the App Server when configured, builds the trace from its events,
   records the thread id and the `initialize` response's `codexHome`, and the four existing live
   checks pass unchanged.
@@ -119,7 +119,9 @@
      with a scripted fake child for framing, policy answers, exit-during-turn and timeout.
   3. A test pinning D-3: two attempts on one runner start two threads, neither resumes or forks.
   4. Trace: `topic-selection-codex-cli-trace-v1` gains `codex_home` and `transport`; the
-     `events` array carries the notifications.
+     `events` array carries the notifications minus streaming deltas (a live run made a
+     1 041-event trace out of a 15-event turn before that filter), plus every answered server
+     request.
   5. Deployment and process doc: the new variable and the recycle bound recorded in
      `docs/context/process/codex-cli-execution-line.md`.
 - Exit criteria: the four T-151 live checks green on the App Server path with assertions
@@ -135,7 +137,10 @@
   `thread/compacted` event (or `contextCompaction` item) lands in the trace; provoke a
   `item/tool/requestUserInput` (the `request_user_input` tool is experimental — the spike saw no
   server request at all, so this needs its enabling switch found first) and assert the trace shows
-  the request and the policy answer; record `account/rateLimits/read` per attempt.
+  the request and the policy answer (the answer path itself is pinned by the client's unit test
+  against a scripted server); record `account/rateLimits/read` per attempt.
+- The `exec` exit (D-6): flip the default to `app_server`, keep `exec` selectable for one more
+  Codex upgrade cycle, and record the removal as a follow-up so no unrecorded dual path remains.
 - Exit criteria: the last two Done-when items hold; no unrecorded dual path remains.
 
 ## Kickoff gate

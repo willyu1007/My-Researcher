@@ -1135,6 +1135,8 @@ export class TopicSelectionAgentOrchestratorService {
       invocation_attempt_id: invocationAttemptId,
       status: outcome.status,
       runner_version: outcome.runner_version,
+      transport: outcome.transport,
+      codex_home: outcome.codex_home,
       thread_id: outcome.thread_id,
       usage: outcome.usage,
       tool_calls: outcome.tool_calls,
