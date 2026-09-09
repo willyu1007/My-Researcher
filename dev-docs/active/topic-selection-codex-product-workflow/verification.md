@@ -5,7 +5,7 @@
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 2 closeout then Phase 3 on 2026-09-09 | confirmed through Phase 3 | Phases 4–5 remain required and outside current authorization; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2 profiles admit product CLI; 25 others remain closed. This does not open upstream or promotion roles. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2 and seven upstream profiles admit product CLI (18 total); 18 others remain closed. This does not open adjudication, convergence or promotion roles. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
 | Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
@@ -14,7 +14,7 @@
 | Exact Human delta / CX-02 | Coordinator/harness/refinement tests | 196 passed before final timeout fix; coordinator then 68 passed; directed final recovery 3 passed | Three CLI role calls preserve the exact current contract, produce a separately audited deterministic admission, and reopen pending Human confirmation. Interrupted derivation write reuses completed attempts. No real Human decisions. |
 | Timeout and no-op recovery | Delayed refinement runtime test and directed coordinator cases | passed | Whole review plus final N7 gate shares timeout; node_timeout→node_in_flight→settled recovery executes once. Canonical no-op is mechanical. Joint review finding corrected and re-reviewed. |
 | Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
-| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; exactly 11 qualified profiles admit product CLI; the other 25 stay closed. |
+| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; 18 qualified profiles now admit product CLI; the other 18 stay closed. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
 | Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This earlier preparation used no model calls and did not itself qualify or activate profiles. |
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
@@ -283,13 +283,16 @@ an explicitly local profile override, not a new real-model qualification. Those 
   the guard. Source mismatch, invented quote, same-ID drift, concurrent submission, completed replay
   and failed completion receipt are covered through the public service. Unfinished node claims refuse
   duplicate model work; automatic partial-domain repair is not claimed.
-- Local integration checkpoint: 156 service tests passed (one opt-in skip), 9 v1a HTTP tests passed,
-  9 shared schema tests passed, backend no-emit typecheck, five LLM configuration checks and matrix
-  consistency passed. Independent review against `ddae15a3` closed source pairing, mixed ingress,
+- Latest local checks: 159 affected service tests passed (one opt-in skip), 22 registry/v1a HTTP tests
+  passed, 21 shared contract tests passed, backend no-emit typecheck, five LLM configuration checks
+  and matrix consistency passed. The public CLI and final-reference checks also passed after activation.
+  Independent review against `ddae15a3` closed source pairing, mixed ingress,
   full portfolio refs and final prompt/scenario version drift. No known code-review issue remains.
 - Extraction prompt v2 clarifies compiled original-abstract source/locator and producer provenance.
-  Need single-agent v3 and final v2 distinguish a completed non-advance portfolio from a technical
-  block and specify full nullable reference fields. The final scenario version matches the catalog.
+  Need single-agent v4 and final v3 distinguish a completed non-advance portfolio from a technical
+  block, require empty candidate dispositions when no draft is selected, and specify full nullable
+  reference fields. Explorer/Critic/framing v2 echo the exact supplied role identity; Critic receives
+  both actual Explorer bodies and parent IDs. Prompt catalog and scenario versions match.
 - Live evidence remains in the shared private ledger. Attempts 94/96/98/100 extracted exact DPR
   quotes with abstract-only warnings. Attempt 95 timed out at 600 seconds while emitting whitespace
   inside a reference, usage unknown. Compact-output guidance is a mitigation, not a transport fix.
@@ -297,16 +300,53 @@ an explicitly local profile override, not a new real-model qualification. Those 
   evidence expansion but a too-narrow reference allowlist rejected its real context-artifact citation;
   actual node-context refs are now included. Attempt 101 passed single-agent schema/admission/routing
   with `expand_evidence`, no candidate persistence, no provider calls, and exact receipt replay.
-- `upstream_qualification_v4` continues the full five-call Debate after that single-agent pass. Six
-  upstream profiles remain closed until the full output/role evidence is inspected. The next source
-  case is Lost in the Middle (`TOPIC_SELECTION_QUALIFICATION_SOURCE_ID=2307.03172v3`), which states
-  an observed limitation, unlike the insufficient DPR-only case. These use isolated N1–N4 fixtures,
-  actual pinned source text and actual models; they do not represent Human research approval.
+- Attempt 102 timed out with unknown usage; 103 completed with guessed role identity. The loop now
+  supplies and validates exact identity and stops after the first required worker fails. Attempt 105
+  used candidate dispositions for rejected ideas in an empty batch; prompt guidance now matches the
+  unchanged minimum-schema constraint. These unsuccessful runs do not count as qualification passes.
+- In v6, attempts 106–112 all completed and single-agent admission/replay passed. Independent
+  inspection verified all five Debate outputs against raw outcomes and all 44 refs against actual
+  inputs. Critic addressed the six actual proposal families and final retained their main limits.
+  The adapter still blocked because its reference allowlist omitted consumed summaries/issue frame.
+  A red/green adapter test now admits those exact refs and still rejects unknown, changed-version and
+  final self-references; v6 itself remains an unsuccessful end-to-end qualification.
+- `upstream_qualification_v7` passed the corrected full consumer: attempts 113–119, three live test
+  checks, single-agent and Debate `expand_evidence`, exact reconstructed-service replay with no new
+  model calls. Independent review verified 52 output refs, source/role bodies and receipt owner/hash
+  identity. Lost in the Middle (`TOPIC_SELECTION_QUALIFICATION_SOURCE_ID=2307.03172v3`) is the second
+  case, which states an observed limitation unlike DPR's reported achievements.
+- `upstream_lostmiddle_v1` passed attempts 120–126 and all three live checks. Extraction preserves the
+  exact original abstract and abstract-only warning. Explorers propose bounded positional reliability,
+  usable context, task-transfer and repair questions. Critic challenges prior-art overlap, unspecified
+  thresholds, unsupported transfer, present-day applicability and repair feasibility; framing and
+  final retain these concrete limits. Both executors complete with `expand_evidence`, no candidate
+  persistence, no provider work and exact reconstructed-service replay without new model calls.
+  Independent review verified all 46 output refs and original source, role-body, receipt and audit
+  lineage, then reviewed the six-profile activation. No known blocking finding remains.
+- The six extraction/need-discovery profiles are now default-enabled for `codex_cli/product`; final
+  remains closed to `codex_assisted`. All six real audit profile hashes from both cases equal the new
+  defaults. The registry test admits exactly those 18 profiles: the 36-profile topic-selection subset
+  has 18 enabled/18 closed; the full registry also contains 15 closed PaperImplementation profiles.
+  Both the live helper and local public-CLI test now use defaults without eligibility overrides.
+  The public HTTP contract reaches the
+  configured-runner requirement and rejects mixed execution. No canary override is needed in product.
+- These cases demonstrate normal exploration of a documented limitation, insufficiency and substantive
+  Critic challenges to actual proposals. They use isolated N1–N4 fixtures, actual pinned source text
+  and actual models, with no real Human approval. Neither case admits a candidate: real candidate
+  admission/persistence, sufficient multi-source research evidence and cross-process upstream database
+  recovery remain unproved. They are not statistical quality evidence or whole-Phase-3 acceptance.
+- Through attempt 126 the shared ledger has 2,757,959 reported tokens plus unknown usage in attempts
+  4/8/9/20/63/83/95/102, with no pending calls. The two successful complete cases used 14 model calls
+  and 214,272 reported tokens; exact replays added none. Aggregate ceilings remain absent, the
+  per-attempt timeout stays 600 seconds, and no provider fallback or hidden retry was introduced.
+- Temporary debug journal removed; no runtime instrumentation remains. Default-profile public CLI
+  verification and backend typecheck passed after cleanup.
 
 ## Outstanding verification
 
-- Finish extraction/need-discovery qualification and activation; then adjudication/confirmation support,
-  evidence convergence, their live qualification and fresh upstream-to-v1b lineage.
+- Connect adjudication/confirmation support and evidence convergence, then qualify those roles and
+  fresh upstream-to-v1b lineage, including a real candidate admission/persistence case with sufficient
+  source evidence. The currently enabled slice does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
 - Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and

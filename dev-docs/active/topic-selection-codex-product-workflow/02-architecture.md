@@ -202,8 +202,12 @@ materializer may write EvidenceMap authority. Abstract-only warnings remain visi
 Need discovery reads the current EvidenceMap and strength assessment with exact search/resource
 lineage. The existing research-evidence packet service resolves reviewed current units and original
 quotes; complete strength/conflict records enter the role contexts. The existing Debate loop carries
-actual Explorer/Critic summaries and issue-frame bodies into later roles. Full output refs, including
-empty-portfolio decisions, pass the existing batch validator before admission and routing. A legitimate
+actual Explorer bodies and parent invocation IDs into Critic, then both role summaries and the issue
+frame into final synthesis. Every CLI role must echo its supplied loop/round/role/stage/instance
+identity; mismatch blocks role-artifact admission. A failed required worker stops subsequent work.
+Full output refs, including empty-portfolio decisions, pass the existing batch validator before
+admission and routing. Its scope includes source refs, actual node contexts and the consumed Debate
+summaries/frame, never arbitrary output refs or final self-reference. A legitimate
 non-advance portfolio is a completed management result (`terminal_result=finalize`), not a claim that a
 research need is validated. Human confirmation and candidate persistence retain their existing owners.
 

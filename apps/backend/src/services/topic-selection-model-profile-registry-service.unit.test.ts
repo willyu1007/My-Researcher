@@ -34,6 +34,7 @@ import {
   TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
   TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID,
   TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID,
+  TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID,
   TOPIC_SELECTION_NEED_DISCOVERY_DEEP_CRITIC_PROFILE_ID,
   TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID,
   TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID,
@@ -78,7 +79,7 @@ function cloneRegistry(
   return JSON.parse(JSON.stringify(registry)) as TopicSelectionModelProfileRegistry;
 }
 
-test('only qualified sampling and N6/N8 profiles admit product CLI execution without provider options', () => {
+test('only qualified upstream and N6/N8 profiles admit product CLI execution without provider options', () => {
   const service = new TopicSelectionModelProfileRegistryService();
   const ids = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS;
   const qualified = new Set<string>([
@@ -90,8 +91,12 @@ test('only qualified sampling and N6/N8 profiles admit product CLI execution wit
     TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID,
     TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID,
     TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
+    TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,
+    TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
+    TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID, TOPIC_SELECTION_NEED_DISCOVERY_DEEP_CRITIC_PROFILE_ID,
+    TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID, TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID,
   ]);
-  assert.equal(qualified.size, 12);
+  assert.equal(qualified.size, 18);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
     .map(profile => profile.profile_id)), qualified);

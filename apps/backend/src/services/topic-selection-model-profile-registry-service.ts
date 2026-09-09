@@ -466,7 +466,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_search_run_and_snapshot_lineage',
         'prepare_deterministic_evidence_map_materialization',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionEvidenceMapExtractionDraft@v1',
       model_options: providerOptions(TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID).map(
         (option) => ({
@@ -489,7 +490,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_authority_boundary',
         'prepare_deterministic_admission',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'RankedCandidateDraftBatch@v1',
     }),
     profileBase({
@@ -548,7 +550,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'surface_latent_value_points',
         'preserve_source_grounding',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'NeedDiscoveryExplorerNotes@v1',
     }),
     profileBase({
@@ -561,7 +564,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'surface_failure_modes',
         'identify_missing_counterevidence',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'NeedDiscoveryDeepCriticNotes@v1',
     }),
     profileBase({
@@ -623,7 +627,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'focus_supplemental_repair',
         'preserve_authority_boundary',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'DebateIssueFrame@v1',
     }),
     profileBase({
@@ -636,10 +641,11 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'separate_rejected_framings',
         'prepare_deterministic_admission',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_cli'],
       run_mode_eligibility: {
         ...DEFAULT_RUN_MODE_ELIGIBILITY,
         codex_assisted: [],
+        codex_cli: ['product'],
       },
       output_contract: 'RankedCandidateDraftBatch@v1',
     }),

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
 import { TopicSelectionV1aCodexContextService } from './topic-selection-v1a-codex-context-service.js';
 import { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
-import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
+import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -3105,16 +3105,7 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'upstream', source: source.url,
     source_hash: sha256Text(source.abstract), isolated_search_run_and_coverage_fixture: true, model, limits,
     started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
-  const registry = createDefaultTopicSelectionModelProfileRegistry();
-  if (process.env.TOPIC_SELECTION_QUALIFICATION_SHIPPED !== '1') {
-    for (const profile of registry.profiles.filter(p => p.profile_id.startsWith('topic-selection.need-discovery.')
-      || p.profile_id === TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID
-      || p.profile_id === TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID)) {
-      if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
-      profile.run_mode_eligibility.codex_cli = ['product'];
-    }
-  }
-  const profiles = new TopicSelectionModelProfileRegistryService({ registry });
+  const profiles = new TopicSelectionModelProfileRegistryService();
   const harness = ctx.buildCliHarness(runner, profiles);
   const extractionInput: TopicSelectionWorkflowHarnessBuildEvidenceMapInput = {
     scenario_id: 'topic-selection.real-e2e.canary.v1', title_card_id: ctx.titleCard.title_card_id,
@@ -3134,6 +3125,7 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
       role_bundle: { support_unit_ids: extracted.node_result.evidence_unit_refs.map(ref => ref.ref_id) }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
     const bundle = await ctx.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
     for (const kind of ['single_agent', 'multi_agent_debate'] as const) {
+      await t.test(kind, async () => {
       const id = `${runId}_${kind}`;
       const request = scenarioInput({ title_card_id: ctx.titleCard.title_card_id, workspace_id: null, node_attempt_id: id, workflow_run_id: id,
         topic_scope_ref: ctx.topicSeedRef, evidence_map_ref: mapRef, evidence_strength_ref: bundle.strength_assessment_refs[0]!,
@@ -3169,6 +3161,8 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
       };
       collectRefs(bundle);
       collectRefs(result.node_input);
+      collectRefs(adapter.debate_result?.role_level_summary_artifacts.map(artifact => artifact.artifact_ref));
+      collectRefs(adapter.debate_result?.issue_frame_artifact?.artifact_ref);
       if (adapter.arbiter_context_packet.context_family === 'arbiter_context') collectRefs(adapter.arbiter_context_packet.payload.evidence_ref_table);
       assert.equal(new TopicSelectionRankedCandidateDraftBatchValidatorService().validate({ node_input: result.node_input,
         ranked_candidate_draft_batch: ranked, allowed_refs: allowedRefs }).valid, true, JSON.stringify(ranked));
@@ -3207,6 +3201,7 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
       assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(request), result);
       assert.equal(budget!.snapshot().attempts.length, attempts);
       assert.equal(result.adapter_result.persist_need_candidate_batch_result, null);
+      });
     }
   } finally {
     for (const id of [`${runId}_extraction`, `${runId}_single_agent`, `${runId}_multi_agent_debate`]) {
@@ -3237,14 +3232,7 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
       JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
   });
   t.after(() => runner.shutdown());
-  const registry = createDefaultTopicSelectionModelProfileRegistry();
-  const testProfiles = new Set<string>([TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,
-    TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID]);
-  for (const profile of registry.profiles.filter(p => testProfiles.has(p.profile_id))) {
-    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
-    profile.run_mode_eligibility.codex_cli = ['product'];
-  }
-  const profiles = new TopicSelectionModelProfileRegistryService({ registry });
+  const profiles = new TopicSelectionModelProfileRegistryService();
   const harness = ctx.buildCliHarness(runner, profiles);
   const request = buildEvidenceMapScenarioInput({ title_card_id: ctx.titleCard.title_card_id, handoff: ctx.searchRunHandoff, draft }, {
     extraction_draft: null, execution_mode: 'codex_cli', run_mode: 'product', node_attempt_id: 'cli-extraction-1', expectations: {} });
@@ -3278,10 +3266,17 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
   assert.equal(calls, 2);
   assert.equal(ctx.llmGateway.calls.length, 0);
   await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, policy_version: 'changed' }), /different input/);
+  output = { schema_version: 'v1', debate_loop_id: 'invented-loop', round_index: 1, role: 'explorer',
+    stage: 'round_1_discovery', agent_instance_id: 'explorer_1', candidate_angles: [], evidence_refs: [],
+    unresolved_questions: ['Need more evidence.'], warnings: [] };
+  await assert.rejects(harness.runGenerateNeedCandidateScenario({ ...discovery, node_attempt_id: 'cli-role-identity',
+    executor_kind: 'multi_agent_debate' }), /role output identity differs/);
+  assert.equal(calls, 3);
+
   output = { ...draft, draft_units: draft.draft_units.map(unit => ({ ...unit, source_statement: 'An invented empirical result.' })) };
   await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-extraction-forged-quote' }), /quote or locator/);
   await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, extraction_draft: draft }), /compiles its own context/);
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
   output = draft;
   const record = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane);
   ctx.controlPlane.recordArtifactRef = async input => {
@@ -3291,15 +3286,15 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
   const interrupted = { ...request, node_attempt_id: 'cli-extraction-interrupted' };
   await assert.rejects(harness.runBuildEvidenceMapScenario(interrupted), /Completion receipt unavailable/);
   ctx.controlPlane.recordArtifactRef = record;
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
   await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(interrupted), /running or interrupted/);
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
   const stored = await ctx.literature.findAbstractProfileByLiteratureId('lit_001');
   await ctx.literature.upsertLiteratureSource({ id: 'unselected-source', literatureId: 'lit_001', provider: 'manual',
     sourceItemId: 'other', sourceUrl: 'https://example.test/other', rawPayload: { abstract: original }, fetchedAt: stored!.updatedAt });
   await ctx.literature.upsertAbstractProfile({ ...stored!, sourceRef: { ref_type: 'literature_source', source_id: 'unselected-source', source_url: 'https://example.test/other' } });
   await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-extraction-wrong-source' }), /source bound to this search run/);
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
 });
 
 test('workflow harness builds EvidenceMap from a normalized extraction draft and emits Node 6 handoff', async () => {

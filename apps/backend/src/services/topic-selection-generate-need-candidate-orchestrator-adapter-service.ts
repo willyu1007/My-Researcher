@@ -329,7 +329,9 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
       ranked_candidate_draft_batch: rankedCandidateDraftBatch,
       allowed_refs: input.node_input.execution_mode === 'codex_cli' && arbiterContext.context_family === 'arbiter_context'
         ? [...this.extractFunctionalRefs(arbiterContext.payload.evidence_ref_table), ...this.inputRefs(input.node_input),
-          input.node_input.exploration_context_ref, input.node_input.arbiter_context_ref]
+          input.node_input.exploration_context_ref, input.node_input.arbiter_context_ref,
+          ...(debateResult?.role_level_summary_artifacts.map(artifact => artifact.artifact_ref) ?? []),
+          ...(debateResult?.issue_frame_artifact ? [debateResult.issue_frame_artifact.artifact_ref] : [])]
         : undefined,
       max_persisted_candidates: arbiterContext.context_family === 'arbiter_context'
         ? arbiterContext.payload.max_persisted_candidates

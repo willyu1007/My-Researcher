@@ -24,6 +24,7 @@ import { TopicSelectionCompressionRuntimeService } from './topic-selection-compr
 import { TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionNeedDiscoveryArtifactBoundaryService } from './topic-selection-need-discovery-artifact-boundary-service.js';
 import { TopicSelectionNeedDiscoveryContextCompilerService } from './topic-selection-need-discovery-context-compiler-service.js';
+import { TopicSelectionNeedDiscoveryDebateLoopService } from './topic-selection-need-discovery-debate-loop-service.js';
 import { TopicSelectionPersistNeedCandidateBatchService } from './topic-selection-persist-need-candidate-batch-service.js';
 import { TopicSelectionRankedCandidateDraftBatchValidatorService } from './topic-selection-ranked-candidate-draft-batch-validator-service.js';
 
@@ -56,7 +57,7 @@ class DroppingRequiredFactsCompressionRuntime extends TopicSelectionCompressionR
 }
 
 async function makeHarness(
-  executionMode: 'mocked_llm' | 'codex_assisted' | 'provider_llm',
+  executionMode: 'mocked_llm' | 'codex_assisted' | 'provider_llm' | 'codex_cli',
   overrides: {
     exploration_payload?: TopicSelectionNeedDiscoveryExplorationContextPayload;
     arbiter_payload?: TopicSelectionNeedDiscoveryArbiterContextPayload;
@@ -87,6 +88,7 @@ async function makeHarness(
   const draftBatchValidator = new TopicSelectionRankedCandidateDraftBatchValidatorService({
     now: () => '2026-05-19T00:00:00.000Z',
   });
+  const debateLoop = new TopicSelectionNeedDiscoveryDebateLoopService({ agentOrchestrator, artifactBoundary });
   const adapter = new TopicSelectionGenerateNeedCandidateOrchestratorAdapterService({
     contextCompiler,
     agentOrchestrator,
@@ -94,6 +96,7 @@ async function makeHarness(
     draftBatchValidator,
     needCandidateBatchPersistence,
     compressionRuntime: overrides.compression_runtime,
+    debateLoop,
   });
   const compiledContext = await contextCompiler.compileContextPair({
     title_card_id: 'title_card_001',
@@ -120,6 +123,8 @@ async function makeHarness(
     llmGateway,
     needValidationRepository,
     repository,
+    debateLoop,
+    artifactBoundary,
   };
 }
 
@@ -403,6 +408,45 @@ test('generate-need-candidate adapter produces ranked draft batch through mocked
   }
 });
 
+test('CLI final admission accepts consumed Debate artifacts and rejects changed or unrelated refs', async t => {
+  const baseline = await makeHarness('mocked_llm');
+  const completed = await baseline.adapter.generateRankedCandidateDraftBatch({
+    title_card_id: 'title_card_001', node_input: nodeInput(baseline.compiledContext), run_mode: 'acceptance',
+    mocked_output: { fixture_id: 'completed-final', output: noneViableBatch() },
+  });
+  const ctx = await makeHarness('codex_cli');
+  const artifacts = [];
+  for (const key of ['debate_role_level_summary', 'debate_issue_frame', 'debate_final_synthesis'] as const) {
+    const artifact = await ctx.artifactBoundary.recordArtifact({
+      title_card_id: 'title_card_001', workflow_run_id: 'workflow_run_001', node_attempt_id: 'node_attempt_001',
+      artifact_key: key, payload_schema: 'TestProcessArtifact@v1', payload: { summary: key },
+    });
+    artifacts.push(artifact.artifact_entry);
+  }
+  const [summary, frame, final] = artifacts;
+  assert.ok(summary && frame && final);
+  const batch = noneViableBatch();
+  const rejectedFraming = batch.rejected_framings?.[0];
+  assert.ok(rejectedFraming);
+  rejectedFraming.refs.push(summary.artifact_ref, frame.artifact_ref);
+  t.mock.method(ctx.debateLoop, 'runNeedDiscoveryDebate', async () => ({
+    schema_version: 'v1', debate_loop_id: 'loop', debate_policy_id: 'policy', round_index: 1, status: 'succeeded',
+    ranked_candidate_draft_batch: batch, final_invocation_result: completed.invocation_result,
+    role_invocation_results: [], role_output_artifacts: [], role_level_summary_artifacts: [summary],
+    issue_frame_artifact: frame, final_synthesis_artifact: final, blocker_codes: [],
+  }));
+  const run = () => ctx.adapter.generateRankedCandidateDraftBatch({
+    title_card_id: 'title_card_001', node_input: nodeInput(ctx.compiledContext), run_mode: 'product', executor_kind: 'multi_agent_debate',
+  });
+  assert.equal((await run()).minimum_schema_validation_report?.valid, true);
+  for (const invalid of [{ ...summary.artifact_ref, version_id: 'forged' }, final.artifact_ref, ref('artifact_ref', 'unknown')]) {
+    rejectedFraming.refs = [invalid];
+    const result = await run();
+    assert.equal(result.minimum_schema_validation_report?.valid, false);
+    assert.ok(result.minimum_schema_validation_report?.blocking_reason_codes.includes('UNRESOLVED_OUTPUT_REF'));
+  }
+});
+
 test('generate-need-candidate adapter succeeds without persistence for a none-viable portfolio', async () => {
   const { adapter, compiledContext, needValidationRepository } = await makeHarness('mocked_llm');
   const result = await adapter.generateRankedCandidateDraftBatch({
@@ -434,7 +478,7 @@ test('generate-need-candidate adapter succeeds without persistence for a none-vi
 // re-baseline (no harness/replay/e2e guard pins this v1a prompt body; these are its only coverage).
 // Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
 const GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN = {
-  system: 'afc1b9d2d193c252f896527be4245b450814af541b01a6b5a08b70d4841da4a6',
+  system: 'aef4ff3d100e0f6558771b2d0e2a93436fbd1933afbb926f2eff0ff29f3b0f72',
   user: 'b1dca968e9950cea2097c7a9dbaa8b1670e2d868dc71d880606d0c723ddacac3',
 };
 test('generate-need-candidate single-agent prompt body is byte-identity drift-anchored (T-128 W-04)', async () => {

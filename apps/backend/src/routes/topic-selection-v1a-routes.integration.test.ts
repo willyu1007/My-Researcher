@@ -1996,8 +1996,8 @@ test('native v1a HTTP routes admit CLI extraction and discovery contracts and re
       policy_version: TOPIC_SELECTION_V1A_WORKFLOW_HARNESS_POLICY_VERSION,
       scenario_input: { ...input, scenario_id: 'cli-http', execution_mode: 'codex_cli', run_mode: 'product', output_schema_version: 'v1' } };
     const response = await app.inject({ method: 'POST', url: `/topic-selection/v1a/workflow-harness/nodes/${node}/invocations`, payload: body });
-    assert.equal(response.statusCode, 400, response.body);
-    assert.match(response.json().error.message, /execution_mode is not allowed by model profile/);
+    assert.equal(response.statusCode, 409, response.body);
+    assert.match(response.json().error.message, /Product Codex runner is not configured/);
     if (node.includes('generate-need-candidate')) {
       const mixed = await app.inject({ method: 'POST', url: `/topic-selection/v1a/workflow-harness/nodes/${node}/invocations`,
         payload: { ...body, scenario_input: { ...body.scenario_input, execution_mode: 'provider_llm', executor_kind: 'multi_agent_debate',

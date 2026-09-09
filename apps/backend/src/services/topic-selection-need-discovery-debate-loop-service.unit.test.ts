@@ -500,11 +500,25 @@ test('need-discovery debate loop uses contract defaults for provider role instan
 // roleMessages role-branch did not silently collapse the two roles' bodies.
 // Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
 const NEED_DISCOVERY_PROMPT_BODY_GOLDEN = {
-  explorer: '4bd5b6ae88fe057c687d2eaa108f213f0b3c05fae55e97c8093216f414724a68',
-  deep_critic: 'e66d5a6315e364d39a75cc64319ea250bc045a62eff37614129a8a8414003aec',
-  arbiter_issue_frame: '1bdbef201cc484944ffe42542ee6cb35ce3813912c48355df3cf0a802dad1007',
-  arbiter_final: 'c7448fcaadfa93561f214c1b3bc34a35c3759d93c690e365aa55391f92470327',
+  explorer: '0dbd8bd8a4a0326ed1c60d9bea15dc384e8730025517acc3c18e5ed9a1d90947',
+  deep_critic: '0913eff513051de8098ee29c5d72f546868821602cbdf7c1589abe95e84049d4',
+  arbiter_issue_frame: '30fe92b201fc87f5d96fbb395acda717acf420bcb19e24d049eab7da71c91022',
+  arbiter_final: '7957f4e6abb7dc4c991983ec033c6e6c4d9318a29c4a9fea6d9cb6242c3a7bbb',
 };
+test('need-discovery packets carry exact role identity and actual Explorer outputs to the Critic', async () => {
+  const ctx = await makeRuntime({ llmGateway: new ProviderDebateGateway(), executionMode: 'provider_llm' });
+  const result = await ctx.debateLoop.runNeedDiscoveryDebate({ node_input: { ...nodeInput(ctx.compiledContext), execution_mode: 'provider_llm' },
+    run_mode: 'acceptance', exploration_context_packet: ctx.compiledContext.exploration_context_packet,
+    arbiter_context_packet: ctx.compiledContext.arbiter_context_packet, debate_loop_id: 'debate_loop_001' });
+  assert.equal(result.status, 'succeeded');
+  const first = lastUserPayload(ctx.llmGateway.calls[0]!);
+  assert.deepEqual(first.role_identity, { schema_version: 'v1', debate_loop_id: 'debate_loop_001', round_index: 1,
+    role: 'explorer', stage: 'round_1_discovery', agent_instance_id: 'explorer_1' });
+  const critic = lastUserPayload(ctx.llmGateway.calls[2]!);
+  assert.deepEqual(critic.explorer_outputs, result.role_invocation_results.slice(0, 2).map(result => result.structured_output));
+  assert.equal((lastUserPayload(ctx.llmGateway.calls[3]!).role_identity as Record<string, unknown>).stage, 'issue_framing');
+});
+
 test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-128 W-04)', async () => {
   const providerGateway = new ProviderDebateGateway();
   const { debateLoop, llmGateway, compiledContext } = await makeRuntime({
@@ -524,25 +538,15 @@ test('need-discovery debate prompt bodies are byte-identity drift-anchored (T-12
     debate_loop_id: 'debate_loop_001',
   });
   assert.equal(llmGateway.calls.length, 5);
-  // calls[0,1] = explorer instances (identical body), calls[2] = deep_critic, calls[3] = arbiter
+  // calls[0,1] = independent Explorer instances with distinct identity, calls[2] = deep_critic, calls[3] = arbiter
   // issue_framing, calls[4] = arbiter final_synthesis (schemaName ordering asserted in the
   // canonical-slot test above).
-  assert.equal(
-    sha256Text(stableStringify(llmGateway.calls[0].messages)),
-    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.explorer,
-  );
-  assert.equal(
-    sha256Text(stableStringify(llmGateway.calls[2].messages)),
-    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.deep_critic,
-  );
-  assert.equal(
-    sha256Text(stableStringify(llmGateway.calls[3].messages)),
-    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.arbiter_issue_frame,
-  );
-  assert.equal(
-    sha256Text(stableStringify(llmGateway.calls[4].messages)),
-    NEED_DISCOVERY_PROMPT_BODY_GOLDEN.arbiter_final,
-  );
+  assert.deepEqual({
+    explorer: sha256Text(stableStringify(llmGateway.calls[0].messages)),
+    deep_critic: sha256Text(stableStringify(llmGateway.calls[2].messages)),
+    arbiter_issue_frame: sha256Text(stableStringify(llmGateway.calls[3].messages)),
+    arbiter_final: sha256Text(stableStringify(llmGateway.calls[4].messages)),
+  }, NEED_DISCOVERY_PROMPT_BODY_GOLDEN);
 
   // P0 (T-128 closure review) — arbiter final_synthesis is the debate path's only external
   // NeedCandidate feed and shares the single-agent generate-need-candidate validator+admission
@@ -1116,4 +1120,17 @@ test('need-discovery debate loop enforces round boundary', async () => {
     }),
     (error: unknown) => error instanceof AppError && error.errorCode === 'INVALID_PAYLOAD',
   );
+});
+
+
+test('need-discovery stops after the first required worker fails schema admission', async () => {
+  const ctx = await makeRuntime();
+  const outputs = debateMockedOutputs();
+  outputs.explorer![0]!.output.schema_version = '';
+  const result = await ctx.debateLoop.runNeedDiscoveryDebate({ node_input: nodeInput(ctx.compiledContext),
+    run_mode: 'acceptance', exploration_context_packet: ctx.compiledContext.exploration_context_packet,
+    arbiter_context_packet: ctx.compiledContext.arbiter_context_packet, mocked_outputs: outputs });
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.role_invocation_results.length, 1);
+  assert.equal(ctx.llmGateway.calls.length, 0);
 });

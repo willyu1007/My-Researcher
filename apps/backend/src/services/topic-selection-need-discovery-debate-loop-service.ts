@@ -181,13 +181,13 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     if (explorerBlocked) {
       return this.blockedResult(debateLoopId, debatePolicyId, roundIndex, explorerBlocked, explorerRecords);
     }
-    const deepCriticRecords = await this.invokeDeepCriticRole(input, debateLoopId, debatePolicyId, roundIndex);
+    const completedExplorerRecords = this.completedRecords(explorerRecords, 'explorer');
+    const deepCriticRecords = await this.invokeDeepCriticRole(input, debateLoopId, debatePolicyId, roundIndex, completedExplorerRecords);
     const allWorkerRecords = [...explorerRecords, ...deepCriticRecords];
     const deepCriticBlocked = this.firstBlocked(deepCriticRecords.map((record) => record.invocation));
     if (deepCriticBlocked) {
       return this.blockedResult(debateLoopId, debatePolicyId, roundIndex, deepCriticBlocked, allWorkerRecords);
     }
-    const completedExplorerRecords = this.completedRecords(explorerRecords, 'explorer');
     const completedDeepCriticRecords = this.completedRecords(deepCriticRecords, 'deep_critic');
 
     const explorerSummary = this.explorerSummary(debateLoopId, roundIndex, completedExplorerRecords);
@@ -310,7 +310,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         },
         schema_name: EXPLORER_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryExplorerNotesSchema as unknown as Record<string, unknown>,
-        messages: this.roleMessages(input, 'explorer'),
+        messages: this.roleMessages(input, 'explorer', agentInstanceId),
         mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, outputs[index], `explorer[${index}]`),
         codex_response: this.codexRoleResponse(executionSpec.execution_mode, codexResponses[index], `explorer[${index}]`),
       });
@@ -319,7 +319,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         : null;
       if (!artifact) {
         records.push({ output: null, invocation, artifact: null });
-        continue;
+        break;
       }
       records.push({ output: invocation.structured_output, invocation, artifact });
     }
@@ -331,6 +331,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     debateLoopId: string,
     debatePolicyId: string,
     roundIndex: number,
+    explorers: CompletedRoleInvocationRecord<TopicSelectionNeedDiscoveryExplorerNotes>[],
   ): Promise<Array<RoleInvocationRecord<TopicSelectionNeedDiscoveryDeepCriticNotes>>> {
     const outputs = input.mocked_outputs?.deep_critic ?? [];
     const codexResponses = input.codex_responses?.deep_critic ?? [];
@@ -347,7 +348,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       const agentInstanceId = `deep_critic_${index + 1}`;
       const executionSpec = this.resolvedExecutionSpec(input, DEEP_CRITIC_SLOT, agentInstanceId);
       const invocation = await this.dependencies.agentOrchestrator.invokeStructuredOutput<TopicSelectionNeedDiscoveryDeepCriticNotes>({
-        ...this.baseInvocation(input, debateLoopId, debatePolicyId, roundIndex, 'deep_critic', 'round_1_discovery', agentInstanceId, executionSpec),
+        ...this.baseInvocation(input, debateLoopId, debatePolicyId, roundIndex, 'deep_critic', 'round_1_discovery', agentInstanceId, executionSpec,
+          explorers.map(record => record.invocation.provenance.invocation_attempt_id)),
         profile_id: DEEP_CRITIC_SLOT.profile_id,
         output_contract: DEEP_CRITIC_SLOT.output_contract,
         prompt: {
@@ -356,7 +358,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         },
         schema_name: DEEP_CRITIC_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryDeepCriticNotesSchema as unknown as Record<string, unknown>,
-        messages: this.roleMessages(input, 'deep_critic'),
+        messages: this.roleMessages(input, 'deep_critic', agentInstanceId, explorers.map(record => record.output)),
         mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, outputs[index], `deep_critic[${index}]`),
         codex_response: this.codexRoleResponse(executionSpec.execution_mode, codexResponses[index], `deep_critic[${index}]`),
       });
@@ -365,7 +367,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         : null;
       if (!artifact) {
         records.push({ output: null, invocation, artifact: null });
-        continue;
+        break;
       }
       records.push({ output: invocation.structured_output, invocation, artifact });
     }
@@ -680,12 +682,31 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     throw new AppError(500, 'INTERNAL_ERROR', `No context runtime profile for debate slot ${role}.${stage}.`);
   }
 
+  private roleIdentity(input: TopicSelectionNeedDiscoveryDebateLoopInput,
+    role: 'explorer' | 'deep_critic' | 'arbiter', stage: string, agentInstanceId?: string,
+  ) {
+    return { schema_version: input.node_input.schema_version,
+      debate_loop_id: input.debate_loop_id?.trim() || `${input.node_input.node_attempt_id}.debate_loop_001`,
+      round_index: input.round_index ?? 1, role, stage,
+      ...(agentInstanceId ? { agent_instance_id: agentInstanceId } : {}) };
+  }
+
   private async recordRoleOutput<T>(
     input: TopicSelectionNeedDiscoveryDebateLoopInput,
     invocation: TopicSelectionAgentInvocationResult<T>,
     payloadSchema: string,
     payload: T,
   ): Promise<TopicSelectionGenerateNeedCandidateArtifactRefEntry> {
+    if (invocation.provenance.execution_mode === 'codex_cli') {
+      const identity = invocation.provenance.debate_extension;
+      const output = payload as Record<string, unknown>;
+      const keys = ['debate_loop_id', 'round_index', 'role', 'stage'] as const;
+      if (!identity || output.schema_version !== input.node_input.schema_version
+        || keys.some(key => output[key] !== identity[key])
+        || (identity.role !== 'arbiter' && output.agent_instance_id !== identity.agent_instance_id)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'CLI Debate role output identity differs from its invocation audit.');
+      }
+    }
     const artifact = await this.dependencies.artifactBoundary.recordArtifact({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? null,
@@ -984,13 +1005,13 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     return response;
   }
 
-  // Role-branched explorer/deep_critic prompt (T-128 W-04). Round-1 divergent discovery: the two
-  // roles run in parallel off the SAME exploration_context (the critic does not see explorer output).
-  // Each role gets a role-specific persona + output contract + boundary block; the generic
-  // grounding / structured-only / no-authority lines stay shared. USER payload shape is unchanged.
+  // Explorers independently read the same evidence; the Critic also reads their completed proposals.
+  // Explicit role identity binds each model output to its invocation rather than a guessed label.
   private roleMessages(
     input: TopicSelectionNeedDiscoveryDebateLoopInput,
     role: 'explorer' | 'deep_critic',
+    agentInstanceId: string,
+    explorerOutputs: TopicSelectionNeedDiscoveryExplorerNotes[] = [],
   ): Array<{ role: 'system' | 'user'; content: string }> {
     const prompt = configuredPrompt(role === 'explorer' ? EXPLORER_SLOT : DEEP_CRITIC_SLOT);
     return [
@@ -1002,6 +1023,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         role: 'user',
         content: stableStringify({
           role,
+          role_identity: this.roleIdentity(input, role, 'round_1_discovery', agentInstanceId),
+          ...(role === 'deep_critic' ? { explorer_outputs: explorerOutputs } : {}),
           node_input: input.node_input,
           exploration_context: input.exploration_context_packet.payload,
         }),
@@ -1031,6 +1054,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         {
           role: 'user',
           content: stableStringify({
+            role_identity: this.roleIdentity(input, 'arbiter', 'issue_framing'),
             node_input: input.node_input,
             arbiter_context: input.arbiter_context_packet.payload,
             refs,

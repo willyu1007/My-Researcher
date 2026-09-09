@@ -9,7 +9,7 @@ separates externally authored operation from product-driven CLI execution.
   app. The backend accepts an externally produced, contract-shaped `codex_response` and records its
   workflow, attempt, hash, approval, and reuse provenance.
 - The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
-  execution traces. Its qualified N6/N7-admission/N8 and exact-delta profiles admit product mode.
+  execution traces. Its qualified sampling, extraction, need-discovery, N6/N7-admission/N8 and exact-delta profiles admit product mode.
   Other topic-selection profiles remain closed; `codex_assisted` still means external output.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
@@ -22,7 +22,8 @@ N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` con
 `product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
 remain reserved. The default registry admits the 11 profiles used by this slice; no registry override
-is needed. Upstream evidence/need discovery and other selection/promotion roles are not yet enabled.
+is needed. Sampling and evidence/need discovery add seven enabled profiles through their v1a entries
+below (18 total). Other selection/promotion roles remain closed.
 
 N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
 one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact
@@ -94,7 +95,9 @@ profile registry; a configured runner is required.
   API first. The product replaces evidence digests/tables with resolved original quotes and complete
   strength/conflict records. Use `profile_id: "topic-selection.generate-need-candidate.single-agent.v1"`
   and `executor_kind: "single_agent"` or `"multi_agent_debate"`. Debate runs two Explorers, one Critic,
-  issue framing and final synthesis through Codex. No role execution overrides or caller answers are
+  issue framing and final synthesis through Codex. Critic reads both actual Explorer proposals; final
+  reads recorded summaries and the issue frame. Exact role identity and complete output references are
+  checked, and a failed required worker stops subsequent calls. No role execution overrides or caller answers are
   accepted on this node. Candidate admission/persistence and Human confirmation keep their usual gates.
 
 Reuse the exact workflow/node-attempt identity and request after a lost response; completed results

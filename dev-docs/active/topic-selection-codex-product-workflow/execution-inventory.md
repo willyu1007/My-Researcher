@@ -1,27 +1,27 @@
 # Execution inventory
 
-Inventory established at `a5263023`, reconciled with the current Phase 2 implementation on 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
+Inventory established at `a5263023`, reconciled with the current Phase 3 implementation on 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), leaving 24 closed (12 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), leaving 18 closed (18 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
 | 1 | `topic-selection-resource-sampling-classification` | Product CLI enabled; stable submission ID, prepared-commit recovery and exact batch references verified; real pinned-abstract qualification attempt 93 passed | Phase 3 / CX-03 |
-| 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Repository original-abstract CLI consumer integrated; source/quote/receipt checks passed, real qualification in progress | Phase 3 / CX-03 |
-| 3 | `topic-selection.generate-need-candidate.single-agent.v1` | Repository evidence/strength/conflict CLI consumer integrated; single-agent DPR non-advance passed, full qualification in progress | Phase 3 / CX-03 |
+| 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Product CLI enabled; repository original-abstract extraction and exact recovery qualified on DPR and Lost in the Middle | Phase 3 / CX-03 |
+| 3 | `topic-selection.generate-need-candidate.single-agent.v1` | Product CLI enabled; source/strength/conflict inputs, two real non-advance cases and exact recovery qualified | Phase 3 / CX-03 |
 | 4 | `topic-selection.need-adjudication.single-agent.v1` | v1a adjudication; generated support cannot confirm a need | Phase 3 / CX-03 |
 | 5 | `topic-selection.confirmation-semantic-review.single-agent.v1` | v1a human-confirmation semantic support; retain exact Human decision | Phase 3 / CX-03 |
-| 6 | `topic-selection.need-discovery.explorer.v1` | Product CLI Explorer integrated with actual scoped source bodies; qualification in progress | Phase 3 / CX-03 |
-| 7 | `topic-selection.need-discovery.deep-critic.v1` | Product CLI Critic consumes actual source and prior draft bodies; qualification in progress | Phase 3 / CX-03 |
+| 6 | `topic-selection.need-discovery.explorer.v1` | Product CLI enabled; two independent Explorers qualified with scoped original evidence and exact identity | Phase 3 / CX-03 |
+| 7 | `topic-selection.need-discovery.deep-critic.v1` | Product CLI enabled; real source and both Explorer bodies consumed, concrete criticisms retained | Phase 3 / CX-03 |
 | 8 | `topic-selection.research-arena.opportunity-scout.v1` | Optional Arena shadow support; mock/external today; enable CLI support without decision-quality activation | Phase 3 / CX-01, CX-03 |
 | 9 | `topic-selection.research-arena.prior-art-topic-killer.v1` | Optional Arena shadow support; same boundary | Phase 3 / CX-01, CX-03 |
 | 10 | `topic-selection.evidence-convergence.opportunity-scout.v1` | Existing linked rounds accept structured role inputs; CLI generates them from scoped packets | Phase 3 / CX-03 |
 | 11 | `topic-selection.evidence-convergence.empirical-skeptic.v1` | Same evidence-stage owner; preserve claim and retrieval lineage | Phase 3 / CX-03 |
 | 12 | `topic-selection.evidence-convergence.synthesis-arbiter.v1` | Same owner; synthesis cannot fabricate successor evidence or a Human decision | Phase 3 / CX-03 |
-| 13 | `topic-selection.need-discovery.arbiter-framing.v1` | Product CLI issue framing consumes recorded role bodies; qualification in progress | Phase 3 / CX-03 |
-| 14 | `topic-selection.need-discovery.arbiter-final.v1` | Final CLI slot/prompt/consumer integrated; complete-reference and terminal gates aligned, qualification in progress | Phase 3 / CX-03 |
+| 13 | `topic-selection.need-discovery.arbiter-framing.v1` | Product CLI enabled; real summaries/identities consumed and concrete review questions preserved | Phase 3 / CX-03 |
+| 14 | `topic-selection.need-discovery.arbiter-final.v1` | Product CLI enabled; real five-call loops, consumed process refs, portfolio gates and exact replay qualified | Phase 3 / CX-03 |
 | 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | N4 draft generation; preserve N5 human selection | Phase 4 / CX-04 |
 | 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; product CLI qualified | Phase 2 / CX-02 |
 | 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; product CLI qualified | Phase 2 / CX-02 |
