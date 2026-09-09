@@ -9,7 +9,7 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
 | 1 | `topic-selection-resource-sampling-classification` | Product CLI enabled; stable submission ID, prepared-commit recovery and exact batch references verified; real pinned-abstract qualification attempt 93 passed | Phase 3 / CX-03 |
-| 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Product CLI enabled; repository original-abstract extraction and exact recovery qualified on DPR and Lost in the Middle | Phase 3 / CX-03 |
+| 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Product CLI enabled; repository original abstracts and explicitly bound original paragraphs; source/locator integrity, same-source scope refinements and N5-to-v1b consumer replay qualified | Phase 3 / CX-03 |
 | 3 | `topic-selection.generate-need-candidate.single-agent.v1` | Product CLI enabled; source/strength/conflict inputs, two real non-advance cases and exact recovery qualified | Phase 3 / CX-03 |
 | 4 | `topic-selection.need-adjudication.single-agent.v1` | Product CLI enabled; original-fulltext bounded/overclaim qualification and exact JSON receipt replay; model support cannot confirm a need | Phase 3 / CX-03 |
 | 5 | `topic-selection.confirmation-semantic-review.single-agent.v1` | Product CLI enabled; complete/incomplete fixed-Human qualification, exact Human input and JSON persistence replay verified | Phase 3 / CX-03 |

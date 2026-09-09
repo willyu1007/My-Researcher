@@ -1101,7 +1101,7 @@ function validationManualLocator(input: {
   };
 }
 
-async function seedNeedValidationEvidenceRuntime(options: {
+async function seedNeedValidationSearchRuntime(options: {
   originalFulltext?: string;
   candidateNeed?: string;
   unmetNeed?: string;
@@ -1161,6 +1161,16 @@ async function seedNeedValidationEvidenceRuntime(options: {
   assert.equal(searchRunResult.node_result.status, 'succeeded', JSON.stringify(searchRunResult.node_result));
   assertScenarioPassed(searchRunResult);
   assert.ok(searchRunResult.node_result.search_run_ref);
+  return { ...ctx, searchRunResult, literatureRef, sourceRef, manualLocatorRef };
+}
+
+async function createControlledNeedEvidenceMap(
+  ctx: Awaited<ReturnType<typeof seedNeedValidationSearchRuntime>>,
+  options: Parameters<typeof seedNeedValidationSearchRuntime>[0] = {},
+) {
+  const { literatureRef, sourceRef, manualLocatorRef, searchRunResult } = ctx;
+  assert.ok(searchRunResult.node_result.search_run_ref);
+  const titleCardId = ctx.titleCard.title_card_id;
   const supportLocator = validationManualLocator({
     title_card_id: titleCardId,
     literature_ref: literatureRef,
@@ -1257,7 +1267,12 @@ async function seedNeedValidationEvidenceRuntime(options: {
       : [],
     created_by: 'system',
   });
-  return { ...ctx, searchRunResult, evidenceMap: evidenceMapRecords.evidence_map, evidenceUnits: evidenceMapRecords.evidence_units };
+  return { evidenceMap: evidenceMapRecords.evidence_map, evidenceUnits: evidenceMapRecords.evidence_units };
+}
+
+async function seedNeedValidationEvidenceRuntime(options: Parameters<typeof seedNeedValidationSearchRuntime>[0] = {}) {
+  const ctx = await seedNeedValidationSearchRuntime(options);
+  return { ...ctx, ...await createControlledNeedEvidenceMap(ctx, options) };
 }
 
 async function seedValidateNeedAdjudicationRuntime(options: Parameters<typeof seedNeedValidationEvidenceRuntime>[0] = {}) {
@@ -3262,25 +3277,17 @@ test('Codex discovery qualification persists its actual candidate through frozen
   if (!sourceFile || !outputRoot || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
     || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit live lineage qualification configuration is required.');
   const selectedCase = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'bounded_capability';
-  assert.ok(['bounded_capability', 'evaluation_overlap'].includes(selectedCase));
+  assert.ok(['bounded_capability', 'evaluation_overlap', 'extracted_capability'].includes(selectedCase));
   const source = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as { url: string; text: string };
   assert.equal(source.url, 'https://arxiv.org/html/2307.03172v3#S2.SS3');
   assert.equal(sha256Text(source.text), '137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21');
-  const seed = await seedNeedValidationEvidenceRuntime({ originalFulltext: source.text });
+  const useExtraction = selectedCase === 'extracted_capability';
+  const seed = await seedNeedValidationSearchRuntime({ originalFulltext: source.text });
   useJsonArtifactStorage(seed);
   const title = seed.titleCard.title_card_id;
   assert.deepEqual(await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title), []);
   await seed.literature.upsertLiteratureSource({ id: 'source_001', literatureId: 'lit_001', provider: 'arxiv', sourceItemId: '2307.03172v3',
     sourceUrl: source.url, rawPayload: { source_hash: sha256Text(source.text) }, fetchedAt: '2026-09-10T00:00:00.000Z' });
-  const mapRef = refForTitleCard('evidence_map', seed.evidenceMap.evidence_map_id, title, seed.evidenceMap.evidence_map_version);
-  await seed.evidenceMaps.assessEvidenceStrength({ evidence_map_id: mapRef.ref_id, target_ref: mapRef, purpose: 'need_validation',
-    role_bundle: {
-      support_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'support').map(unit => unit.evidence_unit_id),
-      challenge_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'challenge').map(unit => unit.evidence_unit_id),
-      baseline_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'baseline').map(unit => unit.evidence_unit_id),
-      context_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'context').map(unit => unit.evidence_unit_id),
-    }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
-  const bundle = await seed.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
   const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
     transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
@@ -3288,7 +3295,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
   t.after(() => budget?.close());
   const save = async (name: string, value: unknown) => fs.writeFile(join(directory, `${runId}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'discovery-to-v1b', source: source.url,
-    source_hash: sha256Text(source.text), controlled_search_and_evidence_roles: true, same_source_in_four_roles: true,
+    source_hash: sha256Text(source.text), controlled_search: true, evidence_roles: useExtraction ? 'model_extracted' : 'controlled', source_count: 1,
     selected_case: selectedCase, candidate_is_model_generated: true, controlled_human_input: true, actual_human_decision: false,
     app_checkpoint_guard_not_exercised: true, repositories: 'in-memory with JSON artifact storage', model, limits,
     started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
@@ -3296,8 +3303,38 @@ test('Codex discovery qualification persists its actual candidate through frozen
   const harness = seed.buildCliHarness(runner, profiles);
   const id = (stage: string) => `${runId}_${stage}`;
   try {
-    await save('evidence', { search_run: seed.searchRunResult, evidence_map: seed.evidenceMap, evidence_units: seed.evidenceUnits, bundle });
-    const request = scenarioInput({ title_card_id: title, workspace_id: null, input_snapshot_id: seed.evidenceMap.input_snapshot_id,
+    let evidence: Awaited<ReturnType<typeof createControlledNeedEvidenceMap>>;
+    if (useExtraction) {
+      const extractionInput: TopicSelectionWorkflowHarnessBuildEvidenceMapInput = {
+        scenario_id: 'topic-selection.real-e2e.canary.v1', title_card_id: title,
+        workflow_run_id: id('extraction'), node_attempt_id: id('extraction'),
+        search_run_handoff: seed.searchRunResult.node_result.downstream_handoff!,
+        execution_mode: 'codex_cli', run_mode: 'product', policy_version: 'v1', output_schema_version: 'v1',
+      };
+      const extracted = await harness.runBuildEvidenceMapScenario(extractionInput);
+      await save('extraction', extracted);
+      assert.equal(extracted.node_result.status, 'succeeded', JSON.stringify(extracted.node_result));
+      const extractionAttempts = budget!.snapshot().attempts.length;
+      assert.deepEqual(await seed.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(extractionInput), extracted);
+      assert.equal(budget!.snapshot().attempts.length, extractionAttempts);
+      const evidenceMap = await seed.evidenceRepository.findEvidenceMapById(extracted.node_result.evidence_map_ref!.ref_id);
+      assert.ok(evidenceMap);
+      const evidenceUnits = await seed.evidenceRepository.listEvidenceUnitsByEvidenceMapId(evidenceMap.evidence_map_id);
+      evidence = { evidenceMap, evidenceUnits };
+    } else {
+      evidence = await createControlledNeedEvidenceMap(seed, { originalFulltext: source.text });
+    }
+  const mapRef = refForTitleCard('evidence_map', evidence.evidenceMap.evidence_map_id, title, evidence.evidenceMap.evidence_map_version);
+  await seed.evidenceMaps.assessEvidenceStrength({ evidence_map_id: mapRef.ref_id, target_ref: mapRef, purpose: 'need_validation',
+    role_bundle: {
+      support_unit_ids: evidence.evidenceUnits.filter(unit => unit.evidence_role === 'support').map(unit => unit.evidence_unit_id),
+      challenge_unit_ids: evidence.evidenceUnits.filter(unit => unit.evidence_role === 'challenge').map(unit => unit.evidence_unit_id),
+      baseline_unit_ids: evidence.evidenceUnits.filter(unit => unit.evidence_role === 'baseline').map(unit => unit.evidence_unit_id),
+      context_unit_ids: evidence.evidenceUnits.filter(unit => unit.evidence_role === 'context').map(unit => unit.evidence_unit_id),
+    }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
+  const bundle = await seed.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
+    await save('evidence', { search_run: seed.searchRunResult, evidence_map: evidence.evidenceMap, evidence_units: evidence.evidenceUnits, bundle });
+    const request = scenarioInput({ title_card_id: title, workspace_id: null, input_snapshot_id: evidence.evidenceMap.input_snapshot_id,
       workflow_run_id: id('discovery'), node_attempt_id: id('discovery'), topic_scope_ref: seed.topicSeedRef,
       evidence_map_ref: mapRef, evidence_strength_ref: bundle.strength_assessment_refs[0]!,
       execution_mode: 'codex_cli', run_mode: 'product', executor_kind: 'single_agent', mocked_output: null,
@@ -3309,9 +3346,11 @@ test('Codex discovery qualification persists its actual candidate through frozen
         intent: selectedCase === 'evaluation_overlap'
           ? 'Discover a bounded need for position-sensitive evaluation before selecting long-context QA configurations. The source documents failures to use relevant middle-position information. Inspect whether that supports a need; do not claim a novel repair or force advancement.'
           : 'Discover a bounded unmet capability in reliable multi-document question answering when the answer-bearing document is in the middle of context, confined to the model configurations and conditions actually tested in this source. Distinguish the documented capability failure from the already-published evaluation method. A candidate research need is not a claim to a novel solution, nor evidence that current models still fail. Do not force advancement if the supplied findings do not support this need.',
-        evidence_boundary: 'One original results section reused in four controlled role slots. These are not independent sources. Broader prior art, current model behavior, dataset access and efficacy of any repair are unverified.',
+        evidence_boundary: useExtraction
+          ? 'Evidence units were extracted by the model from one original results section. Multiple units are not independent sources. Broader prior art, current model behavior, dataset access and repair efficacy are unverified.'
+          : 'One original results section reused in four controlled role slots. These are not independent sources. Broader prior art, current model behavior, dataset access and efficacy of any repair are unverified.',
       }, resource_sample_digest: { status: 'not_supplied' }, search_coverage_digest: { status: 'one_original_results_section',
-        limitations: ['Controlled retrieval and role assignments; no independent prior-art coverage.'] } },
+        limitations: [useExtraction ? 'Controlled retrieval; no independent prior-art coverage.' : 'Controlled retrieval and role assignments; no independent prior-art coverage.'] } },
       arbiter_payload: { ...arbiterPayload(), role_level_summaries: [] },
     });
     const discovered = await harness.runGenerateNeedCandidateScenario(request);
@@ -3341,7 +3380,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
     assert.equal(readiness.recommendation, 'ready_for_validation', JSON.stringify(readiness));
     const supportPacket = await seed.needService.createValidationDecisionSupportPacket({ need_candidate_id: candidate.need_candidate_id,
       readiness_assessment_id: readiness.readiness_assessment_id, created_by: 'system' });
-    const ctx = { ...seed, candidate, readiness, supportPacket };
+    const ctx = { ...seed, ...evidence, candidate, readiness, supportPacket };
     await save('support-packet', supportPacket);
     const adjudicationInput = validateNeedAdjudicationScenarioInput(ctx, null, { execution_mode: 'codex_cli', run_mode: 'product',
       mocked_output: null, workflow_run_id: id('adjudication'), node_attempt_id: id('adjudication'), expectations: {} });
@@ -3380,7 +3419,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
     assert.equal(budget!.snapshot().attempts.length, afterConfirmation);
     assert.equal(seed.llmGateway.calls.length, 0);
   } finally {
-    for (const stage of ['discovery', 'adjudication', 'confirmation', 'publish']) {
+    for (const stage of ['extraction', 'discovery', 'adjudication', 'confirmation', 'publish']) {
       const artifacts = await seed.controlPlaneRepository.listArtifactRefsByWorkflowRunId(id(stage));
       await save(`${stage}-artifacts`, artifacts);
       for (const artifact of artifacts) if (artifact.payload && artifact.checksum) {
@@ -3646,6 +3685,56 @@ test('product CLI validation preserves risk and Human gates and blocks unsafe re
       assert.equal(calls, failure === 'input_scope' ? 0 : 1);
     });
   }
+});
+
+test('product CLI extraction reads bound original paragraphs and refuses source or locator drift', async t => {
+  const original = 'The supplied answer document is less useful in the middle of the context.';
+  const ctx = await seedNeedValidationSearchRuntime({ originalFulltext: original });
+  const unselected = 'UNSELECTED_FRAGMENT must remain outside the model packet.';
+  const initialDocument = (await ctx.literature.listFulltextDocumentsByLiteratureId('lit_001'))[0]!;
+  const initialParagraphs = await ctx.literature.listFulltextParagraphsByDocumentId(initialDocument.id);
+  const fullText = `${original}\n\n${unselected}`;
+  await ctx.literature.upsertFulltextExtractionBundle({ document: { ...initialDocument, normalizedText: fullText, normalizedTextChecksum: sha256Text(fullText) },
+    sections: [], anchors: [], paragraphs: [...initialParagraphs, { ...initialParagraphs[0]!, id: 'paragraph_unselected', paragraphId: 'paragraph_unselected',
+      text: unselected, checksum: sha256Text(unselected), orderIndex: 2, startOffset: original.length + 2, endOffset: fullText.length }] });
+  const home = await fs.mkdtemp(join(tmpdir(), 'v1a-paragraph-cli-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const handoff = ctx.searchRunResult.node_result.downstream_handoff!;
+  const draft = evidenceMapExtractionDraft({ title_card_id: ctx.titleCard.title_card_id, handoff,
+    literature_ref: ctx.literatureRef, source_ref: ctx.sourceRef, coverage_row_intent_ref: ctx.coverageRowIntentRefs[0]!,
+    input_refs_hash: ctx.evidenceMapMaterializer.inputRefsHashForSearchRunHandoff(handoff) }, { producer_kind: 'codex_cli' });
+  draft.draft_units[0]!.source_statement = original;
+  draft.draft_units[0]!.locator = { locator_type: 'paragraph', locator_ref: ctx.manualLocatorRef,
+    paragraph_ref: ctx.manualLocatorRef, literature_ref: ctx.literatureRef, source_ref: ctx.sourceRef };
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls++;
+    assert.ok(options.stdin.includes(original));
+    assert.equal(options.stdin.includes(unselected), false, 'Unbound paragraph text stays outside the model context.');
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'paragraph-test' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const profiles = new TopicSelectionModelProfileRegistryService();
+  const request = buildEvidenceMapScenarioInput({ title_card_id: ctx.titleCard.title_card_id, handoff, draft }, {
+    extraction_draft: null, execution_mode: 'codex_cli', run_mode: 'product', node_attempt_id: 'cli-paragraph-extraction', expectations: {} });
+  const result = await ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(request);
+  assert.equal(result.node_result.status, 'succeeded', JSON.stringify(result.node_result));
+  const evidence = await ctx.evidenceMaps.getNeedValidationEvidenceBundle(result.node_result.evidence_map_ref!.ref_id);
+  assert.equal(evidence.support_units[0]!.abstract_only, false);
+  assert.equal(evidence.support_units[0]!.source_statement, original);
+  assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario(request), result);
+  assert.equal(calls, 1);
+  draft.draft_units[0]!.locator.paragraph_ref = { ...ctx.manualLocatorRef, version_id: 'forged' };
+  await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-paragraph-forged' }), /quote or locator/);
+  assert.equal(calls, 2);
+  const document = (await ctx.literature.listFulltextDocumentsByLiteratureId('lit_001'))[0]!;
+  const paragraphs = await ctx.literature.listFulltextParagraphsByDocumentId(document.id);
+  await ctx.literature.upsertFulltextExtractionBundle({ document, sections: [], anchors: [],
+    paragraphs: paragraphs.map(paragraph => ({ ...paragraph, text: 'Changed without updating its checksum.' })) });
+  await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-paragraph-source-drift' }), /original paragraph/);
+  assert.equal(calls, 2, 'Source drift is rejected before model work.');
 });
 
 test('product CLI extracts repository quotes, discovers a need and replays each node without more model work', async t => {
@@ -4209,6 +4298,38 @@ test('workflow harness requires source-specific support/challenge conflict cover
   );
   assert.equal(result.node_result.evidence_map_ref, null);
   assert.equal(result.node_result.authority_refs.length, 0);
+});
+
+test('workflow harness admits explicit same-source scope refinements without inventing a claim conflict', async () => {
+  const ctx = await seedBuildEvidenceMapRuntime();
+  const draft = evidenceMapExtractionDraft({ title_card_id: ctx.titleCard.title_card_id, handoff: ctx.searchRunHandoff,
+    literature_ref: ctx.literatureSnapshot.literature_refs[0]!, source_ref: ctx.literatureSnapshot.content_source_refs[0]!,
+    coverage_row_intent_ref: ctx.coverageRowIntentRefs[0]!,
+    input_refs_hash: ctx.evidenceMapMaterializer.inputRefsHashForSearchRunHandoff(ctx.searchRunHandoff) });
+  const support = draft.draft_units[0]!;
+  support.source_statement = 'Model accuracy degrades at middle positions.';
+  const challenge = { ...support, client_unit_key: 'boundary', evidence_role: 'challenge' as const,
+    coverage_row_intent_ref: null, source_statement: 'An extended context window alone does not improve context use.' };
+  draft.draft_units.push(challenge);
+  draft.draft_links = [{ link_type: 'refines', source_unit_key: challenge.client_unit_key, target_unit_key: support.client_unit_key,
+    rationale: 'This constrains a possible window-expansion remedy; it does not contradict the observed position-sensitive deficit.', confidence: null }];
+  const request = buildEvidenceMapScenarioInput({ title_card_id: ctx.titleCard.title_card_id, handoff: ctx.searchRunHandoff, draft }, { expectations: {} });
+  const result = await ctx.workflowHarness.runBuildEvidenceMapScenario(request);
+  assert.equal(result.node_result.status, 'succeeded', JSON.stringify(result.node_result.materialization_report));
+  assert.equal(result.node_result.evidence_unit_refs.length, 2);
+  assert.deepEqual(result.node_result.evidence_map_records!.conflict_sets, []);
+  assert.equal(result.node_result.evidence_map_records!.typed_links[0]!.link_type, 'refines');
+  draft.draft_units.push({ ...support, client_unit_key: 'support_boundary', source_statement: challenge.source_statement },
+    { ...challenge, client_unit_key: 'challenge_original', source_statement: support.source_statement });
+  draft.draft_links.push({ ...draft.draft_links[0]!, source_unit_key: 'support_boundary', target_unit_key: 'challenge_original' });
+  const crossed = await ctx.workflowHarness.runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'crossed-duplicate-claims' });
+  assert.equal(crossed.node_result.status, 'review_required', 'Cross-linking duplicate claims must not hide opposite role assignments.');
+  draft.draft_units.splice(2);
+  draft.draft_links.splice(1);
+  challenge.source_statement = support.source_statement;
+  const duplicated = await ctx.workflowHarness.runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'same-claim-two-roles' });
+  assert.equal(duplicated.node_result.status, 'review_required');
+  assert.ok(duplicated.node_result.materialization_report.review_codes.includes('SUPPORT_CHALLENGE_POLARITY_AMBIGUOUS'));
 });
 
 test('workflow harness runs mocked single-agent EvidenceMap extraction before materialization', async () => {

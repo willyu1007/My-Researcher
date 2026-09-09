@@ -520,7 +520,7 @@ an explicitly local profile override, not a new real-model qualification. Those 
   research approval or a novelty/efficacy judgment.
 - The live helper starts with a controlled SearchRun/fulltext map and four roles from one section;
   it does not run extraction or the app checkpoint guard. In-memory domain repositories and JSON
-  artifact storage are disclosed. Fresh N5-to-v1b composition remains; this result alone does not close CX-03.
+  artifact storage are disclosed. The next qualification covers fresh N5-to-v1b consumers; full app checkpoint composition remains, so this result alone does not close CX-03.
 - Review found that CLI persistence_context could differ from the map lineage checked for model
   context. The context compiler now refuses missing/mismatched SearchRun, SearchPlan or snapshot
   refs before model work. A public-harness regression failed before correction and passes after it,
@@ -533,10 +533,52 @@ an explicitly local profile override, not a new real-model qualification. Those 
   calls have unknown usage; none is pending. Aggregate limits remain null, per-call deadline 600 seconds.
   Private source, inputs, outputs, audit artifacts and frozen bundle exports remain under the shared live directory.
 
+## Original-paragraph extraction and source-to-v1b consumers
+
+- N5 now compiles only the persisted SearchRun’s explicitly bound original paragraphs, with unique
+  literature/source resolution, document/paragraph hashes, text containment and complete locator
+  equality. The original-abstract branch remains. An unbound second paragraph is absent from the
+  actual fake-process request; source or locator drift refuses materialization. No section/document
+  wildcard access, parser replacement or new acquisition system was introduced.
+- Attempt 152 read the pinned 2882-character Lost in the Middle Results section and extracted five
+  source-grounded units, but the old same-source polarity rule returned `review_required`: compatible
+  findings and a limitation were forced toward a `claim_conflict`. No map or downstream role was
+  created. Independent review verified 11 artifact checksums and actual quote/locator integrity.
+- The materializer now also accepts the existing `refines` relation for compatible scope boundaries:
+  nonempty rationale, cross-role links covering every same-source support/challenge unit, and no
+  normalized quote duplicated across opposite roles. Existing unexplained-polarity/foreign-conflict
+  rejection remains. A joint-review four-unit cross-link bypass was reproduced, fixed with a
+  whole-source quote-set comparison, and independently rechecked as review-required.
+- N5 prompt v4 states the paragraph/source boundary and explicit conflict-versus-refinement
+  contract; the rendered prompt hash anchor is deliberately updated. Attempt 153’s four units
+  correctly distinguish position-sensitive QA, the extended-window limitation, the closed-book/oracle
+  baselines and experimental context. Its cross-role refines relation explains compatibility without
+  inventing a contradiction; the current materializer independently readmits this exact output.
+- Attempts 153–156 (`extracted_lineage_v2_live`) complete real N5 → N6 persistence → N7 validate →
+  fixed Human fixture/N8 support → one frozen v1b bundle. The N6 candidate is confined to historical
+  source-tested GPT-3.5-Turbo conditions, with unknown prior art and unverified replication/repair.
+  Exact per-node replay adds no model calls, candidates or frozen bundles. No model output or
+  evidence role was manually authored in this chain.
+- Independent final review verified 48 artifact checksums, 54 complete output references, source pin,
+  candidate text, all four audit/receipt chains and the frozen bundle. The challenge unit’s residual
+  risk remains in N7, exact Human input and the bundle; no finding remains unresolved.
+- The SearchPlan/retrieval/parser metadata and direct-evidence readiness are controlled; the single
+  source is not independent corroboration. Domain stores are in memory, artifacts cross JSON storage,
+  and Human input is explicitly a fixture. The app evidence/gap checkpoint guard is not configured
+  in this helper; this is a consumer chain, not full product checkpoint approval. Further inspection
+  found the selected-portfolio prompt incorrectly requires a single draft, and the strict CLI schema
+  renders mechanism_payload as an empty object. Both must be aligned before qualifying the existing
+  two-distinct-viable-candidates gap checkpoint. CX-03 stays open.
+- Verification: 132 focused harness/binding checks passed with three opt-in skips; the subsequent
+  cross-link correction passed the two affected source-polarity tests; backend no-emit typecheck,
+  llm:config:check (five checks) and workflow-matrix consistency passed. The four-call live test
+  separately passed. No build, dev server or database schema change was used.
+- Through 156: 3,217,196 reported tokens (95,977 across 152–156), the same nine unknown-usage historical calls and no pending attempt. Aggregate ceilings remain null; per-call deadline is 600 seconds.
+
 ## Outstanding verification
 
-- Compose original-source extraction into the qualified candidate-to-v1b chain and exercise its
-  upstream checkpoint boundary. The current evidence does not close CX-03 or whole-flow acceptance.
+- Correct the Need Discovery portfolio/payload interface and qualify substantive candidate alternatives
+  through the real evidence/gap checkpoint owners. The consumer-only lineage does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
 - Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and

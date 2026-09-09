@@ -194,10 +194,17 @@ before model work. The final CLI slot is independent of the still-forbidden exte
 
 `TopicSelectionV1aCodexContextService` resolves the persisted SearchRun, snapshot, coverage roles and
 stored original AbstractProfiles. Source ID/URL must match the profile's actual source and frozen
-SearchRun; generated abstracts, checksum drift and missing provenance fail closed. This first extraction
-consumer supports original metadata abstracts, not full-text extraction or user-authored provenance.
-Every extracted quote and abstract locator must match that compiled source before the existing
-materializer may write EvidenceMap authority. Abstract-only warnings remain visible.
+SearchRun; generated abstracts, checksum drift and missing provenance fail closed. The extraction
+consumer supports original metadata abstracts and explicitly bound fulltext paragraphs. It reads only
+paragraph refs carried by the persisted SearchRun, requires unique resolution within the named
+literature and one bound source, and verifies document/paragraph checksums and text containment.
+Unbound paragraph bodies do not enter model context. Section/document wildcards are not supported.
+Every extracted quote and complete locator must match the compiled source before materialization.
+Abstract-only warnings remain visible. The materializer accepts compatible same-source support and
+challenge findings when explicit cross-role `refines` links explain every unit’s scope relationship.
+The exception requires substantive rationales and no normalized quote repeated across opposite
+roles; unexplained polarity and duplicate-quote cross-linking remain review-required. Genuine
+claim conflicts retain the existing conflict-record path.
 
 Need discovery reads the current EvidenceMap and strength assessment with exact search/resource
 lineage. When persistence is requested, all three persistence-context references must exactly match

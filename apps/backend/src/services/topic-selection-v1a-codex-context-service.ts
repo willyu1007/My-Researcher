@@ -17,6 +17,9 @@ type ExtractionSource = { literature_ref: TopicSelectionFunctionalRef; source_re
 
 const refIdentity = (ref: TopicSelectionFunctionalRef) => canonicalHash({ ref_type: ref.ref_type, ref_id: ref.ref_id,
   title_card_id: ref.title_card_id ?? null, version_id: ref.version_id ?? null, legacy_ref: ref.legacy_ref ?? null });
+const locatorIdentity = (locator: TopicSelectionEvidenceSourceLocator) => canonicalHash(Object.fromEntries(
+  Object.entries(locator).filter(([, value]) => value != null).map(([key, value]) =>
+    [key, typeof value === 'object' ? refIdentity(value) : value])));
 const sameRefs = (a: TopicSelectionFunctionalRef[], b: TopicSelectionFunctionalRef[]) =>
   canonicalHash(a.map(refIdentity).sort()) === canonicalHash(b.map(refIdentity).sort());
 
@@ -52,9 +55,40 @@ export class TopicSelectionV1aCodexContextService {
       }
     }
     const sources: ExtractionSource[] = [];
+    const paragraphRefs = run.evidence_map_input_refs.filter(ref => ref.ref_type === 'fulltext_paragraph');
+    const resolvedParagraphs = new Set<string>();
     for (const literatureRef of run.evidence_map_input_refs.filter(ref => ref.ref_type === 'literature_record')) {
-      const abstract = await this.options.literature.findAbstractProfileByLiteratureId(literatureRef.ref_id);
       const sourceRows = await this.options.literature.listSourcesByLiteratureId(literatureRef.ref_id);
+      let hasParagraph = false;
+      if (paragraphRefs.length) {
+        const documents = await this.options.literature.listFulltextDocumentsByLiteratureId(literatureRef.ref_id);
+        for (const document of documents) {
+          const paragraphs = await this.options.literature.listFulltextParagraphsByDocumentId(document.id);
+          for (const paragraph of paragraphs) {
+            const refs = paragraphRefs.filter(ref => [paragraph.id, paragraph.paragraphId].includes(ref.ref_id));
+            if (!refs.length) continue;
+            const sourceRefs = run.evidence_map_input_refs.filter(ref => ref.ref_type === 'literature_source'
+              && sourceRows.some(row => row.id === ref.ref_id || row.sourceUrl === ref.ref_id));
+            if (refs.length !== 1 || resolvedParagraphs.has(refIdentity(refs[0]!)) || sourceRefs.length !== 1
+              || !['READY', 'PARTIAL_READY'].includes(document.status) || !document.normalizedText?.trim()
+              || document.normalizedTextChecksum !== sha256Text(document.normalizedText)
+              || !paragraph.text.trim() || paragraph.checksum !== sha256Text(paragraph.text)
+              || !document.normalizedText.replace(/\s+/g, ' ').includes(paragraph.text.replace(/\s+/g, ' ').trim())) {
+              throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI extraction requires an unambiguous, checksum-valid original paragraph and bound literature source.');
+            }
+            const locatorRef = refs[0]!;
+            const sourceRef = sourceRefs[0]!;
+            const text = paragraph.text.trim();
+            sources.push({ literature_ref: literatureRef, source_ref: sourceRef,
+              locator: { locator_type: 'paragraph', locator_ref: locatorRef, paragraph_ref: locatorRef,
+                literature_ref: literatureRef, source_ref: sourceRef }, text, text_hash: sha256Text(text) });
+            resolvedParagraphs.add(refIdentity(locatorRef));
+            hasParagraph = true;
+          }
+        }
+      }
+      if (hasParagraph) continue;
+      const abstract = await this.options.literature.findAbstractProfileByLiteratureId(literatureRef.ref_id);
       const abstractSource = abstract?.sourceRef.ref_type === 'literature_source'
         ? sourceRows.find(source => source.id === abstract.sourceRef.source_id
           && (abstract.sourceRef.source_url == null || abstract.sourceRef.source_url === source.sourceUrl)) : null;
@@ -70,33 +104,30 @@ export class TopicSelectionV1aCodexContextService {
           locator_ref: { ref_type: 'literature_abstract', ref_id: abstract.id, title_card_id: input.title_card_id, version_id: null } },
         text, text_hash: sha256Text(text) });
     }
+    if (paragraphRefs.some(ref => !resolvedParagraphs.has(refIdentity(ref)))) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'A bound original paragraph cannot be resolved within this search run.');
+    }
     if (!sources.length) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI extraction has no readable source candidates.');
     const refs = [handoff.search_run_ref, handoff.search_plan_ref, handoff.literature_resource_pool_snapshot_ref, ...run.evidence_map_input_refs];
     return { sources, context: {
       schema_version: 'TopicSelectionEvidenceMapExtractionContextPacket@v1', node_id: 'topic-selection.v1a.build-evidence-map.v1',
       workflow_run_id: input.workflow_run_id, node_attempt_id: input.node_attempt_id, context_family: 'evidence_extraction_context',
       input_refs: refs, input_refs_hash: new TopicSelectionEvidenceMapMaterializationService().inputRefsHashForSearchRunHandoff(handoff),
-      search_run_handoff_hash: canonicalHash(handoff), context_compiler_version: 'repository-abstracts-v1',
+      search_run_handoff_hash: canonicalHash(handoff), context_compiler_version: 'repository-sources-v2',
       policy_version: input.policy_version, output_schema_version: input.output_schema_version, execution_mode: 'codex_cli',
       profile_id: TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,
       cache_key: canonicalHash({ handoff, sources }), cache_hit: false, redaction_policy: 'repository-source-text-only',
-      payload: { sources, source_boundary: 'original_abstracts_only' }, created_at: new Date().toISOString(),
+      payload: { sources, source_boundary: 'original_abstracts_and_bound_paragraphs' }, created_at: new Date().toISOString(),
     } };
   }
 
   validateExtraction(draft: TopicSelectionEvidenceMapExtractionDraft, sources: ExtractionSource[]): void {
     if (draft.producer_kind !== 'codex_cli') throw new AppError(409, 'VERSION_CONFLICT', 'CLI extraction producer provenance is invalid.');
     for (const unit of draft.draft_units) {
-      const source = sources.find(source => refIdentity(source.literature_ref) === refIdentity(unit.literature_ref));
+      const source = sources.find(source => refIdentity(source.literature_ref) === refIdentity(unit.literature_ref)
+        && locatorIdentity(unit.locator) === locatorIdentity(source.locator));
       const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
       if (!source || !sameRefs(unit.source_refs, [source.source_ref])
-        || refIdentity(unit.locator.locator_ref) !== refIdentity(source.locator.locator_ref)
-        || unit.locator.locator_type !== 'abstract'
-        || refIdentity(unit.locator.source_ref) !== refIdentity(source.source_ref)
-        || refIdentity(unit.locator.literature_ref) !== refIdentity(source.literature_ref)
-        || [unit.locator.content_ref, unit.locator.document_ref, unit.locator.section_ref, unit.locator.paragraph_ref,
-          unit.locator.anchor_ref, unit.locator.manual_label, unit.locator.quote_hash, unit.locator.start_offset,
-          unit.locator.end_offset, unit.locator.page_number].some(value => value != null)
         || !normalize(unit.source_statement) || !normalize(source.text).includes(normalize(unit.source_statement))) {
         throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI extraction quote or locator does not match the compiled original source.');
       }

@@ -85,10 +85,13 @@ inside `scenario_input`, set `execution_mode: "codex_cli"`, `run_mode: "product"
 profile registry; a configured runner is required.
 
 - `topic-selection.v1a.build-evidence-map.v1`: supply the preceding persisted `search_run_handoff`.
-  The product resolves original stored abstracts and compiles extraction context. Do not supply an
+  The product resolves original stored abstracts or exact `fulltext_paragraph` refs already bound
+  to the SearchRun and compiles extraction context. Do not supply an
   extraction draft/context or an external model answer. Abstract source ID/URL and checksum must
-  match the frozen search inputs. Generated summaries, missing source provenance and full-text-only
-  records are currently refused by this consumer. The output retains abstract-only warnings.
+  match the frozen search inputs. Generated summaries, missing source provenance and unresolved
+  bound paragraphs are refused. Bound paragraphs must resolve uniquely within their literature, match their
+  stored document/paragraph checksums and have one bound literature source. Unselected paragraphs
+  are excluded; section/document wildcard reads are unsupported. Abstract output retains its warnings.
 - `topic-selection.v1a.generate-need-candidate.v1`: supply the current `evidence_map_ref`, its
   `evidence_strength_ref`, exact `search_snapshot_refs` / `resource_snapshot_refs`, topic scope and
   the normal exploration/arbiter request payloads. Create the strength assessment through its existing

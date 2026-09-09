@@ -193,7 +193,22 @@ export class TopicSelectionEvidenceMapMaterializationService {
           && this.intersects(conflict.support_unit_keys, roleUnitKeys.support)
           && this.intersects(conflict.challenge_unit_keys, roleUnitKeys.challenge),
         );
-        if (!hasConflict) {
+        // A reported limitation can refine a supported finding without contradicting it.
+        // Require an explicit cross-role relation for every unit; duplicate claims still need review.
+        const claim = (key: string) => draft.draft_units.find(unit => unit.client_unit_key === key)
+          ?.source_statement.replace(/\s+/g, ' ').trim();
+        const supportClaims = new Set([...roleUnitKeys.support].map(claim));
+        const duplicatesAcrossRoles = [...roleUnitKeys.challenge].some(key => supportClaims.has(claim(key)));
+        const boundedUnitKeys = new Set(draft.draft_links.filter((link) => {
+          if (link.link_type !== 'refines' || !link.rationale?.trim()) return false;
+          const crossRole = (roleUnitKeys.support.has(link.source_unit_key) && roleUnitKeys.challenge.has(link.target_unit_key))
+            || (roleUnitKeys.challenge.has(link.source_unit_key) && roleUnitKeys.support.has(link.target_unit_key));
+          if (!crossRole) return false;
+          return claim(link.source_unit_key) !== claim(link.target_unit_key);
+        }).flatMap(link => [link.source_unit_key, link.target_unit_key]));
+        const hasScopeRefinements = !duplicatesAcrossRoles
+          && [...roleUnitKeys.support, ...roleUnitKeys.challenge].every(key => boundedUnitKeys.has(key));
+        if (!hasConflict && !hasScopeRefinements) {
           state.reviewCodes.add('SUPPORT_CHALLENGE_POLARITY_AMBIGUOUS');
           for (const unitKey of [...roleUnitKeys.support, ...roleUnitKeys.challenge]) {
             this.rejectUnit(state, unitKey, 'SUPPORT_CHALLENGE_POLARITY_AMBIGUOUS');
