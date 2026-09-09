@@ -16,7 +16,8 @@
 | Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
 | Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; integrated consumer mode remains behind closed shipped profiles. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
-| Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. Budget selection and every shipped CLI profile remain pending. |
+| Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This preparation itself used no model calls; every shipped CLI profile remains closed. |
+| First real canonical N6 run | Product-home Codex CLI 0.153.4 / gpt-6-astra high; pinned ordinary input | Two Explorers and Critic succeeded; Arbiter timed out after a WebSocket disconnect and internal retry | 4 CLI invocations, 84,887 reported tokens plus one unknown usage. No candidate authority, N7/N8 progression or profile activation. See retained run evidence below. |
 | CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
 
 ## Implementation quality review
@@ -38,7 +39,7 @@ blocked request adds no artifacts, and changing its frozen input is still reject
 prove these integrity/recovery contracts, not real model reasoning, statistical prompt quality or
 production activation. Automatic repair of an interrupted partial domain commit is not implemented.
 
-## Live qualification proposal — not executed
+## Live qualification inputs and execution
 
 The earlier repository-sample fallback is not suitable: titleCardDemoFixtures.ts contains invented
 titles and example.com links. Use the following public original-paper inputs instead. Abstract
@@ -71,12 +72,12 @@ controlled supported-domain setup may be used to qualify a later role independen
 boundary. Inspect actual Critic resolutions, evidence support, failure behavior and prior-role
 consumption before accepting a role. Existing deterministic fixtures do not replace this inspection.
 
-Pending budget proposal: **40 model attempts, 1,000,000 aggregate tokens, 180 seconds per attempt,
+Live budget authorized by the user’s instruction to execute directly on 2026-09-09, using the immediately preceding recommended ceiling: **40 model attempts, 1,000,000 aggregate tokens, 180 seconds per attempt,
 90 minutes overall**. Attempts and launch deadlines are enforced locally. Token notifications trigger a best-effort interrupt at the first reported ceiling; the protocol does not provide a strict billing-token cap, so delayed usage reporting may overshoot. Alternative smaller first check: **12 attempts,
 300,000 tokens, 30 minutes overall**, retaining the 180-second per-attempt ceiling. Failed and
 interrupted attempts count; where usage is unavailable, retain a conservative reservation rather
 than treating it as zero. Keep existing runner/model configuration and product limits; no gateway
-fallback. No budget selection has been received. This proposal authorizes no live execution by itself.
+fallback. The recommended ceiling now applies to this execution. All cases and staging/shipped passes share the same ledger.
 
 ## Prepared qualification entry
 
@@ -149,10 +150,50 @@ acquired before reading it, failed inspection releases the lock, and repeated li
 replace retained evidence. Unit evidence: 128 harness checks plus 5 budget/runner checks; the opt-in
 live test is skipped by default. The three request previews are separate offline checks.
 
+## First real run — incomplete qualification
+
+The user authorized direct real Codex validation on 2026-09-09; the preceding recommended ceiling
+was used. The ordinary canonical consumer executed from the isolated product home with model
+`gpt-6-astra`, effort `high`, App Server transport and CLI version `0.153.4`. Original source pins,
+exact role inputs and complete CLI outcomes remain in `/tmp/my-researcher-t153-phase2/live/`.
+
+| CLI invocation | Result / elapsed | Reported tokens | Inspected semantic evidence |
+|---|---|---|---|
+| Explorer 1 | succeeded / 44.9s | 27,728 | Three bounded retrieval/position/evidence-use questions; distinguishes DPR and BEIR settings, marks access and empirical outcomes unverified, and avoids a causal domain-shift claim without a matched source-domain comparison. |
+| Explorer 2 | succeeded / 42.1s | 27,818 | Independent input; proposes retrieval performance, position intervention and failure-overlap questions. Discloses conditional-subset comparability and annotation/access limitations. Some overlap with Explorer 1 is visible rather than counted as scientific independence. |
+| Critic | succeeded / 38.4s | 29,341 | Identifies overlapping estimands, passage-order intervention confounds and recall-vs-hit-rate ambiguity, citing both actual Explorer artifacts and supplied evidence. Three note findings; this run does not demonstrate material-finding resolution. |
+| Arbiter | timeout / 180.0s | unknown | No completed admissible JSON. Thread `01a084ee-18a4-7710-b8ff-7da33de3fbe2` began output, its WebSocket stream reset, and Codex retried internally before the local timeout. No final candidate set or downstream authority was accepted. |
+
+SHA-256 of the exact completed `final_message` strings, in invocation order:
+
+- Explorer 1: `6d2bfd336e990a81f5a85a1ecf81e12a20ef1c467965c9b128c685c6fa5abec1`
+- Explorer 2: `a11c251c9af2bc8be751ad5015e4d09214709a8da0a653dee6eb077a57347dca`
+- Critic: `60026b5ce6830e45812ac2e9d25fa80aa3272c86512d4c645acadfa59ff64189`
+
+Read-only inspection of the exact failed thread in product-home logs found a
+`codex_core::responses_retry` warning: the stream disconnected before completion with a WebSocket
+connection reset, followed by internal sampling retry 1/5. Runner evidence shows no completed final
+message or token-usage notification. This supports a transport interruption in the failed attempt;
+it does not establish that longer timeout alone would complete it or prove a schema/model defect.
+No speculative production fix or authentication change was applied.
+
+Actual known usage is **84,887 tokens**, not one million. The ledger conservatively reserves the
+remaining **915,113 tokens** because invocation 4 has unknown usage, so it refuses more calls under
+the initial accounting policy. The 4 counted attempts are CLI invocations; a CLI can internally
+retry a sampling request. The proposed continuation keeps the remaining 36 CLI invocations and the
+original 90-minute deadline, retains unknown usage explicitly and removes the token hard-stop;
+this changed accounting policy is awaiting user input. Do not zero the unknown entry, reset the
+clock, overwrite the ordinary case or repeat an ambiguous domain commit.
+
+No temporary runtime instrumentation was added. Existing private logs were inspected by exact
+thread ID; authentication contents were not read. Original CLI outcomes are retained as qualification
+evidence, not as production success. Phase 2 and Phase 3 remain incomplete.
+
 ## Outstanding verification
 
-- Receive the explicit live budget selection; no launch has occurred. Use the prepared entry and
-  inspect the first actual outputs before extending dependent exact-delta/regeneration scenarios.
+- Resolve the changed accounting policy for unknown usage before further model calls. Retain the
+  completed role evidence, then continue with new explicit attempt identities and supported
+  exact-delta/regeneration scenarios; no automatic repeat of the failed ordinary case.
 - Qualify N6 Explorer/Critic/Arbiter, N7 admission, ordinary/conditional N8 and exact-delta roles
   against actual inputs and failure cases. Validate live schema compatibility, evidence scope,
   substantive resolution and non-advance outcomes; record each actual attempt and limitations.
