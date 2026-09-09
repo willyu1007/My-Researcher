@@ -562,6 +562,14 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
   await assert.rejects(service.invokeNode(n8Input), /checkpoint|advance|decision|confirmed/i);
   assert.equal(calls, 5, 'An unconfirmed Human checkpoint must stop before model work.');
   await confirmQuestionCheckpoint(ctx);
+  const research = await service.resolveCodexResearchContext(n8Input);
+  const citationRefs = research.admissible_citation_refs as TopicSelectionFunctionalRef[];
+  assert.ok(citationRefs?.length, 'The model must receive the exact refs accepted by its N8 gate.');
+  const evidenceRows = await ctx.topicQuestionRepository.listEvidenceRefsByContractId(n7.authority_ref!.ref_id);
+  for (const row of evidenceRows) assert.ok(citationRefs.some(item => item.ref_type === row.evidence_ref.ref_type
+    && item.ref_id === row.evidence_ref.ref_id && (item.version_id ?? null) === (row.evidence_ref.version_id ?? null)
+    && item.title_card_id === row.evidence_ref.title_card_id));
+  assert.ok(citationRefs.every(item => item.ref_type !== 'artifact_ref' && item.ref_type !== 'trial_ledger'));
   const n8 = await service.invokeNode(n8Input);
   assert.equal(n8.gate_status, 'admitted_with_warnings', JSON.stringify(n8));
   assert.equal(calls, 6);

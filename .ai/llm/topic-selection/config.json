@@ -106,11 +106,11 @@
       "system": "prompts/v1b/n7-n8-debate-admission-review/system.md"
     },
     "topic-selection.v1b.n8.topic-value-assessment.runtime-draft": {
-      "version": "v2",
+      "version": "v3",
       "system": "prompts/v1b/n8-topic-value-assessment/system.md"
     },
     "topic-selection.v1b.n8.topic-value-assessment.runtime-draft.with-decision-memory": {
-      "version": "v2",
+      "version": "v3",
       "system": "prompts/v1b/n8-topic-value-assessment-with-decision-memory/system.md"
     },
     "topic-selection-v1b-n6-debate-explorer": {
@@ -130,7 +130,7 @@
       "system": "prompts/v1b/n6-refinement-delta-debate/system.md"
     },
     "topic-selection.v1b.n8.bounded-micro-debate.runtime-role": {
-      "version": "v2",
+      "version": "v3",
       "system": "prompts/v1b/n8-bounded-micro-debate/system.md"
     },
     "topic-selection-v1c-promotion-support-bounded-micro-debate": {

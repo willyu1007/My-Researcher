@@ -302,3 +302,27 @@ including a reproduced-then-fixed replay regression; independent re-review found
 material finding. Canonical downstream qualification continues as
 `staging_fixture_ordinary_tool_scope_v1`, with separately labelled N6/Human fixtures and unchanged
 model/effort/product timeout. All shipped profiles remain closed.
+
+
+## N8 citation contract correction
+
+`staging_fixture_ordinary_tool_scope_v1` completed real N7 and two ordinary N8 calls (23–25),
+but both N8 drafts were blocked by `N8_UNKNOWN_VALUE_TRACE_REF`. They used evidence-packet unit
+version v1 while the selected contract's exact evidence refs carried null versions. Both outputs
+correctly distinguished bounded evaluation from unverified novelty/resources and requested evidence
+recheck, but their citations could not enter domain authority. No conditional Debate ran.
+
+The runtime now supplies `research_context.admissible_citation_refs` directly from `n8KnownRefs()`,
+the existing gate owner. Ordinary, decision-memory and conditional N8 prompts are v3 and require
+exact identities from this list; packet metadata does not replace citation versions, and incidental
+workflow artifacts cannot become assessment citations. The list enters existing context hashing;
+no gate or evidence scope was relaxed. A focused canonical regression reproduced the missing-list
+failure before the correction, then passed. All 35 N8 runtime/admission checks, five config checks
+and backend no-emit typecheck passed; intentional prompt byte goldens were updated. Independent
+review found no material issue. The `staging_fixture_ordinary_n8_refs_v3` run completed N7 (attempt 27), then N8 stopped before a model call: its estimated input was 23,058 against the unchanged 22,000 target. The resolver now omits repeated handoff payload/ref arrays from the research body; the required projection retains every ref/hash, and handoff route/warnings/residual risks plus all scientific bodies remain. Re-estimating the exact saved packet with the production schema gives 21,650. Full handoff lineage is still validated before projection and the actual projected context remains hashed. The focused canonical test, backend typecheck and independent re-review passed. Fresh N8 model revalidation remains pending; N6 insufficient-evidence qualification is running independently.
+
+Native scope positive control: attempt 26 used the product MCP through the actual runner to list
+and read one scoped operational canary (39,774 input + 211 output tokens, of which 19,200 input
+were cached). The returned random marker matched, the scope charged exactly one read, and both
+MCP calls completed. Scope and ephemeral HTTP server were closed afterward. This complements the
+native-read refusal in attempt 21 and makes no research-evidence claim.

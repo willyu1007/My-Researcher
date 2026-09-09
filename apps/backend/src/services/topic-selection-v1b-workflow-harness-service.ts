@@ -1090,6 +1090,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
     if (dependencyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependencyBlocker.message);
     let bodies: N6LoadedContext | N8LoadedContext | (N7LoadedContext & Pick<N6LoadedContext, 'researchSlice' | 'evidenceRefs'>);
+    let admissibleCitationRefs: TopicSelectionFunctionalRef[] | undefined;
     if (input.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
       const prepared = await this.prepareN6Context(input);
       if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
@@ -1107,6 +1108,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           loaded.value.contract.title_card_id, loaded.value.contract.version),
       });
       bodies = loaded.value;
+      admissibleCitationRefs = this.n8KnownRefs(loaded.value);
     } else if (input.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1') {
       const payload = parseN7Payload(input.frozen_input.payload);
       if (!payload.ok) throw new AppError(400, 'INVALID_PAYLOAD', payload.message);
@@ -1155,7 +1157,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
         reviewedRefinement: { currentContract, previousContract, currentAnswerabilityPlan, previousAnswerabilityPlan },
       }, evidence_packets: evidencePackets };
     }
-    return { frozen_domain: bodies, evidence_packets: evidencePackets };
+    // N8 already carries every handoff ref/hash in its required projection. Preserve the handoff
+    // warnings and route, without repeating the same payload and required-ref arrays in research bodies.
+    const frozenDomain = 'n7Handoff' in bodies ? { ...bodies, n7Handoff: {
+      route_signal: bodies.n7Handoff.route_signal,
+      warning_codes: bodies.n7Handoff.envelope.warning_codes,
+      residual_risk_refs: bodies.n7Handoff.envelope.residual_risk_refs,
+    } } : bodies;
+    return { frozen_domain: frozenDomain, evidence_packets: evidencePackets,
+      ...(admissibleCitationRefs ? { admissible_citation_refs: admissibleCitationRefs } : {}) };
   }
 
   private async prepareN6Context(
