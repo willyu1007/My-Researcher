@@ -106,5 +106,8 @@ the turn on timeout.
   `apps/backend/src/generated/codex-app-server/` from the installed binary and records its version
   in `codex-version.ts`; `--check` fails on drift and belongs in the checks run after a Codex
   upgrade.
-- The `exec` path stays selectable during the transition (D-6) and must have a recorded exit.
+- `app_server` is the default transport; `exec` stays selectable as the fallback if the experimental
+  server regresses, and its removal is a registry Idea due once the next Codex upgrade re-validates
+  the App Server path (D-6). The backend does not compose the runner yet (the line is inert); when
+  it does, `shutdown()` belongs on the app's close hook.
 - Deployment stays environment-based; the product `CODEX_HOME` provisioned for T-151 is reused.

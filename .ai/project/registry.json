@@ -1264,7 +1264,7 @@
     {
       "id": "T-152",
       "slug": "codex-app-server-transport",
-      "status": "in-progress",
+      "status": "done",
       "updated": "2026-09-09",
       "dev_docs_path": "dev-docs/active/codex-app-server-transport",
       "feature_id": "F-003"

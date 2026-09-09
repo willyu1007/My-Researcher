@@ -7,13 +7,13 @@ human-confirmation channel and account usage reads — without changing the line
 provenance shape or MCP tool surface.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 3 — capability proofs and transition exit. Phase 2 landed: the runner
-  drives the App Server behind `TOPIC_SELECTION_CODEX_TRANSPORT=app_server`, the four T-151 live
-  checks pass on it with assertions unchanged, D-3 is pinned by a unit test, and every trace on
-  that path records the server-reported `codex_home`.
-- Next step: Force a compaction and provoke a `requestUserInput` on live threads and assert both
-  land in the trace with the policy answer; then execute the `exec` exit per D-6.
+- State: done
+- Current phase: Complete. All three phases landed (7852ed01, dc13074d, 292b3bc3): bindings
+  pinned to the installed binary with a drift check; the runner on the App Server by default with
+  `exec` as the recorded-exit fallback; compaction and `request_user_input` observed in runner
+  traces; both transports green on the four live checks; full backend suite 3063/2982/0.
+- Next step: Archive the task; the `exec` removal lives on as a registry Idea due after the next
+  Codex upgrade re-validates the App Server path.
 - Blocker: none
 
 ## Done when
