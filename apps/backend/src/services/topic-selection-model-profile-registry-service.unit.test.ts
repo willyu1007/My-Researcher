@@ -78,7 +78,7 @@ function cloneRegistry(
   return JSON.parse(JSON.stringify(registry)) as TopicSelectionModelProfileRegistry;
 }
 
-test('only qualified N6/N8 profiles admit product CLI execution without provider options', () => {
+test('only qualified sampling and N6/N8 profiles admit product CLI execution without provider options', () => {
   const service = new TopicSelectionModelProfileRegistryService();
   const ids = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS;
   const qualified = new Set<string>([
@@ -89,8 +89,9 @@ test('only qualified N6/N8 profiles admit product CLI execution without provider
     TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID,
     TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID,
     TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID,
+    TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
   ]);
-  assert.equal(qualified.size, 11);
+  assert.equal(qualified.size, 12);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
     .map(profile => profile.profile_id)), qualified);
@@ -382,7 +383,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
   assert.equal(v1cFeedbackNormalization.selected_model_option?.normalized_params.creativity, 'low');
 });
 
-test('model profile registry resolves resource sampling provider-only profile', () => {
+test('model profile registry resolves resource sampling provider options', () => {
   const service = new TopicSelectionModelProfileRegistryService();
 
   const resourceSampling = service.resolveProfile({

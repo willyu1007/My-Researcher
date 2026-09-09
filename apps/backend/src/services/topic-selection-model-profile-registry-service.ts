@@ -442,8 +442,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_literature_refs_and_batch_identity',
         'prepare_deterministic_resource_sampling_guardrails',
       ],
-      allowed_execution_modes: ['provider_llm'],
-      run_mode_eligibility: PROVIDER_ONLY_RUN_MODE_ELIGIBILITY,
+      allowed_execution_modes: ['provider_llm', 'codex_cli'],
+      run_mode_eligibility: { ...PROVIDER_ONLY_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionResourceSamplingLlmOutput@v1',
       model_options: providerOptions(TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID).map(
         (option) => ({

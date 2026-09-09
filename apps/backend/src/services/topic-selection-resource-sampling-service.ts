@@ -30,7 +30,8 @@ import type {
   LiteratureRepository,
   TopicLiteratureScopeRecord,
 } from '../repositories/literature-repository.js';
-import type { TopicSelectionResourceSamplingRepository } from '../repositories/topic-selection-resource-sampling.repository.js';
+import type { TopicSelectionResourceSampleCreation, TopicSelectionResourceSamplingRepository } from '../repositories/topic-selection-resource-sampling.repository.js';
+import { executeResourceSamplingSubmission } from './topic-selection-resource-sampling-submission.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { defaultLlmConfig } from './llm-config-loader.js';
 import {
@@ -305,11 +306,30 @@ export class TopicSelectionResourceSamplingService {
   async createResourceSampleSet(
     input: CreateTopicSelectionResourceSampleInput,
   ): Promise<TopicSelectionResourceSampleResult> {
+    if (input.execution_spec != null) {
+      this.validateCliRequest(input);
+      return executeResourceSamplingSubmission({
+        controlPlane: this.options.controlPlaneService, repository: this.options.repository,
+        submissionId: input.execution_spec.submission_id,
+        workspaceId: input.workspace_id ?? null, titleCardId: input.title_card_id ?? null,
+        request: { workspace_id: input.workspace_id ?? null, title_card_id: input.title_card_id ?? null,
+          topic_id: input.topic_id, sample_size: this.normalizeSampleSize(input.sample_size),
+          role_targets: this.normalizeRoleTargets(this.normalizeSampleSize(input.sample_size), input.role_targets),
+          policy_version: input.policy_version ?? DEFAULT_POLICY_VERSION, seed: input.seed ?? null,
+          created_by: input.created_by ?? 'system' },
+        preflight: () => this.resolveModel(input), prepare: model => this.prepareResourceSampleSet(input, model),
+      });
+    }
+    return this.options.repository.createResourceSampleSet(await this.prepareResourceSampleSet(input, this.resolveModel(input)));
+  }
+
+  private async prepareResourceSampleSet(
+    input: CreateTopicSelectionResourceSampleInput, model: SamplingModel,
+  ): Promise<TopicSelectionResourceSampleCreation> {
     const sampleSize = this.normalizeSampleSize(input.sample_size);
     const roleTargets = this.normalizeRoleTargets(sampleSize, input.role_targets);
     const policyVersion = input.policy_version ?? DEFAULT_POLICY_VERSION;
     const createdBy = input.created_by ?? 'system';
-    const model = this.resolveModel(input);
     const modelRef = this.modelRef(model);
     const sampleSetId = this.idFactory('resource_sample_set');
     const auditId = this.idFactory('resource_sampling_audit');
@@ -481,11 +501,11 @@ export class TopicSelectionResourceSamplingService {
       created_at: this.now(),
     };
 
-    return this.options.repository.createResourceSampleSet({
+    return {
       sample_set: sampleSet,
       items: assembly.items,
       audit,
-    });
+    };
   }
 
   async getResourceSampleSet(sampleSetId: string): Promise<TopicSelectionResourceSampleResult> {
@@ -717,6 +737,20 @@ export class TopicSelectionResourceSamplingService {
             deterministicallyBlocked = blockerCodes.length > 0 && blockerCodes.every((code) =>
               NON_RETRYABLE_CLASSIFICATION_BLOCKER_PREFIXES.some((prefix) => code.startsWith(prefix)));
           } else {
+            const expectedRefs = new Map(batchCandidates.map(candidate => [candidate.literature_ref.ref_id, candidate.literature_ref]));
+            const seen = new Set<string>();
+            for (const classification of invocation.structured_output.classifications) {
+              const actual = classification.literature_ref;
+              const expected = expectedRefs.get(actual.ref_id);
+              if (!expected || seen.has(actual.ref_id)
+                || this.hash({ ...actual, legacy_ref: actual.legacy_ref ?? null }) !== this.hash({ ...expected, legacy_ref: expected.legacy_ref ?? null })) {
+                throw new AppError(409, 'VERSION_CONFLICT', 'Classification must preserve each supplied literature reference exactly once.');
+              }
+              seen.add(actual.ref_id);
+            }
+            if (seen.size !== expectedRefs.size) {
+              throw new AppError(409, 'VERSION_CONFLICT', 'Classification omitted supplied literature references.');
+            }
             classifications.push(...invocation.structured_output.classifications);
             batchSucceeded = true;
             if (retry > 0) {
@@ -1790,14 +1824,21 @@ export class TopicSelectionResourceSamplingService {
     return targets;
   }
 
-  private resolveModel(input: CreateTopicSelectionResourceSampleInput): SamplingModel {
+  private validateCliRequest(input: CreateTopicSelectionResourceSampleInput): void {
     const spec = input.execution_spec;
-    if (spec == null) return this.normalizeModel(input.model);
-    if (typeof spec !== 'object' || spec.execution_mode !== 'codex_cli' || spec.model_option_id != null
-      || Object.keys(spec).some(key => key !== 'execution_mode' && key !== 'model_option_id')
+    if (!spec || typeof spec !== 'object' || spec.execution_mode !== 'codex_cli' || spec.model_option_id != null
+      || Object.keys(spec).some(key => !['execution_mode', 'model_option_id', 'submission_id'].includes(key))
       || input.model != null) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Resource sampling CLI requires execution_mode=codex_cli, no model option and no provider model.');
     }
+    if (typeof spec.submission_id !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(spec.submission_id)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Resource sampling CLI requires a stable submission_id (1–128 letters, digits, underscores or hyphens).');
+    }
+  }
+
+  private resolveModel(input: CreateTopicSelectionResourceSampleInput): SamplingModel {
+    if (input.execution_spec == null) return this.normalizeModel(input.model);
+    this.validateCliRequest(input);
     this.modelProfileRegistry.resolveProfile({ profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
       execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null });
     const identity = this.agentOrchestrator.codexCliExecutionIdentity;

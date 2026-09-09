@@ -62,12 +62,17 @@ operator paths below remain available under their separate provenance contract.
 
 ## Upstream integration boundary
 
-`POST /topic-selection/v1a/resource-samples` recognizes the same explicit CLI execution spec and
-rejects a co-supplied provider `model`. Its consumer uses the app-owned runner, actual Codex model
-identity and one attempt per batch. The sampling profile remains closed pending recovery and
-real-input qualification, so a CLI submission currently stops at profile eligibility before any
-sample or model work. Calls without the spec retain the existing provider behavior. This endpoint
-is not yet part of the enabled CLI operating path.
+`POST /topic-selection/v1a/resource-samples` supports product CLI with
+`execution_spec: { execution_mode: "codex_cli", submission_id: "your-stable-request-id" }`.
+Do not supply a provider `model` or non-null model option. The app-owned runner records its actual
+model identity and invokes each batch once. Calls without the spec retain the provider behavior.
+
+Reuse the same submission ID and input after a lost response: a completed sample is replayed, or an
+already prepared sample is committed without another model call. A changed request under that ID
+returns a conflict. If preparation was interrupted or still running, the response refuses automatic
+execution; inspect retained workflow/CLI traces before deliberately choosing a new submission ID.
+A new ID is a new paid operation. The CLI profile requires a configured runner; it never falls back
+to a provider. Sample readiness does not establish evidence sufficiency or a Human research decision.
 
 ## Regular N6 question candidates
 

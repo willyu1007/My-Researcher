@@ -53,14 +53,14 @@ test('topic-selection resource sampling route rejects malformed payloads with IN
   }
 });
 
-test('resource sampling HTTP accepts the CLI contract but keeps its unqualified profile closed', async t => {
+test('resource sampling HTTP admits the qualified CLI contract and requires a configured runner', async t => {
   const app = buildApp({ topicSelectionCodexCli: null });
   t.after(() => app.close());
   const response = await app.inject({ method: 'POST', url: '/topic-selection/v1a/resource-samples',
-    payload: { topic_id: 'topic_without_resources', execution_spec: { execution_mode: 'codex_cli', model_option_id: null } } });
-  assert.equal(response.statusCode, 400);
-  assert.match(response.json().error.message, /execution_mode is not allowed by model profile/);
-  for (const execution_spec of [{ execution_mode: 'codex_assisted' }, { execution_mode: 'codex_cli', model_option_id: 'provider-option' }]) {
+    payload: { topic_id: 'topic_without_resources', execution_spec: { execution_mode: 'codex_cli', submission_id: 'http-preflight', model_option_id: null } } });
+  assert.equal(response.statusCode, 409);
+  assert.match(response.json().error.message, /Codex runner is not configured/);
+  for (const execution_spec of [{ execution_mode: 'codex_assisted' }, { execution_mode: 'codex_cli' }, { execution_mode: 'codex_cli', model_option_id: 'provider-option' }]) {
     const invalid = await app.inject({ method: 'POST', url: '/topic-selection/v1a/resource-samples',
       payload: { topic_id: 'topic_without_resources', execution_spec } });
     assert.equal(invalid.statusCode, 400);

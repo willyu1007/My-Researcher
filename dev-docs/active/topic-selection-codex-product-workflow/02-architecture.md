@@ -166,7 +166,7 @@ supply reviewable content and create no new decision owner.
 ## Phase 3 sampling integration boundary
 
 The resource-sampling request consumes `execution_spec.execution_mode=codex_cli` with a null
-model option. The existing `model` selection remains the provider-route input and cannot accompany
+model option and a required stable `submission_id` (1–128 letters/digits/underscores/hyphens). The existing `model` selection remains the provider-route input and cannot accompany
 CLI execution. Resolve profile eligibility and the app-owned runner identity before compiling or
 writing a sample; an unavailable runner or closed profile must not become a successful empty sample.
 Workflow/sample/audit model identity uses `codex` and the runner's actual configured model, while
@@ -175,8 +175,12 @@ per-batch invocation audits retain trace and usage. No provider model option is 
 Keep the existing prompt, candidate pool, batching, classification guards and deterministic sample
 assembly. Each CLI batch executes once; its failure stays visible and cannot trigger the provider
 batch retry loop or a provider fallback. The existing provider retry behavior remains scoped to that
-route. A new sampling submission is a new operation, not an automatic continuation of an interrupted
-batch; stable request recovery must be settled before public activation. The initial consumer wiring
-keeps the sampling profile closed until real-input qualification and recovery verification. The sampling
+route. Immutable server-owned submission claims bind normalized request/scope before model work. Same-ID
+replay returns the exact sample; input drift conflicts. A prepared sample/items/audit artifact permits
+domain transaction recovery without refreshing the pool or invoking a model. Before preparation, an
+interrupted claim refuses automatic retry and requires an explicit new submission ID. Unique sample
+IDs and full-result hashes arbitrate concurrent prepared recovery. Model classifications must preserve
+the complete batch reference set, including title/version scope. The sampling profile is qualified and
+enabled for product CLI. The sampling
 orchestrator shares the existing app-owned runner and its shutdown/tool-scope owners; v1a injection
 remains part of the extraction/need-discovery work.

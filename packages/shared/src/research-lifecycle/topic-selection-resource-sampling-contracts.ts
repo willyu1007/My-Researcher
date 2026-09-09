@@ -152,7 +152,7 @@ export interface CreateTopicSelectionResourceSampleRequest {
   role_targets?: Partial<TopicSelectionResourceRoleTargets>;
   seed?: string | null;
   model?: TopicSelectionResourceSamplingModelRef;
-  execution_spec?: { execution_mode: 'codex_cli'; model_option_id?: null } | null;
+  execution_spec?: { execution_mode: 'codex_cli'; submission_id: string; model_option_id?: null } | null;
   created_by?: TopicSelectionActorType;
 }
 
@@ -394,8 +394,9 @@ export const createTopicSelectionResourceSampleRequestSchema = {
     model: topicSelectionResourceSamplingModelRefSchema,
     created_by: { enum: ['human', 'llm', 'system', 'hybrid'] },
     execution_spec: { anyOf: [{ type: 'null' }, {
-      type: 'object', additionalProperties: false, required: ['execution_mode'],
-      properties: { execution_mode: { const: 'codex_cli' }, model_option_id: { type: 'null' } },
+      type: 'object', additionalProperties: false, required: ['execution_mode', 'submission_id'],
+      properties: { execution_mode: { const: 'codex_cli' }, model_option_id: { type: 'null' },
+        submission_id: { type: 'string', minLength: 1, maxLength: 128, pattern: '^[a-zA-Z0-9_-]+$' } },
     }] },
   },
 } as const;

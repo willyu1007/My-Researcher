@@ -238,18 +238,43 @@ Resource sampling accepts an explicit CLI execution spec and resolves eligibilit
 creating a sample. App composition reuses the existing runner. Successful batches retain actual
 Codex model identity, invocation audit and trace; CLI timeout stops that batch without retry or
 provider fallback. The existing classification prompt, deterministic filters and provider retries
-are unchanged. Sampling CLI remains closed in the shipped profile.
+are unchanged. At that initial checkpoint, sampling CLI remained closed.
 
 The consumer test first exposed three unintended provider calls for a CLI request, then passed after
 routing was consumed. The timeout test first exposed three CLI calls, then passed with exactly one.
 All 29 sampling service/HTTP tests and backend no-emit typecheck passed; independent review of the
 five-file implementation against `331cda82` found no unresolved issues. Tests use a fake process and
-an explicitly local profile override, not a new real-model qualification. Stable request recovery,
-real-input sampling evidence and profile activation remain the next boundary.
+an explicitly local profile override, not a new real-model qualification. Those pending items are addressed by the qualification below.
+
+## Phase 3 sampling qualification and recovery
+
+- Stable `execution_spec.submission_id` claims prevent duplicate paid work and reject request drift.
+  A persisted prepared sample/items/audit can recover a failed domain transaction or replay after
+  service reconstruction, even when the candidate pool has changed. Preparation not completed is
+  fail-closed: an explicit new submission ID is required. No automatic ambiguous model retry.
+- Concurrent submission/recovery, restart, domain-write failure and scope-corruption cases pass
+  through the public service. These tests use InMemory repositories; PostgreSQL concurrency is not
+  claimed for this new sampling wrapper. The underlying stable-key/transaction constraints were
+  independently reviewed against the existing Prisma repositories.
+- Real App Server attempt 92 returned a malformed title-card reference. Manual content inspection
+  invalidated its initially passing harness result. Full batch reference validation now blocks altered,
+  duplicate, unknown or missing references; the fault-injection test first failed, then passed.
+- Attempt 93 (`sampling_qualification_v2`) passed with gpt-6-astra/high, unchanged production prompt,
+  the three pinned original abstracts, exactly one model invocation and no provider call. Complete
+  references held; DPR/support, BEIR/baseline and Lost-in-the-Middle/challenge yielded `ready`.
+  The same real result recovered after a simulated domain-write interruption, then replayed without
+  another model call. Isolated literature setup is not a production research run or Human approval.
+- Raw source/input/outcome/sample/audit/trace evidence remains private under
+  `/tmp/my-researcher-t153-phase2/live/`. Attempt 92 used 11,412 tokens; attempt 93 used 11,472.
+  Cumulative ledger: 93 attempts, 2,277,732 reported tokens; six historical calls still have unknown
+  usage. Aggregate limits remain null and each call retains its 600,000 ms deadline.
+- Independent review against `0336fb58` found two test issues (HTTP missing submission ID and source
+  metadata indexed by position); both fixed. Backend no-emit typecheck, LLM configuration (5 tests), and focused sampling/registry/
+  HTTP checks (46 passed, 1 opt-in skip) cover the enabled default profile. No sampling prompt change or other provider activation.
 
 ## Outstanding verification
 
-- Phase 3 sampling stable submission/recovery and live qualification, extraction consumer wiring, need discovery/final synthesis/adjudication/
+- Phase 3 extraction consumer wiring, need discovery/final synthesis/adjudication/
   confirmation support, evidence convergence, their live qualification and fresh upstream-to-v1b lineage.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.

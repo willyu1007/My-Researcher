@@ -47,6 +47,83 @@ const NOW = '2026-05-17T08:00:00.000Z';
 const TOPIC_ID = 'ai-rag-finetuning-2022-2026';
 const TITLE_CARD_ID = 'title_card_sampling_1';
 
+test('Codex sampling qualification with pinned abstracts and durable commit recovery', {
+  skip: process.env.TOPIC_SELECTION_CODEX_QUALIFICATION !== 'live',
+}, async t => {
+  const { qualificationSources, QUALIFICATION_SOURCE_PINS } = await import('./test-fixtures/topic-selection-codex-qualification-sources.js');
+  const { qualificationRunner } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const sourceFile = process.env.TOPIC_SELECTION_QUALIFICATION_SOURCES;
+  const outputRoot = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  if (!sourceFile || !outputRoot || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit live sampling qualification configuration is required.');
+  await qualificationSources(sourceFile, TITLE_CARD_ID); // Verify the original abstract checksums before metered work.
+  const sources = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as Array<{ id: string; url: string; abstract: string }>;
+  const metadata = {
+    '2004.04906v3': ['Dense Passage Retrieval for Open-Domain Question Answering', 2020],
+    '2104.08663v4': ['BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models', 2021],
+    '2307.03172v3': ['Lost in the Middle: How Language Models Use Long Contexts', 2023],
+  } as const;
+  const records = QUALIFICATION_SOURCE_PINS.map(pin => {
+    const s = sources.find(source => source.id === pin.id)!;
+    return { ...literature(`arxiv:${s.id}`, metadata[pin.id][0], s.abstract),
+      authors: [], year: metadata[pin.id][1], arxivId: s.id };
+  });
+  const limits = { attempts: null, tokens: null, duration_ms: null,
+    attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+  t.after(() => runner.shutdown());
+  t.after(() => budget?.close());
+  await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'sampling', model, limits,
+    source_file: sourceFile, isolated_candidate_pool: true, started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  if (process.env.TOPIC_SELECTION_QUALIFICATION_SHIPPED !== '1') {
+    const profile = registry.profiles.find(p => p.profile_id === TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY)!;
+    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+    profile.run_mode_eligibility.codex_cli = ['product'];
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const gateway = new StubLlmGateway(new Error('Unexpected provider work in CLI qualification'));
+  const repository = new InMemoryTopicSelectionResourceSamplingRepository();
+  const ids = makeIdFactory();
+  const opts = { repository, controlPlaneService: controlPlane, modelProfileRegistry, idFactory: (prefix: string) => `${runId}_${ids(prefix)}`,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry,
+      llmGateway: gateway, codexCliRunner: runner, codexCliModelId: model }) };
+  const service = makeService(makeLlmOutput(), records, opts);
+  const create = repository.createResourceSampleSet.bind(repository);
+  repository.createResourceSampleSet = async () => { throw new Error('Qualification simulated commit interruption'); };
+  const before = budget!.snapshot().attempts.length;
+  const request = { topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID, sample_size: 3,
+    execution_spec: { execution_mode: 'codex_cli' as const, submission_id: runId } };
+  await assert.rejects(service.createResourceSampleSet(request), /Qualification simulated commit interruption/);
+  repository.createResourceSampleSet = create;
+  const result = await makeService(makeLlmOutput(), [], opts).createResourceSampleSet(request);
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(result.sample_set.workflow_run_id!);
+  await fs.writeFile(join(directory, `${runId}-result.json`), JSON.stringify({ result, artifacts }, null, 2), { mode: 0o600 });
+  assert.equal(budget!.snapshot().attempts.length, before + 1);
+  assert.equal(budget!.snapshot().attempts.at(-1)?.status, 'succeeded');
+  assert.equal(gateway.calls.length, 0);
+  assert.equal(result.sample_set.model.provider_id, 'codex');
+  assert.equal(result.sample_set.model.model_id, model);
+  assert.notEqual(result.sample_set.status, 'blocked');
+  const classifications = result.audit.llm_structured_output.classifications as TopicSelectionResourceCandidateClassificationDraft[];
+  assert.deepEqual(classifications.map(c => c.literature_ref.ref_id).sort(), records.map(r => r.id).sort());
+  for (const c of classifications) {
+    assert.equal(c.literature_ref.ref_type, 'literature_record');
+    assert.equal(c.literature_ref.title_card_id, TITLE_CARD_ID);
+    assert.equal(c.literature_ref.version_id, null);
+    assert.equal(c.literature_ref.legacy_ref ?? null, null);
+  }
+  assert.ok(result.selected_items.length > 0);
+  assert.ok(artifacts.some(a => a.payload?.schema_version === 'topic-selection-codex-cli-trace-v1'));
+  assert.deepEqual(await service.createResourceSampleSet(request), result);
+  assert.equal(budget!.snapshot().attempts.length, before + 1);
+});
+
 function ref(id: string): TopicSelectionFunctionalRef {
   return {
     ref_type: 'literature_record',
@@ -444,14 +521,13 @@ function makeRetryService(gateway: TopicSelectionAgentOrchestratorLlmGateway, re
   return { service, invocationAttemptIds };
 }
 
-async function makeCliSampling(t: TestContext, outcome: 'success' | 'timeout' = 'success') {
+async function makeCliSampling(t: TestContext, outcome: 'success' | 'timeout' = 'success', output = makeLlmOutput()) {
   const home = await fs.mkdtemp(join(tmpdir(), 'sampling-cli-'));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   const profile = registry.profiles.find(p => p.profile_id === TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY)!;
-  // Consumer qualification only: the upstream profile stays closed in the shipped registry.
-  profile.allowed_execution_modes.push('codex_cli');
+  if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
   profile.run_mode_eligibility.codex_cli = ['product'];
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
@@ -462,22 +538,80 @@ async function makeCliSampling(t: TestContext, outcome: 'success' | 'timeout' = 
     assert.match(options.stdin, /RAG improves answer grounding/);
     return { stdout: [
       { type: 'thread.started', thread_id: 'sampling-thread' },
-      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(makeLlmOutput()) } },
+      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } },
     ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
   });
   t.after(() => runner.shutdown());
   const gateway = new StubLlmGateway(new Error('Unexpected provider call'));
-  const service = makeService(makeLlmOutput(), undefined, { controlPlaneService: controlPlane, modelProfileRegistry,
+  const repository = new InMemoryTopicSelectionResourceSamplingRepository();
+  const serviceOptions = { repository, controlPlaneService: controlPlane, modelProfileRegistry,
     agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry,
-      llmGateway: gateway, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }) });
-  return { service, controlPlane, gateway, modelProfileRegistry, get calls() { return calls; } };
+      llmGateway: gateway, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }) };
+  const restart = () => makeService(makeLlmOutput(), [], serviceOptions);
+  const service = makeService(makeLlmOutput(), undefined, serviceOptions);
+  return { service, restart, repository, controlPlane, gateway, modelProfileRegistry, get calls() { return calls; } };
 }
+
+test('CLI sampling replays a durable submission after restart without re-reading the candidate pool or calling the model', async t => {
+  const ctx = await makeCliSampling(t);
+  const input = { topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID, sample_size: 4,
+    execution_spec: { execution_mode: 'codex_cli' as const, submission_id: 'sampling-replay-1' } };
+  const first = await ctx.service.createResourceSampleSet(input);
+  assert.ok(first.selected_items.length > 0);
+  const replay = await ctx.restart().createResourceSampleSet(input);
+  assert.deepEqual(replay, first);
+  assert.equal(ctx.calls, 1);
+  await assert.rejects(ctx.restart().createResourceSampleSet({ ...input, seed: 'changed' }), /different input/);
+});
+
+test('CLI sampling recovers its exact prepared sample after a failed domain transaction, including concurrent recovery', async t => {
+  const ctx = await makeCliSampling(t);
+  const create = ctx.repository.createResourceSampleSet.bind(ctx.repository);
+  ctx.repository.createResourceSampleSet = async () => { throw new Error('Database unavailable'); };
+  const input = { topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID, sample_size: 4,
+    execution_spec: { execution_mode: 'codex_cli' as const, submission_id: 'sampling-recovery-1' } };
+  await assert.rejects(ctx.service.createResourceSampleSet(input), /Database unavailable/);
+  ctx.repository.createResourceSampleSet = create;
+  const [a, b] = await Promise.all([ctx.restart().createResourceSampleSet(input), ctx.restart().createResourceSampleSet(input)]);
+  assert.deepEqual(a, b);
+  assert.equal(a.candidate_items.length, 6);
+  assert.ok(a.selected_items.length > 0);
+  assert.equal(ctx.calls, 1);
+  assert.equal(ctx.gateway.calls.length, 0);
+});
+
+test('CLI sampling prevents concurrent paid work and refuses interrupted submissions before preparation', async t => {
+  const ctx = await makeCliSampling(t);
+  const input = { topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID,
+    execution_spec: { execution_mode: 'codex_cli' as const, submission_id: 'sampling-race-1' } };
+  const outcomes = await Promise.allSettled([ctx.service.createResourceSampleSet(input), ctx.service.createResourceSampleSet(input)]);
+  assert.equal(outcomes.filter(o => o.status === 'fulfilled').length, 1);
+  assert.equal(ctx.calls, 1);
+  const compile = ctx.controlPlane.compileInputSnapshot.bind(ctx.controlPlane);
+  ctx.controlPlane.compileInputSnapshot = async () => { throw new Error('Process interrupted before model'); };
+  const interrupted = { ...input, execution_spec: { ...input.execution_spec, submission_id: 'sampling-interrupted-1' } };
+  await assert.rejects(ctx.service.createResourceSampleSet(interrupted), /Process interrupted/);
+  ctx.controlPlane.compileInputSnapshot = compile;
+  await assert.rejects(ctx.restart().createResourceSampleSet(interrupted), /in progress or interrupted before preparation/);
+  assert.equal(ctx.calls, 1);
+});
+
+test('sampling rejects model classifications that alter a literature reference scope', async t => {
+  const output = makeLlmOutput();
+  output.classifications[0]!.literature_ref.title_card_id = 'different-title-card';
+  const ctx = await makeCliSampling(t, 'success', output);
+  const result = await ctx.service.createResourceSampleSet({ topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID,
+    execution_spec: { execution_mode: 'codex_cli', submission_id: 'sampling-invalid-ref' } });
+  assert.equal(result.sample_set.status, 'blocked');
+  assert.equal(result.selected_items.length, 0);
+  assert.equal(ctx.calls, 1);
+});
 
 test('resource sampling consumes CLI settings and records the actual runner identity without provider work', async t => {
   const ctx = await makeCliSampling(t);
   const { service, controlPlane, gateway } = ctx;
   const input = { topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID, sample_size: 4,
-    execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null } };
+    execution_spec: { execution_mode: 'codex_cli' as const, submission_id: 'sampling-identity', model_option_id: null } };
   const result = await service.createResourceSampleSet(input);
   assert.equal(gateway.calls.length, 0);
   assert.equal(ctx.calls, 1);
@@ -495,7 +629,7 @@ test('resource sampling consumes CLI settings and records the actual runner iden
 test('resource sampling does not retry an ambiguous CLI timeout or fall back to a provider', async t => {
   const ctx = await makeCliSampling(t, 'timeout');
   const result = await ctx.service.createResourceSampleSet({ topic_id: TOPIC_ID, title_card_id: TITLE_CARD_ID,
-    execution_spec: { execution_mode: 'codex_cli' } });
+    execution_spec: { execution_mode: 'codex_cli', submission_id: 'sampling-timeout' } });
   assert.equal(ctx.calls, 1);
   assert.equal(ctx.gateway.calls.length, 0);
   assert.equal(result.sample_set.status, 'blocked');
@@ -505,14 +639,14 @@ test('resource sampling does not retry an ambiguous CLI timeout or fall back to 
 
 test('resource sampling validates CLI eligibility, runner and conflicting provider settings before creating a sample', async t => {
   const ctx = await makeCliSampling(t);
-  const input = { topic_id: TOPIC_ID, execution_spec: { execution_mode: 'codex_cli' as const } };
+  const input = { topic_id: TOPIC_ID, execution_spec: { execution_mode: 'codex_cli' as const, submission_id: 'sampling-preflight' } };
   const noWrites = { idFactory: () => { throw new Error('Unexpected sample write preparation'); } };
-  const closed = makeService(makeLlmOutput(), [], noWrites);
-  await assert.rejects(closed.createResourceSampleSet(input), /execution_mode is not allowed by model profile/);
   const unconfigured = makeService(makeLlmOutput(), [], { ...noWrites, modelProfileRegistry: ctx.modelProfileRegistry });
   await assert.rejects(unconfigured.createResourceSampleSet(input), /Codex runner is not configured/);
   await assert.rejects(ctx.service.createResourceSampleSet({ ...input,
     model: { provider_id: 'openai', model_id: 'gpt-5.6-sol' } }), /no provider model/);
+  await assert.rejects(ctx.service.createResourceSampleSet({ ...input,
+    execution_spec: { ...input.execution_spec, submission_id: '' } }), /stable submission_id/);
   assert.equal(ctx.calls, 0);
   assert.equal(ctx.gateway.calls.length, 0);
 });
@@ -645,7 +779,7 @@ test('resource sampling routes provider batches through runtime audit and token 
     controlPlaneRepository,
     { idFactory: makeIdFactory(), now: () => NOW },
   );
-  const llmGateway = new StubLlmGateway(makeLlmOutput());
+  const llmGateway = new StubLlmGateway({ classifications: makeLlmOutput().classifications.slice(0, 4) });
   const service = new TopicSelectionResourceSamplingService({
     repository: new InMemoryTopicSelectionResourceSamplingRepository(),
     literatureRepository: makeLiteratureRepository([

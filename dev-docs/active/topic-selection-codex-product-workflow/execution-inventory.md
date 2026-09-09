@@ -4,11 +4,11 @@ Inventory established at `a5263023`, reconciled with the current Phase 2 impleme
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; the remaining 25 stay closed. Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), leaving 24 closed (12 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
-| 1 | `topic-selection-resource-sampling-classification` | Canonical CLI consumer connected; real runner identity and one attempt per batch verified locally. Profile remains closed pending stable submission/recovery and real qualification | Phase 3 / CX-03 |
+| 1 | `topic-selection-resource-sampling-classification` | Product CLI enabled; stable submission ID, prepared-commit recovery and exact batch references verified; real pinned-abstract qualification attempt 93 passed | Phase 3 / CX-03 |
 | 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | v1a evidence extraction; inject shared CLI executor and align input admission | Phase 3 / CX-03 |
 | 3 | `topic-selection.generate-need-candidate.single-agent.v1` | v1a need generation; preserve evidence lineage and candidate admission | Phase 3 / CX-03 |
 | 4 | `topic-selection.need-adjudication.single-agent.v1` | v1a adjudication; generated support cannot confirm a need | Phase 3 / CX-03 |
