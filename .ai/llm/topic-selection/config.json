@@ -130,7 +130,7 @@
       "system": "prompts/v1b/n6-refinement-delta-debate/system.md"
     },
     "topic-selection.v1b.n8.bounded-micro-debate.runtime-role": {
-      "version": "v4",
+      "version": "v5",
       "system": "prompts/v1b/n8-bounded-micro-debate/system.md"
     },
     "topic-selection-v1c-promotion-support-bounded-micro-debate": {
