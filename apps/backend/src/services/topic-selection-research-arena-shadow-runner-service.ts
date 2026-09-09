@@ -24,6 +24,7 @@ import {
   type TopicSelectionResearchArenaShadowRunResponse,
   type TopicSelectionResearchEvidencePacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
+import type { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionResearchArenaRepository } from '../repositories/topic-selection-research-arena.repository.js';
 import type {
@@ -54,6 +55,7 @@ const REQUIRED_ROLES: readonly TopicSelectionResearchArenaShadowRole[] = [
 ];
 
 type AgentInvoker = {
+  assertProductCodexProfile(profileId: string): void;
   invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
   ): Promise<{
@@ -77,11 +79,13 @@ type CandidateReader = {
   ): Promise<Pick<
     TopicSelectionNeedCandidateRecord,
     'need_candidate_id' | 'title_card_id' | 'candidate_version' | 'semantic_group_key'
+    | 'candidate_need' | 'unmet_need_statement' | 'mechanism_type' | 'mechanism_summary' | 'mechanism_payload'
+    | 'scope_notes' | 'non_goal_notes' | 'prior_art_status' | 'evidence_map_ref' | 'evidence_role_bundle'
   > | null>;
 };
 type CandidateProjectionSource = NonNullable<Awaited<ReturnType<CandidateReader['findNeedCandidateById']>>>;
-type ArtifactStore = Pick<TopicSelectionControlPlaneService, 'getArtifactRef' | 'recordArtifactRef'>;
-type ArenaRuntime = Pick<TopicSelectionResearchArenaService, 'recordRoleExecution' | 'synthesizeSession'>;
+type ArtifactStore = Pick<TopicSelectionControlPlaneService, 'getArtifactRef' | 'getArtifactRefByStableKey' | 'recordArtifactRef'>;
+type ArenaRuntime = Pick<TopicSelectionResearchArenaService, 'recordRoleExecution' | 'synthesizeSession' | 'claimSessionExecution'>;
 type RiskFindingRecorder = Pick<TopicSelectionRiskFindingService, 'recordArenaFindings'>;
 type GapCheckpointProjector = {
   projectCurrentGapSelectionCheckpoint(input: {
@@ -105,6 +109,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     candidateReader: CandidateReader;
     artifactStore: ArtifactStore;
     agentInvoker: AgentInvoker;
+    evidencePacketResolver?: Pick<TopicSelectionResearchEvidencePacketService, 'resolve'>;
     arenaService: ArenaRuntime;
     riskFindingRecorder: RiskFindingRecorder;
     gapCheckpointProjector: GapCheckpointProjector;
@@ -119,14 +124,38 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     input: TopicSelectionResearchArenaShadowRunRequest,
   ): Promise<TopicSelectionResearchArenaShadowRunResponse> {
     const startedAtMs = this.now();
+    if (!['mocked_llm', 'codex_assisted', 'codex_cli'].includes(input.execution_mode)
+      || !input.workflow_run_id.trim() || !input.node_attempt_id.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Shadow execution mode and attempt identity are required.');
+    }
+    const cliKey = `arena-shadow-codex:${input.arena_session_id}`;
+    const requestHash = sha256Text(stableStringify(input));
     const session = await this.dependencies.arenaRepository.findSessionById(input.arena_session_id);
     if (!session) {
       throw new AppError(404, 'NOT_FOUND', `ResearchArenaSession ${input.arena_session_id} was not found.`);
     }
-    if (session.status !== 'open' || !session.current_arena_key) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Shadow execution requires the current open arena.');
+    if (input.execution_mode === 'codex_cli') {
+      const prior = await this.dependencies.artifactStore.getArtifactRefByStableKey(`${cliKey}:request`);
+      if (prior && (prior.payload?.schema_version !== 'ResearchArenaCodexRequest@v1' || prior.payload.request_hash !== requestHash
+        || prior.title_card_id !== session.title_card_id || prior.input_snapshot_id !== session.input_snapshot_id
+        || prior.workflow_run_id !== input.workflow_run_id || prior.checksum !== sha256Text(stableStringify(prior.payload)))) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Arena CLI session identifies different input.');
+      }
+      const receipt = await this.dependencies.artifactStore.getArtifactRefByStableKey(`${cliKey}:result`);
+      if (receipt) {
+        if (!prior || receipt.payload?.schema_version !== 'ResearchArenaCodexResult@v1'
+          || receipt.payload.request_hash !== requestHash || receipt.payload.request_checksum !== prior.checksum
+          || receipt.title_card_id !== session.title_card_id || receipt.input_snapshot_id !== session.input_snapshot_id
+          || receipt.checksum !== sha256Text(stableStringify(receipt.payload))) {
+          throw new AppError(409, 'VERSION_CONFLICT', 'Arena CLI completion receipt is invalid.');
+        }
+        return receipt.payload.result as unknown as TopicSelectionResearchArenaShadowRunResponse;
+      }
     }
-    if (!this.sameStringSet(session.participant_roles, REQUIRED_ROLES)) {
+    if (session.status !== 'open' || !session.current_arena_key) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Shadow execution requires the current open arena; a running or interrupted claim requires inspection before retry.');
+    }
+    if (session.arena_kind !== 'gap_portfolio' || !this.sameStringSet(session.participant_roles, REQUIRED_ROLES)) {
       throw new AppError(
         422,
         'GATE_CONSTRAINT_FAILED',
@@ -142,53 +171,62 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     const roleInputs = this.indexRoleInputs(input.role_inputs, session.title_card_id, input.execution_mode);
     const preparedRoles = await Promise.all(REQUIRED_ROLES.map(async (role) => {
       const roleInput = roleInputs.get(role)!;
-      const packet = await this.requireEvidencePacket(roleInput.evidence_preparation, session.input_snapshot_id);
+      const packet = await this.requireEvidencePacket(roleInput.evidence_preparation, snapshot, input.execution_mode);
       return { role, roleInput, packet };
     }));
+
+    let cliRequestChecksum: string | null = null;
+    if (input.execution_mode === 'codex_cli') {
+      for (const role of REQUIRED_ROLES) this.dependencies.agentInvoker.assertProductCodexProfile(ROLE_PROFILE_IDS[role]);
+      const payload = { schema_version: 'ResearchArenaCodexRequest@v1', request_hash: requestHash,
+        candidates: [...candidates.values()], packet_hashes: preparedRoles.map(({ packet }) => packet.packet_hash) };
+      cliRequestChecksum = sha256Text(stableStringify(payload));
+      const claim = await this.dependencies.artifactStore.recordArtifactRef({
+        stable_key: `${cliKey}:request`, workspace_id: session.workspace_id, title_card_id: session.title_card_id,
+        workflow_run_id: input.workflow_run_id, input_snapshot_id: session.input_snapshot_id,
+        artifact_kind: 'diagnostic', storage_kind: 'inline', payload, checksum: cliRequestChecksum, created_by: 'system',
+      });
+      if (claim.checksum !== cliRequestChecksum) throw new AppError(409, 'VERSION_CONFLICT', 'Arena CLI frozen context changed.');
+      if (!await this.dependencies.arenaService.claimSessionExecution(session.arena_session_id)) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Arena CLI execution was claimed concurrently; replay after completion.');
+      }
+    }
 
     const recoveredRoles = new Map<TopicSelectionResearchArenaShadowRole, {
       execution: TopicSelectionResearchArenaRoleExecutionRecord;
       outputArtifact: TopicSelectionArtifactRefRecord;
     }>();
     await Promise.all(preparedRoles.map(async (prepared, index) => {
-      const recovered = await this.recoverRoleExecution(input, session, prepared, index);
+      const recovered = input.execution_mode === 'codex_cli' ? null : await this.recoverRoleExecution(input, session, prepared, index);
       if (recovered) recoveredRoles.set(prepared.role, recovered);
     }));
 
-    // Every role that still needs execution starts before any new output is persisted. Durable
-    // exact role slots from a partial attempt are reused and never exposed to the remaining role.
+    // First passes receive independent contexts. CLI calls are serial and stop on the first failure.
     const invocationResults = new Map<TopicSelectionResearchArenaShadowRole, RoleInvocationResult>();
-    const pendingRoles = preparedRoles.filter(({ role }) => !recoveredRoles.has(role));
-    const pendingResults = await Promise.all(pendingRoles.map(({ role, roleInput, packet }) => (
-      this.invokeRole(input, role, roleInput, packet, session.input_snapshot_id)
-    )));
-    pendingResults.forEach((result, index) => {
-      invocationResults.set(pendingRoles[index]!.role, result);
-    });
     const outputs = new Map<TopicSelectionResearchArenaShadowRole, TopicSelectionResearchArenaRoleOutput>();
-    preparedRoles.forEach((prepared) => {
-      const recovered = recoveredRoles.get(prepared.role);
-      if (recovered) {
-        this.assertRoleOutput(
-          prepared.roleInput.structured_output,
-          prepared.role,
-          input.candidate_refs,
-          prepared.packet,
-        );
-        outputs.set(prepared.role, prepared.roleInput.structured_output);
-        return;
-      }
-      const result = invocationResults.get(prepared.role)!;
+    const pendingRoles = preparedRoles.filter(({ role }) => !recoveredRoles.has(role));
+    const invoke = async (prepared: typeof preparedRoles[number]) => {
+      const result = await this.invokeRole(input, prepared.role, prepared.roleInput, prepared.packet,
+        session.input_snapshot_id, [...candidates.values()]);
       if (result.status !== 'succeeded' || !result.structured_output || !result.audit_artifact_ref) {
-        throw new AppError(
-          422,
-          'GATE_CONSTRAINT_FAILED',
-          `${prepared.role} did not produce an admissible independent first-pass output.`,
-        );
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `${prepared.role} did not produce an admissible independent first-pass output.`);
       }
       this.assertRoleOutput(result.structured_output, prepared.role, input.candidate_refs, prepared.packet);
+      invocationResults.set(prepared.role, result);
       outputs.set(prepared.role, result.structured_output);
-    });
+    };
+    if (input.execution_mode === 'codex_cli') {
+      for (const prepared of pendingRoles) await invoke(prepared);
+    } else {
+      await Promise.all(pendingRoles.map(invoke));
+    }
+    for (const prepared of preparedRoles) {
+      if (recoveredRoles.has(prepared.role)) {
+        const output = prepared.roleInput.structured_output!;
+        this.assertRoleOutput(output, prepared.role, input.candidate_refs, prepared.packet);
+        outputs.set(prepared.role, output);
+      }
+    }
     this.assertFindingIdsUnique(outputs);
 
     const outputArtifacts = new Map<TopicSelectionResearchArenaShadowRole, TopicSelectionArtifactRefRecord>(
@@ -363,7 +401,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       preserve_decided_current: true,
     });
 
-    return {
+    const result: TopicSelectionResearchArenaShadowRunResponse = {
       schema_version: 'TopicSelectionResearchArenaShadowRunResponse@v1',
       arena_session: synthesizedSession,
       role_executions: roleExecutions,
@@ -374,6 +412,16 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       execution_accounting: executionAccounting,
       support_only: true,
     };
+    if (input.execution_mode !== 'codex_cli') return result;
+    const persistedResult: TopicSelectionResearchArenaShadowRunResponse = JSON.parse(JSON.stringify(result));
+    const terminal = { schema_version: 'ResearchArenaCodexResult@v1', request_hash: requestHash,
+      request_checksum: cliRequestChecksum, result: persistedResult };
+    await this.dependencies.artifactStore.recordArtifactRef({
+      stable_key: `${cliKey}:result`, workspace_id: session.workspace_id, title_card_id: session.title_card_id,
+      workflow_run_id: input.workflow_run_id, input_snapshot_id: session.input_snapshot_id,
+      artifact_kind: 'diagnostic', storage_kind: 'inline', payload: terminal, checksum: sha256Text(stableStringify(terminal)), created_by: 'system',
+    });
+    return persistedResult;
   }
 
   private async invokeRole(
@@ -382,12 +430,14 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     roleInput: TopicSelectionResearchArenaShadowRoleInput,
     packet: TopicSelectionResearchEvidencePacket,
     inputSnapshotId: string,
+    candidates: CandidateProjectionSource[],
   ) {
     const prompt = this.llmConfig.getPrompt('topic-selection', ROLE_PROMPT_IDS[role]);
     const packetRef = roleInput.evidence_preparation.evidence_packet_artifact_ref!;
     const userPayload = stableStringify({
       arena_session_id: input.arena_session_id,
       candidate_refs: input.candidate_refs,
+      candidates,
       evidence_packet: packet,
       participant_role: role,
     });
@@ -396,10 +446,11 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       node_id: `topic_selection_research_arena_${role}`,
       workflow_run_id: input.workflow_run_id,
       node_attempt_id: `${input.node_attempt_id}:${role}`,
+      invocation_attempt_id: `${input.node_attempt_id}:${role}:invocation`,
       input_snapshot_id: inputSnapshotId,
       execution_mode: input.execution_mode,
       executor_kind: 'multi_agent_debate',
-      run_mode: 'acceptance',
+      run_mode: input.execution_mode === 'codex_cli' ? 'product' : 'acceptance',
       profile_id: ROLE_PROFILE_IDS[role],
       output_contract: OUTPUT_CONTRACT,
       prompt: { promptTemplateId: ROLE_PROMPT_IDS[role], version: prompt.version },
@@ -418,16 +469,16 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         ? {
             mocked_output: {
               fixture_id: roleInput.fixture_id!,
-              output: roleInput.structured_output,
+              output: roleInput.structured_output!,
               mock_profile: 'research_arena_shadow_v1',
             },
           }
-        : {
+        : input.execution_mode === 'codex_assisted' ? {
             codex_response: {
-              output: roleInput.structured_output,
+              output: roleInput.structured_output!,
               operator_label: roleInput.operator_label!,
             },
-          }),
+          } : {}),
       created_by: input.execution_mode === 'codex_assisted' ? 'hybrid' : 'system',
     });
   }
@@ -535,10 +586,16 @@ export class TopicSelectionResearchArenaShadowRunnerService {
           `${role} requires a complete, provider-free local-snapshot evidence preparation.`,
         );
       }
+      if (executionMode === 'codex_cli') {
+        if (roleInput.structured_output != null || roleInput.fixture_id != null || roleInput.operator_label != null) {
+          throw new AppError(400, 'INVALID_PAYLOAD', 'Arena CLI cannot accept role answers or fixture/operator labels.');
+        }
+        continue;
+      }
       const sourceIdentityValid = executionMode === 'mocked_llm'
         ? Boolean(roleInput.fixture_id && roleInput.operator_label === null)
         : Boolean(roleInput.operator_label && roleInput.fixture_id === null);
-      if (roleInput.structured_output.participant_role !== role || !sourceIdentityValid) {
+      if (roleInput.structured_output?.participant_role !== role || !sourceIdentityValid) {
         throw new AppError(400, 'INVALID_PAYLOAD', `${role} source identity or structured output role is invalid.`);
       }
     }
@@ -608,14 +665,19 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         || !/^[a-f0-9]{64}$/u.test(candidate.semantic_group_key)) {
         throw new AppError(409, 'VERSION_CONFLICT', `NeedCandidate ${candidateRef.ref_id} is outside the arena snapshot.`);
       }
-      return [this.refKey(candidateRef), candidate] as const;
+      const { need_candidate_id, title_card_id, candidate_version, semantic_group_key, candidate_need, unmet_need_statement,
+        mechanism_type, mechanism_summary, mechanism_payload, scope_notes, non_goal_notes, prior_art_status, evidence_map_ref, evidence_role_bundle } = candidate;
+      return [this.refKey(candidateRef), JSON.parse(JSON.stringify({ need_candidate_id, title_card_id, candidate_version,
+        semantic_group_key, candidate_need, unmet_need_statement, mechanism_type, mechanism_summary, mechanism_payload,
+        scope_notes, non_goal_notes, prior_art_status, evidence_map_ref, evidence_role_bundle })) as CandidateProjectionSource] as const;
     }));
     return new Map(entries);
   }
 
   private async requireEvidencePacket(
     preparation: TopicSelectionResearchArenaRoleEvidencePreparation,
-    inputSnapshotId: string,
+    snapshot: TopicSelectionInputSnapshotRecord,
+    mode: TopicSelectionResearchArenaShadowRunRequest['execution_mode'],
   ): Promise<TopicSelectionResearchEvidencePacket> {
     const ref = preparation.evidence_packet_artifact_ref!;
     if (ref.ref_type !== 'artifact_ref') {
@@ -623,7 +685,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     }
     const artifact = await this.dependencies.artifactStore.getArtifactRef(ref.ref_id);
     const value = artifact?.payload;
-    if (!artifact || artifact.input_snapshot_id !== inputSnapshotId
+    if (!artifact || artifact.input_snapshot_id !== snapshot.input_snapshot_id
       || artifact.checksum !== preparation.evidence_packet_hash
       || !value || value.schema_version !== 'TopicSelectionResearchEvidencePacket@v1'
       || value.packet_hash !== preparation.evidence_packet_hash
@@ -631,7 +693,21 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       || !Array.isArray(value.items) || value.items.length === 0) {
       throw new AppError(409, 'VERSION_CONFLICT', 'EvidencePacket artifact is missing or outside the exact role snapshot.');
     }
-    return value as unknown as TopicSelectionResearchEvidencePacket;
+    const packet = value as unknown as TopicSelectionResearchEvidencePacket;
+    if (mode === 'codex_cli') {
+      const resolver = this.dependencies.evidencePacketResolver;
+      if (!resolver) throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena CLI requires original evidence resolution.');
+      const fresh = await resolver.resolve({ schema_version: 'TopicSelectionResearchEvidencePacketRequest@v1', title_card_id: preparation.title_card_id, participant_role: preparation.participant_role,
+        query_intent: preparation.query_intent, evidence_unit_refs: preparation.selected_evidence_unit_refs });
+      const { packet_hash, ...body } = packet;
+      if (artifact.title_card_id !== snapshot.title_card_id || (artifact.workspace_id ?? null) !== (snapshot.workspace_id ?? null)
+        || (ref.version_id != null && ref.version_id !== artifact.checksum) || ref.legacy_ref != null
+        || packet_hash !== sha256Text(stableStringify(body)) || stableStringify(fresh) !== stableStringify(packet)
+        || fresh.items.some(item => !snapshot.source_refs.some(source => this.refKey(source) === this.refKey(item.evidence_map_ref)))) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Arena CLI packet differs from its frozen scope or repository originals.');
+      }
+    }
+    return packet;
   }
 
   private assertRoleOutput(
@@ -851,6 +927,6 @@ export class TopicSelectionResearchArenaShadowRunnerService {
   }
 
   private refKey(ref: TopicSelectionFunctionalRef): string {
-    return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
+    return stableStringify([ref.ref_type, ref.ref_id, ref.version_id ?? null, ref.title_card_id ?? null, ref.legacy_ref ?? null]);
   }
 }

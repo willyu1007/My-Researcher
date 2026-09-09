@@ -350,9 +350,9 @@ export interface TopicSelectionResearchArenaShadowRoleInput {
   role_slot_id: string;
   participant_role: TopicSelectionResearchArenaShadowRole;
   evidence_preparation: TopicSelectionResearchArenaRoleEvidencePreparation;
-  structured_output: TopicSelectionResearchArenaRoleOutput;
-  fixture_id: string | null;
-  operator_label: string | null;
+  structured_output?: TopicSelectionResearchArenaRoleOutput | null;
+  fixture_id?: string | null;
+  operator_label?: string | null;
 }
 
 export interface TopicSelectionResearchArenaShadowRunRequest {
@@ -360,7 +360,7 @@ export interface TopicSelectionResearchArenaShadowRunRequest {
   arena_session_id: string;
   workflow_run_id: string;
   node_attempt_id: string;
-  execution_mode: 'mocked_llm' | 'codex_assisted';
+  execution_mode: 'mocked_llm' | 'codex_assisted' | 'codex_cli';
   candidate_refs: TopicSelectionFunctionalRef[];
   role_inputs: TopicSelectionResearchArenaShadowRoleInput[];
 }
@@ -955,14 +955,13 @@ const topicSelectionResearchArenaShadowRoleInputSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'role_slot_id', 'participant_role', 'evidence_preparation', 'structured_output',
-    'fixture_id', 'operator_label',
+    'role_slot_id', 'participant_role', 'evidence_preparation',
   ],
   properties: {
     role_slot_id: stringId,
     participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES] },
     evidence_preparation: topicSelectionResearchArenaRoleEvidencePreparationSchema,
-    structured_output: topicSelectionResearchArenaRoleOutputSchema,
+    structured_output: { anyOf: [topicSelectionResearchArenaRoleOutputSchema, { type: 'null' }] },
     fixture_id: nullableStringId,
     operator_label: nullableStringId,
   },
@@ -970,6 +969,16 @@ const topicSelectionResearchArenaShadowRoleInputSchema = {
 
 export const topicSelectionResearchArenaShadowRunRequestSchema = {
   type: 'object',
+  allOf: [{
+    if: { properties: { execution_mode: { const: 'codex_cli' } } },
+    then: { properties: { role_inputs: { type: 'array', items: { type: 'object', properties: {
+      structured_output: { type: 'null' }, fixture_id: { type: 'null' }, operator_label: { type: 'null' },
+    } } } } },
+    else: { properties: { role_inputs: { type: 'array', items: { type: 'object',
+      required: ['structured_output', 'fixture_id', 'operator_label'],
+      properties: { structured_output: topicSelectionResearchArenaRoleOutputSchema },
+    } } } },
+  }],
   additionalProperties: false,
   required: [
     'schema_version', 'arena_session_id', 'workflow_run_id', 'node_attempt_id',
@@ -980,7 +989,7 @@ export const topicSelectionResearchArenaShadowRunRequestSchema = {
     arena_session_id: stringId,
     workflow_run_id: stringId,
     node_attempt_id: stringId,
-    execution_mode: { enum: ['mocked_llm', 'codex_assisted'] },
+    execution_mode: { enum: ['mocked_llm', 'codex_assisted', 'codex_cli'] },
     candidate_refs: {
       type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
     },

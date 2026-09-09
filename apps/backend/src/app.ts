@@ -1267,6 +1267,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       candidateReader: topicSelectionNeedValidationRepository,
       artifactStore: topicSelectionControlPlaneService,
       agentInvoker: topicSelectionV1aAgentOrchestratorService,
+      evidencePacketResolver: topicSelectionResearchEvidencePacketService,
       arenaService: topicSelectionResearchArenaService,
       riskFindingRecorder: new TopicSelectionRiskFindingService(topicSelectionControlPlaneService),
       gapCheckpointProjector: topicSelectionResearchGapProjectionService,

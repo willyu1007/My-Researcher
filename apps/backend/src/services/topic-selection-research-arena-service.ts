@@ -391,8 +391,8 @@ export class TopicSelectionResearchArenaService {
   async synthesizeSession(input: SynthesizeSessionInput): Promise<TopicSelectionResearchArenaSessionRecord> {
     const session = await this.dependencies.arenaRepository.findSessionById(input.arena_session_id);
     if (!session) throw new AppError(404, 'NOT_FOUND', `ResearchArenaSession ${input.arena_session_id} was not found.`);
-    if (session.status !== 'open' || !session.current_arena_key) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Only the current open arena can be synthesized.');
+    if (!['open', 'executing'].includes(session.status) || !session.current_arena_key) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Only the current executable arena can be synthesized.');
     }
     const executions = await this.dependencies.arenaRepository.listRoleExecutionsBySessionId(session.arena_session_id);
     const firstPassExecutions = executions.filter((execution) => (

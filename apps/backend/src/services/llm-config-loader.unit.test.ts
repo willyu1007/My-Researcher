@@ -85,8 +85,8 @@ test('research arena prompts keep independent scout and killer authority boundar
     'topic-selection-research-arena-prior-art-topic-killer',
   );
 
-  assert.equal(scout.version, 'v2');
-  assert.equal(killer.version, 'v2');
+  assert.equal(scout.version, 'v4');
+  assert.equal(killer.version, 'v3');
   assert.match(scout.system, /independent first-pass opportunity scout/u);
   assert.match(scout.system, /provisional candidate/u);
   assert.match(killer.system, /independent first-pass prior-art and topic killer/u);

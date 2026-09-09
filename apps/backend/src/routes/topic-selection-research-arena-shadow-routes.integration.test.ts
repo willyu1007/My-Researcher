@@ -223,5 +223,14 @@ test('research arena shadow route rejects provider execution and returns support
     payload: { ...request, execution_mode: 'provider_llm' },
   });
   assert.equal(provider.statusCode, 400);
+  const cli = { ...request, execution_mode: 'codex_cli', role_inputs: request.role_inputs.map(role => ({
+    role_slot_id: role.role_slot_id, participant_role: role.participant_role,
+    evidence_preparation: role.evidence_preparation,
+  })) };
+  const cliResponse = await app.inject({ method: 'POST', url: '/topic-selection/research/arena/shadow/run', payload: cli });
+  assert.equal(cliResponse.statusCode, 200, cliResponse.body);
+  const mixed = await app.inject({ method: 'POST', url: '/topic-selection/research/arena/shadow/run',
+    payload: { ...request, execution_mode: 'codex_cli' } });
+  assert.equal(mixed.statusCode, 400);
   await app.close();
 });

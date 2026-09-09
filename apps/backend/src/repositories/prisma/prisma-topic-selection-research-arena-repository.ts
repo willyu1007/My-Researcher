@@ -288,7 +288,7 @@ implements TopicSelectionResearchArenaRepository {
     try {
       const row = await this.prisma.$transaction(async (transaction) => {
         const claimed = await transaction.topicSelectionResearchArenaSession.updateMany({
-          where: { id: record.arena_session_id, currentArenaKey: record.current_arena_key, status: 'open' },
+          where: { id: record.arena_session_id, currentArenaKey: record.current_arena_key, status: { in: ['open', 'executing'] } },
           data: {
             status: record.status,
             terminationReason: record.termination_reason,

@@ -98,8 +98,9 @@ test('only qualified upstream and N6/N8 profiles admit product CLI execution wit
     TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID, TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID,
     TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID, TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID,
     ...Object.values(TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS),
+    TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID, TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
   ]);
-  assert.equal(qualified.size, 23);
+  assert.equal(qualified.size, 25);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
     .map(profile => profile.profile_id)), qualified);
@@ -140,7 +141,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
       execution_mode: 'codex_assisted',
       run_mode: 'acceptance',
     });
-    assert.deepEqual(profile.profile.allowed_execution_modes, ['mocked_llm', 'codex_assisted']);
+    assert.deepEqual(profile.profile.allowed_execution_modes, ['mocked_llm', 'codex_assisted', 'codex_cli']);
     assert.equal(profile.profile.output_contract, 'TopicSelectionResearchArenaRoleOutput@v1');
     assert.equal(profile.profile.model_options.length, 0);
     assert.equal(profile.selected_model_option, null);

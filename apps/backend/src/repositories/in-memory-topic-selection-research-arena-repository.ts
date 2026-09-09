@@ -106,7 +106,9 @@ implements TopicSelectionResearchArenaRepository {
         throw new TopicSelectionResearchArenaConflictError('NeedCandidate semantic identity changed.');
       }
     }
-    const updated = await this.updateSession(record);
+    const current = this.requireSession(record.arena_session_id);
+    const updated = current.status === 'executing'
+      ? await this.completeClaimedSession(record) : await this.updateSession(record);
     for (const projection of candidateProjections) {
       this.candidateProjections.set(projection.candidate_ref.ref_id, projection);
     }

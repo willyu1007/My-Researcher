@@ -23,7 +23,7 @@ N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` con
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
 remain reserved. The default registry admits the 11 profiles used by this slice; no registry override
 is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
-below; three evidence-convergence roles bring the total to 23. Other selection/promotion roles remain closed.
+below; three evidence-convergence and two optional Arena roles bring the total to 25. Other selection/promotion roles remain closed.
 
 N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
 one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact
@@ -144,14 +144,29 @@ EvidenceDelta, issue and accounting fields. Supply exactly three `role_inputs` i
 The backend verifies packets against repository originals, runs both independent first passes,
 then gives their actual bodies to the Arbiter. The existing deterministic checkpoint remains the
 Human boundary. `remain_unresolved`/`evidence_expansion_required` is a legitimate conclusion, even
-when the checkpoint is eligible for Human review. Optional candidate-Arena shadow support remains
-outside this enabled slice.
+when the checkpoint is eligible for Human review.
 
 Replay the same input for an exact completed or blocked result. A changed request or partially
 written claimed round cannot silently run again; inspect its retained model, role and transcript
 records first. Existing convergence limits apply between CLI roles and before checkpoint creation;
 `boundary_exhausted_unresolved` cannot advance. These checks do not interrupt an active role before
 its separately configured runner deadline.
+
+### Optional candidate Arena
+
+`POST /topic-selection/research/arena/shadow/run` accepts `execution_mode: "codex_cli"` for the
+current open gap-portfolio Arena. Keep the existing session/workflow/attempt identity, complete
+candidate-ref pool and exactly two `role_inputs` (Scout and prior-art topic killer). Each role input
+contains its `role_slot_id`, `participant_role` and ready `evidence_preparation`; omit structured
+output and fixture/operator labels. The preparation must resolve against repository originals and
+the Arena snapshot’s evidence-map scope.
+
+The backend runs independent first passes and preserves disagreement in its advisory synthesis.
+A Scout proposal requires reframing before candidate selection. Neither an advisory recommendation
+nor a pending gap checkpoint records Human acceptance. Replay the exact completed request to obtain
+its persisted response without another model call. A different request or interrupted claim needs
+inspection; a synthesized session’s missing checkpoint can use the existing gap-projection recovery
+endpoint. This optional support does not imply Arena decision-quality activation.
 
 ## Regular N6 question candidates
 

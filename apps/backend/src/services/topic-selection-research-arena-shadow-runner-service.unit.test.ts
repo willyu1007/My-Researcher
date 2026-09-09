@@ -218,6 +218,10 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       candidate_version: 'v1',
       semantic_group_key: '1'.repeat(64),
       decision_status: 'ready_for_validation' as const,
+      candidate_need: 'A distinct mechanism.', unmet_need_statement: 'A discriminating comparison is missing.',
+      mechanism_type: 'evaluation_gap' as const, mechanism_payload: {}, prior_art_status: 'unknown' as const,
+      evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1', version_id: 'v1' },
+      evidence_role_bundle: { support_unit_refs: [evidenceUnitRef], challenge_unit_refs: [], baseline_unit_refs: [], context_unit_refs: [] },
     }],
     ['candidate_2', {
       need_candidate_id: 'candidate_2',
@@ -225,6 +229,10 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       candidate_version: 'v1',
       semantic_group_key: '2'.repeat(64),
       decision_status: 'ready_for_validation' as const,
+      candidate_need: 'A distinct mechanism.', unmet_need_statement: 'A discriminating comparison is missing.',
+      mechanism_type: 'evaluation_gap' as const, mechanism_payload: {}, prior_art_status: 'unknown' as const,
+      evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1', version_id: 'v1' },
+      evidence_role_bundle: { support_unit_refs: [evidenceUnitRef], challenge_unit_refs: [], baseline_unit_refs: [], context_unit_refs: [] },
     }],
   ]);
   const recoverableRoleExecutions = new Map<string, TopicSelectionResearchArenaRoleExecutionRecord>();
@@ -254,6 +262,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       findNeedCandidateById: async (id: string) => candidateRows.get(id) ?? null,
     },
     artifactStore: {
+      getArtifactRefByStableKey: async () => null,
       getArtifactRef: async (id) => artifacts.get(id) ?? null,
       recordArtifactRef: async (input) => {
         const artifact: TopicSelectionArtifactRefRecord = {
@@ -278,6 +287,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       },
     },
     agentInvoker: {
+      assertProductCodexProfile: () => { throw new Error('Legacy fixture must not preflight CLI.'); },
       async invokeStructuredOutput<T>(input: TopicSelectionAgentInvocationRequest<T>) {
         invocationCalls.push(input as TopicSelectionAgentInvocationRequest<unknown>);
         if (invocationCalls.length === 2) {
@@ -329,6 +339,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       },
     },
     arenaService: {
+      claimSessionExecution: async () => { throw new Error('Legacy fixture must not claim CLI execution.'); },
       recordRoleExecution: async (input) => {
         admittedInputs.push(input as unknown as Record<string, unknown>);
         const outputArtifact = await Promise.resolve(artifacts.get(input.output_artifact_ref.ref_id)!);

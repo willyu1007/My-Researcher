@@ -4,7 +4,7 @@ Inventory established at `a5263023`, reconciled with the current Phase 3 impleme
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), leaving 13 closed (23 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), leaving 11 closed (25 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
@@ -15,8 +15,8 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 5 | `topic-selection.confirmation-semantic-review.single-agent.v1` | Product CLI enabled; complete/incomplete fixed-Human qualification, exact Human input and JSON persistence replay verified | Phase 3 / CX-03 |
 | 6 | `topic-selection.need-discovery.explorer.v1` | Product CLI enabled; two independent Explorers qualified with scoped original evidence and exact identity | Phase 3 / CX-03 |
 | 7 | `topic-selection.need-discovery.deep-critic.v1` | Product CLI enabled; real source and both Explorer bodies consumed, concrete criticisms retained | Phase 3 / CX-03 |
-| 8 | `topic-selection.research-arena.opportunity-scout.v1` | Optional Arena shadow support; mock/external today; enable CLI support without decision-quality activation | Phase 3 / CX-01, CX-03 |
-| 9 | `topic-selection.research-arena.prior-art-topic-killer.v1` | Optional Arena shadow support; same boundary | Phase 3 / CX-01, CX-03 |
+| 8 | `topic-selection.research-arena.opportunity-scout.v1` | Product CLI enabled for advisory support; original candidate/source bodies, insufficient evidence and disagreement qualified; no decision-quality activation | Phase 3 / CX-01, CX-03 |
+| 9 | `topic-selection.research-arena.prior-art-topic-killer.v1` | Product CLI enabled for advisory support; independent prior-art and insufficiency review, complete references and durable recovery qualified | Phase 3 / CX-01, CX-03 |
 | 10 | `topic-selection.evidence-convergence.opportunity-scout.v1` | Product CLI enabled; actual original excerpts and EvidenceDelta compiled through managed retrieval/successor/linked-round owners | Phase 3 / CX-03 |
 | 11 | `topic-selection.evidence-convergence.empirical-skeptic.v1` | Product CLI enabled; independent source-limitation review, exact claims/retrieval lineage and stopped-failure recovery verified | Phase 3 / CX-03 |
 | 12 | `topic-selection.evidence-convergence.synthesis-arbiter.v1` | Product CLI enabled; consumes both actual first-pass bodies, preserves unresolved evidence and an undecided Human checkpoint | Phase 3 / CX-03 |

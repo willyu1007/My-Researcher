@@ -5,7 +5,7 @@
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 2 closeout then Phase 3 on 2026-09-09 | confirmed through Phase 3 | Phases 4–5 remain required and outside current authorization; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream and three evidence-convergence profiles admit product CLI (23 total); 13 others remain closed. Optional Arena and remaining selection/promotion roles are not enabled. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream, three evidence-convergence and two optional Arena profiles admit product CLI (25 total); 11 selection/promotion profiles remain closed. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
 | Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
@@ -397,8 +397,7 @@ an explicitly local profile override, not a new real-model qualification. Those 
   ledger, no provider fallback or hidden retry. Private raw evidence remains under
   `/tmp/my-researcher-t153-phase2/live/`.
 - These checks do not prove real candidate admission from discovery, actual Human approval, app
-  checkpoint integration or a complete fresh upstream-to-v1b product chain. Convergence/optional
-  Arena and fresh lineage remain Phase 3 work; CX-03 and whole-flow acceptance remain open.
+  checkpoint integration or a complete fresh upstream-to-v1b product chain. Fresh upstream lineage remains Phase 3 work; CX-03 and whole-flow acceptance remain open.
 
 ## Phase 3 evidence-convergence qualification
 
@@ -447,13 +446,65 @@ an explicitly local profile override, not a new real-model qualification. Those 
   no pending call. Convergence attempts 137–142 used 84,413 reported tokens. Shared aggregate limits
   remain null and each model call retains its 600-second deadline. The standing product convergence
   limits are separate from this qualification ledger. Private evidence is under the same live path.
-- Optional Arena support and fresh upstream-to-v1b lineage with real candidate admission remain
-  authorized Phase 3 work. CX-03 and whole-flow acceptance remain open.
+- Fresh upstream-to-v1b lineage with real candidate admission remains authorized Phase 3 work. CX-03 and whole-flow acceptance remain open.
+
+## Phase 3 optional Arena qualification
+
+- The shadow product endpoint now accepts CLI role preparations without supplied answers. Actual
+  candidate bodies and independently resolved original packets feed the existing two profiles;
+  complete reference/role/schema admission precedes domain writes. CLI executes serially, retaining
+  actual audits and stopping the next role on failure. Exclusive Arena claims and JSON completion
+  receipts protect competing consumers and exact reconstructed replay.
+- Local composition uses real services/InMemory repositories with JSON artifact storage. It checks
+  missing-runner and mixed-input refusal, source drift before calling, wrong full reference, timeout,
+  two-consumer contention, complete replay and receipt-write failure after domain synthesis. The
+  last case intentionally requires inspection, with zero new model work. The InMemory test exposes
+  its persisted candidate-projection join to match the production database transaction; this alone
+  is not relational recovery evidence.
+- One existing local Prisma integration test passed with an added two-consumer claim before
+  candidate synthesis. It verifies one claim, claimed-session synthesis and candidate advisory
+  persistence, plus concurrent gap-checkpoint recovery. Its nonce-scoped records were removed by
+  the test. No schema/migration or development-server changes were needed.
+- Attempt 143 produced source-grounded Scout reasoning but combined a provisional proposal with
+  `selected`; the existing set-outcome guard rejected it and stopped the Killer call. Scout prompt
+  v4 now states that a proposal requires `reframe_required`; Killer v3 retains complete refs and
+  independently named findings. This historical attempt is not a successful Arena qualification.
+- Attempts 144–145 (`arena_v2_live`) use the pinned DPR, BEIR and Lost in the Middle abstracts,
+  and controlled bounded-position versus universal-repair candidates. Both roles retain unresolved
+  protocol-level prior-art overlap. Scout drops the unspecified universal mechanism; Killer parks
+  it because absent evidence is not disproof. Deterministic synthesis preserves this disagreement,
+  both candidates are parked, the outcome is `evidence_expansion_required`, and Human remains pending.
+- Attempts 146–147 (`arena_v2_live_insufficient`) contain only the original DPR abstract. Both roles
+  explicitly note that it contains no passage-position experiment and cannot support a comparative
+  winner or universal guarantees. Their different specification-failure versus insufficient-evidence
+  judgments are preserved. Both complete with exact zero-call replay and an undecided checkpoint.
+  Actual run accounting records 89,760 ms for the three-abstract case and 66,772 ms for the single-abstract case.
+- Candidate definitions, source-role assignment, retrieval hits and readiness are controlled setup.
+  These runs prove real source reasoning and advisory composition, not discovery of those candidates,
+  live retrieval quality, scientific novelty, efficacy or an actual Human decision. The historical
+  exports retain runner input packets, outputs, invocation/domain artifacts and results; original
+  packet artifacts without workflow IDs were not exported separately in these two runs. The helper
+  now includes those artifacts and frozen setup metadata in future exports.
+- Final local validation passed 55 affected registry/HTTP/Arena/gap-projection/convergence/config
+  tests (three live skips), backend no-emit typecheck and matrix consistency. The separate local
+  Prisma integration test also passed.
+- Default admission opens only these two profiles after qualification, bringing the registry to
+  25 enabled/11 closed topic-selection profiles. The helper now uses default profiles. Independent
+  implementation review passed 28 focused checks before activation. Final evidence review verified
+  26 exported artifact checksums, 42 full output references, source pins, candidate bodies and
+  audit/output/trace/transcript/receipt hashes; all four audit profile hashes match current defaults.
+  Historical exports omit separate original packet artifacts, full snapshot/preparations, risk
+  record bodies and checkpoint packets, so no item-by-item verification of those entities is claimed.
+  No decision-quality activation is claimed.
+- Through 147: 3,026,901 reported tokens, including 68,434 across Arena attempts 143–147. The same
+  nine historical calls have unknown usage, with no pending call. Aggregate ceilings remain null;
+  the per-call deadline remains 600 seconds. Private evidence remains under the shared live path.
+- Fresh upstream-to-v1b lineage and real candidate admission remain authorized Phase 3 work. CX-03
+  and task-level completion remain open.
 
 ## Outstanding verification
 
-- Connect optional Arena support, then qualify those roles and
-  fresh upstream-to-v1b lineage, including a real candidate admission/persistence case with sufficient
+- Compose and qualify fresh upstream-to-v1b lineage, including a real candidate admission/persistence case with sufficient
   source evidence. The currently enabled slice does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.

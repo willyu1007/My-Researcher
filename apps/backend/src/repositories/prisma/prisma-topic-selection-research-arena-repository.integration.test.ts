@@ -345,6 +345,11 @@ test('Prisma arena repository enforces execution identity and concurrent gap pro
       updated_at: new Date(Date.parse(NOW) + 3_000).toISOString(),
       synthesized_at: new Date(Date.parse(NOW) + 3_000).toISOString(),
     };
+    const claimResults = await Promise.all([
+      repository.claimSessionExecution(second.arena_session_id),
+      new PrismaTopicSelectionResearchArenaRepository(prisma).claimSessionExecution(second.arena_session_id),
+    ]);
+    assert.equal(claimResults.filter(Boolean).length, 1);
     await repository.synthesizeSessionWithCandidateProjections(synthesized, [{
       candidate_ref: candidateRef,
       semantic_group_key: '8'.repeat(64),

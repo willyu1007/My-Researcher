@@ -174,11 +174,11 @@
       "system": "prompts/resource-sampling/classification/system.md"
     },
     "topic-selection-research-arena-opportunity-scout": {
-      "version": "v2",
+      "version": "v4",
       "system": "prompts/research-arena/opportunity-scout/system.md"
     },
     "topic-selection-research-arena-prior-art-topic-killer": {
-      "version": "v2",
+      "version": "v3",
       "system": "prompts/research-arena/prior-art-topic-killer/system.md"
     },
     "topic-selection.evidence-convergence.runtime-role": {

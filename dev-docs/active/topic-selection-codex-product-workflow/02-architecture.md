@@ -272,3 +272,26 @@ checkpoint, and replay validates its accounting. This stops subsequent work afte
 the runner's own per-call deadline governs interruption of an active model call. Live accounting uses
 wall-clock time. Advisory `remain_unresolved` is preserved separately from the deterministic gate's
 Human-review eligibility; neither records a Human decision.
+
+
+## Phase 3 optional candidate Arena
+
+The existing shadow-run endpoint accepts `codex_cli` with candidate refs and two role evidence
+preparations, without caller answers. Each role receives the exact candidate version’s substantive
+fields and its own packet, re-resolved from repository originals against the frozen map scope.
+Candidate advisory fields and peer outputs are excluded from first-pass contexts. Both required
+profiles preflight against the app-owned runner; CLI invokes serially and stops at the first schema
+or consumer-admission failure. Complete nullable reference identities include legacy payloads.
+
+The existing Arena session claim is the exclusive execution authority. A stable request artifact
+binds the entire request and compiled context; a checksum-verified JSON completion receipt binds
+its final support-only response. The same request replays without model work, including after
+service reconstruction. Different inputs or interrupted claims require authority inspection.
+Partial synthesis/checkpoint/receipt writes do not trigger automatic model retries; the existing
+gap-projection recovery endpoint can restore a missing checkpoint from a synthesized session.
+
+The existing candidate-projection transaction now accepts a claimed executable session as well as
+an open legacy session. Role outputs, risk findings, deterministic advisory synthesis and pending
+Human checkpoint retain their established owners. Provisional Scout proposals require a reframe
+outcome; disagreement is retained rather than converted to consensus. This enables optional
+support only, without a ResearchArena decision-quality activation claim.
