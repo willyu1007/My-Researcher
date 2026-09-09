@@ -72,26 +72,25 @@ try {
   if (checkOnly) {
     if (drift.length === 0) {
       console.log(`[codex-app-server-bindings] OK: bindings match ${version} (${generated.size} files).`);
-      process.exit(0);
+    } else {
+      console.error(
+        `[codex-app-server-bindings] STALE: ${String(drift.length)} file(s) differ from what ${version} emits `
+        + `(first: ${drift.slice(0, 5).join(', ')}). Regenerate with:\n`
+        + '  node apps/backend/scripts/codex-app-server-bindings-generate.mjs',
+      );
+      // Set, not exited: the scratch tree below must still be removed.
+      process.exitCode = 1;
     }
-    console.error(
-      `[codex-app-server-bindings] STALE: ${String(drift.length)} file(s) differ from what ${version} emits `
-      + `(first: ${drift.slice(0, 5).join(', ')}). Regenerate with:\n`
-      + '  node apps/backend/scripts/codex-app-server-bindings-generate.mjs',
-    );
-    process.exit(1);
-  }
-
-  if (drift.length === 0) {
+  } else if (drift.length === 0) {
     console.log(`[codex-app-server-bindings] Up to date with ${version}; nothing written.`);
-    process.exit(0);
+  } else {
+    for (const [file, source] of generated) {
+      await writeFile(path.join(scratch, file), source, 'utf8');
+    }
+    await rm(targetDir, { recursive: true, force: true });
+    await cp(scratch, targetDir, { recursive: true });
+    console.log(`[codex-app-server-bindings] Wrote ${String(generated.size)} files from ${version} (${String(drift.length)} changed).`);
   }
-  for (const [file, source] of generated) {
-    await writeFile(path.join(scratch, file), source, 'utf8');
-  }
-  await rm(targetDir, { recursive: true, force: true });
-  await cp(scratch, targetDir, { recursive: true });
-  console.log(`[codex-app-server-bindings] Wrote ${String(generated.size)} files from ${version} (${String(drift.length)} changed).`);
 } finally {
   await rm(scratch, { recursive: true, force: true });
 }

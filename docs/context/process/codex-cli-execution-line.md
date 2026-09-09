@@ -114,8 +114,9 @@ and forking was measured to amortise nothing.
   before any gate. On `exec` a timeout settles the caller itself, signals the process group and
   escalates to SIGKILL; a large prompt against a child that exits early is a failed result, not a
   crash. On `app_server` a timeout interrupts the turn (`CODEX_CLI_TIMEOUT`), a turn that ends
-  `failed` or `interrupted` is `CODEX_CLI_TURN_FAILED`, and a child that dies fails the attempt at
-  once and is respawned for the next.
+  `failed` or `interrupted` is `CODEX_CLI_TURN_FAILED`, a child that dies fails the attempt at
+  once and is respawned for the next, and every other request has its own 60 s timeout so a
+  silent server cannot hang an attempt. Aborted turns keep the partial trace.
 - Protocol bindings for the App Server are generated from the installed binary
   (`node apps/backend/scripts/codex-app-server-bindings-generate.mjs`, `--check` for drift) into
   `apps/backend/src/generated/codex-app-server/`, with the producing version in `codex-version.ts`.

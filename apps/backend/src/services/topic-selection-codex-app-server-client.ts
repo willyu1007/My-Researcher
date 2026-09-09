@@ -54,7 +54,7 @@ export interface CodexAppServerAnsweredRequest {
  *  answered. Approval-shaped requests get the protocol's own decline so the turn ends on its terms;
  *  anything else gets a JSON-RPC error. Every answer is observable through onServerRequest, which
  *  is what lets a trace show the request and the policy that met it (T-152 D-4). */
-export function answerServerRequestByPolicy(request: ServerRequest): CodexAppServerPolicyAnswer {
+function answerServerRequestByPolicy(request: ServerRequest): CodexAppServerPolicyAnswer {
   switch (request.method) {
     case 'item/commandExecution/requestApproval':
       return { kind: 'declined', result: { decision: 'decline' } satisfies v2.CommandExecutionRequestApprovalResponse };
@@ -77,6 +77,15 @@ export function answerServerRequestByPolicy(request: ServerRequest): CodexAppSer
 export interface CodexAppServerExit {
   code: number | null;
   signal: NodeJS.Signals | null;
+}
+
+/** Why a request got no usable answer: the child is gone, the response never came, or the server
+ *  returned a JSON-RPC error. */
+export class CodexAppServerRequestError extends Error {
+  constructor(readonly reason: 'exited' | 'timeout' | 'rpc', message: string) {
+    super(message);
+    this.name = 'CodexAppServerRequestError';
+  }
 }
 
 /** A turn that ended without `turn/completed`: it outran its budget (`timeout`) or the child died
@@ -128,11 +137,17 @@ class CodexAppServerTransport {
         if (this.exit) { return; }
         this.exit = exit;
         for (const request of this.pending.values()) {
-          request.reject(new Error(`codex app-server exited (${describeExit(exit)}) before answering ${request.method}`));
+          request.reject(new CodexAppServerRequestError(
+            'exited', `codex app-server exited (${describeExit(exit)}) before answering ${request.method}`,
+          ));
         }
         this.pending.clear();
         resolve(exit);
       };
+      // Settle on `exit`, not only on `close`: a descendant holding the server's stdio keeps the
+      // pipes open after the server itself is gone, and an attempt must not wait on that. The
+      // sweep reaches such descendants (best effort; the server's own group when detached).
+      child.on('exit', (code, signal) => { settle({ code, signal }); this.signalGroup('SIGTERM'); });
       child.on('close', (code, signal) => settle({ code, signal }));
       child.on('error', (error) => { this.stderr += `spawn: ${error.message}\n`; settle({ code: null, signal: null }); });
     });
@@ -140,13 +155,15 @@ class CodexAppServerTransport {
 
   request(method: string, params: unknown): Promise<unknown> {
     if (this.exit) {
-      return Promise.reject(new Error(`codex app-server already exited (${describeExit(this.exit)}); cannot send ${method}`));
+      return Promise.reject(new CodexAppServerRequestError(
+        'exited', `codex app-server already exited (${describeExit(this.exit)}); cannot send ${method}`,
+      ));
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         if (this.pending.delete(id)) {
-          reject(new Error(`${method} got no response within ${String(this.requestTimeoutMs)}ms`));
+          reject(new CodexAppServerRequestError('timeout', `${method} got no response within ${String(this.requestTimeoutMs)}ms`));
         }
       }, this.requestTimeoutMs).unref();
       this.pending.set(id, {
@@ -235,7 +252,9 @@ class CodexAppServerTransport {
       this.pending.delete(id);
       if ('error' in message) {
         const error = message.error as { code?: number; message?: string };
-        request.reject(new Error(`${request.method} failed: ${error.message ?? 'unknown error'} (code ${String(error.code)})`));
+        request.reject(new CodexAppServerRequestError(
+          'rpc', `${request.method} failed: ${error.message ?? 'unknown error'} (code ${String(error.code)})`,
+        ));
       } else {
         request.resolve(message.result);
       }
@@ -362,19 +381,30 @@ export class TopicSelectionCodexAppServerClient {
         }
       }),
     ];
+    const partial = { notifications, server_requests: serverRequests };
+    const abort = (reason: 'timeout' | 'exited', message: string): CodexAppServerTurnAbortedError =>
+      new CodexAppServerTurnAbortedError(reason, message, partial);
     let timer: NodeJS.Timeout | undefined;
     try {
-      const started = await this.request('turn/start', params);
-      const partial = { notifications, server_requests: serverRequests };
+      let started: v2.TurnStartResponse;
+      try {
+        started = await this.request('turn/start', params);
+      } catch (error) {
+        // A server that died or went silent while starting the turn is an aborted turn, with
+        // whatever already arrived; a JSON-RPC refusal stays an ordinary failure.
+        if (error instanceof CodexAppServerRequestError && error.reason !== 'rpc') {
+          throw abort(error.reason, error.message);
+        }
+        throw error;
+      }
       const timedOut = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new CodexAppServerTurnAbortedError(
-          'timeout', `turn ${started.turn.id} exceeded ${String(options.timeout_ms)}ms`, partial,
-        )), options.timeout_ms);
+        timer = setTimeout(
+          () => reject(abort('timeout', `turn ${started.turn.id} exceeded ${String(options.timeout_ms)}ms`)),
+          options.timeout_ms,
+        );
       });
       const died = this.transport.exited.then((exit) => {
-        throw new CodexAppServerTurnAbortedError(
-          'exited', `codex app-server exited (${describeExit(exit)}) during turn ${started.turn.id}`, partial,
-        );
+        throw abort('exited', `codex app-server exited (${describeExit(exit)}) during turn ${started.turn.id}`);
       });
       try {
         const turn = await Promise.race([completed, timedOut, died]);

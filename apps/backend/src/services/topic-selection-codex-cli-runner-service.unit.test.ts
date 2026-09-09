@@ -407,9 +407,16 @@ void test('codex_cli runner maps an App Server turn to the artifact, the usage, 
 });
 
 void test('codex_cli runner reports App Server failures as results that keep their trace', async () => {
+  // What an aborted turn had collected: the start, and a delta of a message that never completed.
   const partial = (threadId: string) => {
     const { notifications, server_requests } = appServerTurn(threadId);
-    return { notifications: notifications.slice(0, 2), server_requests };
+    return {
+      notifications: [
+        notifications[0]!,
+        { method: 'item/agentMessage/delta', params: { threadId, turnId: 'turn_1', itemId: 'item_unfinished', delta: '{"ver' } } satisfies CodexAppServerNotification,
+      ],
+      server_requests,
+    };
   };
   const cases: Array<[string, TurnScript, string, RegExp]> = [
     ['failed turn', async (params) => appServerTurn(params.threadId, { status: 'failed' }), 'CODEX_CLI_TURN_FAILED', /model refused/],
@@ -426,8 +433,12 @@ void test('codex_cli runner reports App Server failures as results that keep the
     assert.match(outcome.message, message, label);
     assert.equal(outcome.thread_id, 'thread_1', label);
     assert.equal(outcome.codex_home, home, label);
-    // A failed run's trace is evidence too, including what an aborted turn collected.
+    // A failed run's trace is evidence too, including what an aborted turn collected — and for an
+    // item that never completed, its deltas are the only record of the output.
     assert.ok(outcome.trace_events.length > 0, label);
+    if (label === 'timeout' || label === 'dead child') {
+      assert.ok(outcome.trace_events.some((event) => (event as { method?: string }).method === 'item/agentMessage/delta'), label);
+    }
     assert.ok(servers[0]!.methods.includes('thread/unsubscribe'), label);
   }
 });
@@ -462,6 +473,54 @@ void test('codex_cli runner recycles the App Server child after the bound withou
 
   await runner.shutdown();
   assert.equal(servers[1]!.closed, true);
+});
+
+void test('codex_cli runner replaces a child at the recycle bound exactly once under concurrent attempts, and shares one spawn', async () => {
+  const { runner, servers } = await makeAppServerRunner({ recycle_after: 2 });
+  // Two concurrent first attempts share the one spawn.
+  await Promise.all([
+    runner.run({ prompt: 'first', output_schema: SCHEMA, invocation_attempt_id: 'attempt_1' }),
+    runner.run({ prompt: 'second', output_schema: SCHEMA, invocation_attempt_id: 'attempt_2' }),
+  ]);
+  assert.equal(servers.length, 1);
+  assert.equal(servers[0]!.thread_starts.length, 2);
+
+  // Both see the first child at its bound; exactly one replacement is spawned and serves both.
+  const outcomes = await Promise.all([
+    runner.run({ prompt: 'third', output_schema: SCHEMA, invocation_attempt_id: 'attempt_3' }),
+    runner.run({ prompt: 'fourth', output_schema: SCHEMA, invocation_attempt_id: 'attempt_4' }),
+  ]);
+  assert.ok(outcomes.every((outcome) => outcome.status === 'succeeded'));
+  assert.equal(servers.length, 2);
+  assert.equal(servers[1]!.thread_starts.length, 2);
+  assert.equal(servers[0]!.closed, true);
+  await runner.shutdown();
+  assert.equal(servers[1]!.closed, true);
+});
+
+void test('codex_cli runner reports a child that fails to start as a result and spawns afresh next time', async () => {
+  const home = await mkdtemp(path.join(tmpdir(), 'codex-cli-runner-'));
+  const { spawn } = recordingSpawn();
+  const { factory, servers } = fakeAppServers();
+  let spawns = 0;
+  const runner = new TopicSelectionCodexCliRunnerService(
+    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'app_server' },
+    spawn,
+    async (options) => {
+      if (++spawns === 1) { throw new Error('codex: command not found'); }
+      return factory(options);
+    },
+  );
+  const failed = await runner.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_1' });
+  assert.equal(failed.status, 'failed');
+  if (failed.status !== 'failed') { return; }
+  assert.equal(failed.error_code, 'CODEX_CLI_EXIT_FAILURE');
+  assert.match(failed.message, /command not found/);
+
+  const recovered = await runner.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_2' });
+  assert.equal(recovered.status, 'succeeded');
+  assert.equal(servers.length, 1);
+  await runner.shutdown();
 });
 
 void test('codex_cli deployment config selects the transport and rejects an unknown one', () => {

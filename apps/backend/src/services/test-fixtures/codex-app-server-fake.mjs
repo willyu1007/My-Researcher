@@ -4,8 +4,11 @@
 //   ask       the turn first raises item/tool/requestUserInput; the final message echoes the answer
 //   hang      the turn never completes; turn/interrupt is acknowledged and logged on stderr
 //   exit      the process dies right after the turn starts
+//   exit-early    a notification for the thread, then death before turn/start is answered
+//   exit-holding  like exit, but a descendant keeps the stdio pipes open for a while
 //   silent    thread/start is never answered
 
+import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
 const scenario = process.argv[2] ?? 'complete';
@@ -60,11 +63,19 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     case 'turn/start': {
       const turnId = `turn_${String(++turns)}`;
       const { threadId } = params;
+      if (scenario === 'exit-early') {
+        send({ method: 'turn/started', params: { threadId, turn: { id: turnId, status: 'inProgress' } }, emittedAtMs: Date.now() }, () => process.exit(2));
+        return;
+      }
       send({ id, result: { turn: { id: turnId, status: 'inProgress' } } });
       send({ method: 'turn/started', params: { threadId, turn: { id: turnId, status: 'inProgress' } }, emittedAtMs: Date.now() }, () => {
         if (scenario === 'exit') { process.exit(2); }
+        if (scenario === 'exit-holding') {
+          spawn(process.execPath, ['-e', 'setTimeout(() => {}, 3000)'], { stdio: 'inherit' });
+          process.exit(2);
+        }
       });
-      if (scenario === 'hang' || scenario === 'exit') { return; }
+      if (scenario === 'hang' || scenario === 'exit' || scenario === 'exit-holding') { return; }
       if (scenario === 'ask') {
         pendingQuestion = { threadId, turnId };
         send({ id: 'server_1', method: 'item/tool/requestUserInput', params: { threadId, turnId, itemId: 'item_question', questions: [], isBlocking: true, autoResolutionMs: null } });

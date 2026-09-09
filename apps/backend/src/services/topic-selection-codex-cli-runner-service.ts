@@ -25,6 +25,7 @@ import type * as v2 from '../generated/codex-app-server/v2/index.js';
 import {
   CodexAppServerTurnAbortedError,
   TopicSelectionCodexAppServerClient,
+  type CodexAppServerNotification,
   type TopicSelectionCodexAppServerSpawnOptions,
   type TopicSelectionCodexAppServerTurn,
 } from './topic-selection-codex-app-server-client.js';
@@ -307,10 +308,23 @@ export function parseCodexEventStream(stdout: string): {
   return { events, threadId, finalMessage, usage, toolCalls };
 }
 
-/** Streaming chatter the trace does not need: token deltas and raw model responses only repeat
- *  what the completed items carry, and a live run showed them making a thousand-event trace out of
- *  a twenty-item turn. The trace is evidence, not a replay. */
-const APP_SERVER_TRACE_NOISE = /(?:[dD]elta|summaryPartAdded)$|^rawResponse/;
+/** Streaming chatter the trace does not need: token deltas repeat what the completed item carries,
+ *  and a live run showed them making a thousand-event trace out of a twenty-item turn. They are kept
+ *  only for an item that never completed — in an aborted turn they are the only record of its
+ *  output. Raw model responses are always dropped. The trace is evidence, not a replay. */
+const APP_SERVER_STREAMING_CHATTER = /(?:[dD]elta|summaryPartAdded)$/;
+const APP_SERVER_RAW_RESPONSE = /^rawResponse/;
+
+function isTraceNoise(notification: CodexAppServerNotification, completedItemIds: ReadonlySet<string>): boolean {
+  if (APP_SERVER_RAW_RESPONSE.test(notification.method)) {
+    return true;
+  }
+  if (!APP_SERVER_STREAMING_CHATTER.test(notification.method)) {
+    return false;
+  }
+  const itemId = (notification.params as { itemId?: unknown }).itemId;
+  return typeof itemId === 'string' && completedItemIds.has(itemId);
+}
 
 /** What the runner keeps of an App Server turn, from the notifications the spike showed carry it:
  *  the last completed `agentMessage` is the final message, the last `thread/tokenUsage/updated`
@@ -325,6 +339,7 @@ function summarizeAppServerTurn(turn: Omit<TopicSelectionCodexAppServerTurn, 'tu
     return { finalMessage: null, usage: null, toolCalls: [], events: [] };
   }
   const items = turn.notifications.flatMap((notification) => (notification.method === 'item/completed' ? [notification.params.item] : []));
+  const completedItemIds = new Set(items.map((item) => item.id));
   const messages = items.filter((item): item is Extract<v2.ThreadItem, { type: 'agentMessage' }> => item.type === 'agentMessage');
   const total = turn.notifications
     .flatMap((notification) => (notification.method === 'thread/tokenUsage/updated' ? [notification.params.tokenUsage.total] : []))
@@ -344,7 +359,7 @@ function summarizeAppServerTurn(turn: Omit<TopicSelectionCodexAppServerTurn, 'tu
       .filter((item): item is Extract<v2.ThreadItem, { type: 'mcpToolCall' }> => item.type === 'mcpToolCall')
       .map((item) => ({ server: item.server, tool: item.tool, status: item.status, error: item.error?.message ?? null })),
     events: [
-      ...turn.notifications.filter((notification) => !APP_SERVER_TRACE_NOISE.test(notification.method)),
+      ...turn.notifications.filter((notification) => !isTraceNoise(notification, completedItemIds)),
       ...turn.server_requests.map((answered) => ({ server_request: answered.request, answer: answered.answer })),
     ],
   };
@@ -405,6 +420,9 @@ export const defaultCodexCliSpawn: TopicSelectionCodexCliSpawn = async (args, op
 
 interface AppServerSlot {
   session: Promise<TopicSelectionCodexAppServerSession>;
+  /** The session once the spawn has resolved, so liveness can be checked without yielding. */
+  resolved: TopicSelectionCodexAppServerSession | null;
+  dead: boolean;
   attempts: number;
   inflight: number;
   retired: boolean;
@@ -621,47 +639,53 @@ export class TopicSelectionCodexCliRunnerService {
     }
   }
 
-  /** One child per runner, replaced after the recycle bound or when it has exited. A replaced
-   *  child is closed by the last attempt still using it, so a recycle never cuts a concurrent
-   *  attempt's turn. Concurrent first attempts share one spawn. */
-  private async acquireAppServer(): Promise<{ session: TopicSelectionCodexAppServerSession; release: () => Promise<void> }> {
+  /** One child per runner, replaced after the recycle bound or once it has died. The decision is
+   *  made without yielding, so concurrent attempts cannot each replace the same child; a replaced
+   *  child is closed by the last attempt still using it, so a recycle never cuts a turn; and
+   *  concurrent first attempts share one spawn. */
+  private acquireAppServer(): Promise<{ session: TopicSelectionCodexAppServerSession; release: () => Promise<void> }> {
     const recycleAfter = this.config.app_server_recycle_after ?? DEFAULT_APP_SERVER_RECYCLE_AFTER;
     let slot = this.appServer;
-    if (slot !== null) {
-      const live = await slot.session.then((session) => !session.hasExited(), () => false);
-      if (!live || slot.attempts >= recycleAfter) {
-        await this.retireAppServer(slot);
-        slot = null;
-      }
+    if (slot !== null && (slot.dead || slot.resolved?.hasExited() === true || slot.attempts >= recycleAfter)) {
+      void this.retireAppServer(slot);
+      slot = null;
     }
     if (slot === null) {
-      slot = {
-        session: this.spawnAppServer({
-          codex_home: this.config.codex_home,
-          // The child's own cwd is neutral; each thread gets a per-attempt scratch directory.
-          cwd: tmpdir(),
-          binary: this.config.binary,
-          client_name: 'my-researcher',
-        }),
-        attempts: 0,
-        inflight: 0,
-        retired: false,
-      };
+      slot = this.spawnAppServerSlot();
       this.appServer = slot;
     }
     const current = slot;
     current.attempts += 1;
     current.inflight += 1;
-    try {
-      const session = await current.session;
-      return { session, release: () => this.releaseAppServer(current) };
-    } catch (error) {
-      current.inflight -= 1;
-      if (this.appServer === current) {
-        this.appServer = null;
-      }
-      throw error;
-    }
+    return current.session.then(
+      (session) => ({ session, release: () => this.releaseAppServer(current) }),
+      (error: unknown) => {
+        current.inflight -= 1;
+        if (this.appServer === current) {
+          this.appServer = null;
+        }
+        throw error;
+      },
+    );
+  }
+
+  private spawnAppServerSlot(): AppServerSlot {
+    const slot: AppServerSlot = {
+      session: this.spawnAppServer({
+        codex_home: this.config.codex_home,
+        // The child's own cwd is neutral; each thread gets a per-attempt scratch directory.
+        cwd: tmpdir(),
+        binary: this.config.binary,
+        client_name: 'my-researcher',
+      }),
+      resolved: null,
+      dead: false,
+      attempts: 0,
+      inflight: 0,
+      retired: false,
+    };
+    slot.session.then((session) => { slot.resolved = session; }, () => { slot.dead = true; });
+    return slot;
   }
 
   private async releaseAppServer(slot: AppServerSlot): Promise<void> {
@@ -671,14 +695,16 @@ export class TopicSelectionCodexCliRunnerService {
     }
   }
 
-  private async retireAppServer(slot: AppServerSlot): Promise<void> {
+  /** Marks the slot retired and drops it from the runner synchronously; the close itself waits for
+   *  the last in-flight attempt to release it. */
+  private retireAppServer(slot: AppServerSlot): Promise<void> {
     slot.retired = true;
     if (this.appServer === slot) {
       this.appServer = null;
     }
-    if (slot.inflight === 0) {
-      await slot.session.then((session) => session.close(), () => undefined);
-    }
+    return slot.inflight === 0
+      ? slot.session.then((session) => session.close(), () => undefined).then(() => undefined)
+      : Promise.resolve();
   }
 
   /** The version of the binary that actually ran, resolved once per service instance. Declaring it

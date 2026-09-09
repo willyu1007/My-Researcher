@@ -88,3 +88,27 @@ void test('a request the server never answers fails after the request timeout in
   await assert.rejects(client.request('thread/start', {}), /thread\/start got no response within 200ms/);
   assert.equal(client.hasExited(), false);
 });
+
+void test('a child that dies before answering turn/start still yields an aborted turn with what arrived', async (t) => {
+  const client = await attachFake(t, 'exit-early');
+  const started = await client.request('thread/start', {});
+  await assert.rejects(
+    client.runTurn({ threadId: started.thread.id, input }, { timeout_ms: 5_000 }),
+    (error: unknown) => error instanceof CodexAppServerTurnAbortedError
+      && error.reason === 'exited'
+      && error.partial.notifications.some((notification) => notification.method === 'turn/started'),
+  );
+});
+
+void test('child death is detected on exit even while a descendant keeps the stdio pipes open', async (t) => {
+  const client = await attachFake(t, 'exit-holding');
+  const started = await client.request('thread/start', {});
+  const before = Date.now();
+  await assert.rejects(
+    client.runTurn({ threadId: started.thread.id, input }, { timeout_ms: 5_000 }),
+    (error: unknown) => error instanceof CodexAppServerTurnAbortedError && error.reason === 'exited',
+  );
+  // The descendant holds the pipes for 3 s; the attempt must not wait for that.
+  assert.ok(Date.now() - before < 1_500, 'waited for the pipes to close instead of the process to exit');
+  assert.equal((await client.exited).code, 2);
+});
