@@ -34,17 +34,29 @@
 | Model execution line | Gateway provider, externally authored Codex, product-driven Codex | `codex_cli`; defer other generation-provider activation | decided | User | 2026-09-09 explicit direction | Do not demand a separate provider path or mislabel CLI output as `provider_llm`/`codex_assisted`. |
 | Policy authority | New universal registry versus alignment of existing policies | Reuse current node/slot/profile/scenario authorities and matrix checks | decided | Existing repository authorities; opening design | `topic-selection-workflow-matrix.md` and its passing consistency check | Readiness evidence belongs in verification, not a second writable product authority. |
 | Human and deterministic steps | Automate model work versus automate research authority | Automate model work; compose existing deterministic steps and stop for exact human decisions | decided | Existing product contract, retained in user-approved scope | T-147/T-148 and continuation-envelope contracts | Full flow is human-in-the-loop, not a forced advancing topic. |
-| Codex activation evidence | Keep the historical corpus/sign-off dependency wholesale versus role-appropriate checks | Audit inherited conditions; retain supported semantic checks and complete wiring, distinguish them from optional threshold tuning | proposed | Planning review grounded in current prompts and consumers | Phase 1 prompt inventory and activation criteria | No constant-only flip and no assertion that installing Codex makes prompt quality proven. |
-| Role and stage integration | Shared invocation adapter with stage-specific composition versus bespoke executors | Reuse orchestrator/runner; resolve input/output and admission differences per role | proposed | Phase 1 design | Node/slot inventory including v1a final synthesis, evidence-convergence roles and promotion caller | Do not globally widen all enums/profiles without live consumers and recovery. |
+| Codex activation evidence | Keep C-2's same-corpus dependency versus qualify each enabled role using actual inputs and failure cases | Replace the inherited blanket corpus dependency for Codex with the qualification criteria below; retain optional calibration separately | decided | User approval, 2026-09-09 | Historical D-30 already removed C-1 sign-off from C-3; C-2's corpus coupling remains the explicit change proposed here | No constant-only flip, fabricated corpus or broad scientific-quality claim. |
+| Role and stage integration | Shared invocation adapter with stage-specific composition versus bespoke executors | Reuse orchestrator/runner, resolve evidence and role bodies, deterministically derive final drafts, claim attempts in existing artifacts | decided | User-approved source-backed design | Architecture and 36-profile inventory, including v1a final synthesis and ordinary promotion | Open integrated slices; no global enum/profile widening without consumers and recovery. |
 | Evidence convergence adoption | All downstream rounds gain retrieval versus connect the existing evidence-stage owner | Connect Codex execution at evidence convergence; keep downstream frozen input and existing loopback contracts | decided | Existing T-150 design; bounded opening scope | T-150 architecture and product evidence lineage | Additional downstream retrieval scenarios are not required to call the selection workflow complete. |
 
 ### Assumptions
 
 | Assumption | Risk if wrong | Validation |
 |---|---|---|
-| Existing runner outcomes are enough for sequential model roles and product-owned round carry-over. | Consumer work may require a coordinated T-152 contract change. | Inspect the settled runner interface and prove N6/N8 attempts before upstream rollout. |
+| Existing runner outcomes are enough for sequential model roles and product-owned round carry-over. | Consumer work may require a coordinated interface change. | T-152 completed at a5263023; source interface supports fresh attempts and shutdown. Still prove actual N6/N8 consumer runs. |
 | Canonical APIs can compose the complete selection flow with bounded additions. | “Usable” could remain a set of internal services with no operating entry point. | Trace actual public callers and recovery endpoints for every stage; expose only missing composition needed by the workflow. |
-| The historical six-prompt list and release rationale may not match current role families. | A stale count could omit refinement/promotion roles or require obsolete work. | Resolve current `.ai/llm` prompt IDs, role schemas, source-context construction and quality checks in Phase 1. |
+| Existing artifact stable-key uniqueness can exclude duplicate metered attempts without a new persistence model. | A naïve idempotent create can let two callers both believe they own execution. | Verify winner ownership and duplicate/restart behavior against the relational repository before enabling CLI. |
+
+### Codex qualification criteria
+
+Apply one readiness rule to every enabled model/support role; adapt semantic assertions to its actual job. N6/N8 are not the only roles subject to it.
+
+1. **Executable product contract:** canonical API compiles actual scoped input, consumes execution settings and launches Codex without externally supplied role answers. Deterministic and strict-human steps retain their owners.
+2. **Role semantics:** the production prompt states the research task, evidence use, disagreement/insufficiency behavior and authority boundary. Review current text before changing it; preserve substantive later work such as promotion conditions and exact-delta refinement. Keep the existing prompt hash/version/drift discipline.
+3. **Content evidence:** inspect real-input Codex outputs for each enabled semantic role, including normal sufficient evidence, insufficient evidence and a material disagreement/contradiction. A shared fixture or run may cover multiple roles when their distinct outputs are inspected. Record input/evidence refs, prompt/profile/model identity, expected behavior, actual findings and remaining limitations. Fixture-only/shape-only success cannot qualify model reasoning.
+4. **Integrity and failure:** verify source/ref/hash checks, prior-output bodies, schema and semantic admission, no invented/erased material evidence, deterministic derived-draft provenance, exact Human stops, budget/tool scope and interruption/replay. Resolve material findings before activation.
+5. **Honest rollout:** open only the proved consumer/profile slice and update its permanent contracts/docs together. A bounded qualification is evidence of supported behavior, not a statistical accuracy estimate, calibrated threshold, multi-provider diversity result or ResearchArena decision-quality activation.
+
+Live checks use an explicit input set and attempt/token/time ceiling agreed for that execution. No arbitrary 100-example or multi-provider requirement carries over to this Codex route. Real research input/operational budget selection belongs to live verification preparation; it does not block local implementation and offline checks.
 
 ## Task relationships
 
@@ -62,7 +74,7 @@
 | Historical obligation | Disposition in this task | Completion evidence / remaining boundary |
 |---|---|---|
 | C-1 optional N6/N8 threshold tuning | Remains optional; not an acceptance requirement here | No invented labels, benchmark results, calibrated thresholds or ResearchArena activation. |
-| C-2 six gated prompts | Carry prompt-readiness responsibility, re-inventory against current roles and full-workflow scope | Role-specific real-input checks, inspectable evidence, stable drift anchors and no unresolved material review finding for enabled roles. Exact corpus/assessment requirements are settled in Phase 1, not waived by this opening. |
+| C-2 six gated prompts | Carry prompt-readiness responsibility; replace same-corpus dependency for Codex approved 2026-09-09 | Historical six include ordinary N8 and promotion N2; later refinement is additional. Apply the approved qualification criteria to all enabled roles. No corpus or prompt-quality pass is claimed by planning. |
 | C-3 live role outputs and bridge provenance | Carry for `codex_cli` across N6/N8 and the remaining workflow | Product starts the roles and preserves CLI provenance through deterministic admission and domain artifacts. |
 | C-3 run mode and execution-spec handling | Carry wherever the Codex product route consumes these contracts | Canonical callers, profile admission and runtime input agree; no accepted-but-unconsumed configuration parameter. |
 | C-3 activation of other `provider_llm` Debate paths | Explicitly deferred by the user | Remains disabled where disabled today; record the deferred intent when T-129 is retired, without forcing implementation into this task. |
@@ -79,7 +91,7 @@ T-129 remains historical/current evidence until its successor handoff is reconci
   1. Inventory ordinary model, Debate and support roles across all stages, distinguishing deterministic and strict-human operations; identify every provider-only or external-output-only product dependency.
   2. Inspect current prompts/evidence packets and specify the concrete semantic and engineering checks for Codex admission, including insufficient evidence and disagreement.
   3. Design N6/N8 role execution and provenance bridges, configuration composition, failure/replay behavior and coordination with T-152.
-  4. Reconcile T-129's successor handoff and deferred provider scope, then update only directly affected task/policy documentation. Runtime activation waits for the integrated implementation.
+  4. Review the now-drafted inventory, qualification decision and N6/N8 design. On approval, reconcile T-129's successor handoff and deferred provider scope in task records; runtime/policy activation waits for integrated implementation. Preserve original unmet claims when retiring the old record.
 - Affected boundaries / entry points: existing workflow matrix/scenarios; node/slot policies; model-profile registry; `.ai/llm/topic-selection`; agent orchestrator; N6/N8 runtimes and run coordinator; T-129 records.
 - Dependencies: Current source inventory and the runner interface; no new calibration corpus is presumed available.
 - Exit criteria: No unidentified required model role; explicit Codex quality/admission criteria; first implementation slice executable; later stages remain required in status and roadmap.
@@ -90,6 +102,12 @@ T-129 remains historical/current evidence until its successor handoff is reconci
 - Outcome: Product-driven ordinary N6 Debate, N8 assessment/conditional Debate and applicable regeneration/refinement paths, with complete provenance and honest failure handling.
 - Approach: Reuse the existing role sequence and deterministic gates; replace operator-authored role responses at the product boundary with fresh Codex attempts.
 - Entry points: v1b public runtime/coordinator APIs, N6/N8/refinement services, profiles, prompts and domain draft bridges.
+- Revertible implementation units:
+  1. Compile actual frozen evidence and prior-role bodies; extract deterministic draft recording/projection with accurate role-derived provenance. Add focused contract tests for the missing-body and extra-invocation hazards.
+  2. Compose the app-owned runner/MCP lifecycle and stable attempt claims; prove duplicate requests and restart ambiguity cannot silently launch another call.
+  3. Wire the discriminated canonical CLI request, consumed execution specification and regular N6 role sequence with aligned policy/profile/prompt contracts. Qualify normal, insufficient and conflicting evidence before opening the slice.
+  4. Connect ordinary N8, conditional four-role Debate, N8 admission support, regeneration and exact-delta refinement; add the corresponding replay receipts and qualification evidence.
+  5. Verify product-entry progression to the proper Human checkpoint and recovery/loopback; update operating guidance and affected permanent matrix/config/API documentation.
 - Exit criteria: CX-02 and this slice of CX-06/CX-07/CX-08 hold; N6/N8-only success does not close the task.
 - Verification: Focused role/admission/replay tests, real-input Codex checks and product-entry runs through the next human checkpoint, including non-advance and failure.
 - Recovery: Disable only the new route while retaining trace/domain history and existing truthful operator paths.
@@ -117,14 +135,14 @@ T-129 remains historical/current evidence until its successor handoff is reconci
 
 ## Kickoff gate
 
-- Status: pending
-- Authorized boundary: none
+- Status: ready
+- Authorized boundary: through phase 2
 - [x] Decisions: Full-workflow outcome, Codex-only generation rollout and N6/N8-first sequencing were confirmed by the user on 2026-09-09.
-- [ ] Design: Current role inventory, Codex activation evidence and N6/N8 consumer/runner interfaces must be settled before implementation.
+- [x] Design: Source inventory, N6/N8 technical design and role-specific Codex qualification were approved by the user on 2026-09-09.
 - [x] Route: Five phases reach the complete workflow; later integration details are explicitly provisional rather than descoped.
 - [x] Verification: Stage coverage, real-model evidence and composed failure/recovery checks are specified in verification.md.
 
-The current request authorizes opening this full-scope task package. Runtime implementation starts only after the pending design is resolved and an implementation boundary is recorded; no paid live run, Human research decision or environment change is implied by task creation.
+The user approved this planning checkpoint and authorized implementation through Phase 2 on 2026-09-09. Phases 3–5 remain required task work outside the current implementation authorization. No model execution or Human research action occurred during planning.
 
 ## Risks and recovery
 
@@ -132,6 +150,9 @@ The current request authorizes opening this full-scope task package. Runtime imp
 |---|---|---|---|
 | N6/N8 become an accidental completion boundary | Uncovered required roles remain in the inventory | Keep CX-01 and later phases required | Continue at the first unconnected stage. |
 | CLI is admitted by a blanket enum/constant change | No public consumer or source-correct output bridge | Activate one integrated slice with policy/prompt/provenance checks | Disable that route while retaining attempt evidence. |
+| Role packets contain hashes without reviewable content | Critic cannot cite supplied drafts/evidence despite passing shape checks | Resolve verified bodies before model calls; test role-specific context | Fail preparation and keep the route closed. |
+| Final synthesis is regenerated or relabeled as external authoring | Extra runner call or incorrect source/output hash in the draft | Deterministic projection with explicit parent role/audit identity | Reject draft admission; retain valid role results for repair. |
+| Duplicate or interrupted requests repeat metered work | Same logical attempt has multiple runner starts | Stable-key claim with exclusive ownership and terminal receipts | Expose ambiguity; new explicit attempt identity for retry. |
 | Old corpus gating is either copied everywhere or silently removed | Prompt-quality claims have no role-specific rationale/evidence | Resolve inherited conditions explicitly in Phase 1 | Keep unsupported paths unavailable and preserve the unresolved obligation. |
 | Fresh evidence invalidates downstream human decisions | In-place map or frozen-bundle changes | Reuse successor/linked-round owners and existing loopback | Preserve old decisions and require the next exact research decision. |
 | External authoring or retrieval cost is hidden as non-provider work | Manual role outputs or missing operation-class accounting | Product launches roles; distinguish CLI generation from retrieval dependencies | Report an incomplete stage and retain failed trace/accounting. |

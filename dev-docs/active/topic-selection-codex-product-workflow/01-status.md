@@ -4,10 +4,10 @@
 Align the existing topic-selection agent execution policies and make the complete product workflow executable with product-driven `codex_cli` model roles, starting with N6/N8 Debate and continuing through evidence, need discovery, question/value work, promotion, handoff, and recovery while preserving deterministic and strict-human authority.
 
 ## Progress
-- State: planned
-- Current phase: Opening — full-workflow outcome confirmed; N6/N8 are the first delivery milestone
-- Next step: Finish the node-and-role readiness inventory, resolve the inherited T-129 activation conditions for the Codex route, and settle the first N6/N8 implementation design against the runner contract shared with T-152.
-- Blocker: none. Detailed activation criteria and integration design remain open; opening this bundle does not enable a runtime path.
+- State: in-progress
+- Current phase: Phase 2 — approved implementation begins with N6/N8 context and provenance
+- Next step: Implement and verify N6 context-body/provenance/attempt handling, then connect the canonical N6/N8 Codex product routes within the authorized Phase 2 boundary.
+- Blocker: None. Planning and implementation through Phase 2 were approved on 2026-09-09; kickoff is ready. Live qualification inputs and budget will be made concrete before model checks.
 
 ## Done when
 - [ ] CX-01: Every existing topic-selection model/support role across resource sampling, v1a, v1b, v1c and downstream feedback has an explicit Codex execution disposition in the existing policy/matrix authorities, with a product entry point and verification reference. Deterministic steps and human decisions are identified separately; required model roles cannot remain dependent on manually supplied `codex_response` or another generation provider.

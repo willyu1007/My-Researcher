@@ -18,7 +18,7 @@ next step here.
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 153 (planned: 3, in-progress: 0, blocked: 0, done: 3, archived: 147)
+- Tasks: 153 (planned: 2, in-progress: 1, blocked: 0, done: 3, archived: 147)
 
 ## Recently registered or status-changed tasks
 
@@ -26,7 +26,7 @@ next step here.
 | --- | --- | --- | --- |
 | T-151 codex-cli-execution-line | archived | F-003 | dev-docs/archive/codex-cli-execution-line |
 | T-152 codex-app-server-transport | done | F-003 | dev-docs/active/codex-app-server-transport |
-| T-153 topic-selection-codex-product-workflow | planned | F-003 | dev-docs/active/topic-selection-codex-product-workflow |
+| T-153 topic-selection-codex-product-workflow | in-progress | F-003 | dev-docs/active/topic-selection-codex-product-workflow |
 | T-148 topic-selection-real-flow-findings | done | F-001 | dev-docs/active/topic-selection-real-flow-findings |
 | T-149 literature-embedding-vector-persistence | archived | F-000 | dev-docs/archive/literature-embedding-vector-persistence |
 | T-150 topic-selection-evidence-convergence-core | done | F-001 | dev-docs/active/topic-selection-evidence-convergence-core |
