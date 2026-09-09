@@ -6,7 +6,7 @@ Align the existing topic-selection agent execution policies and make the complet
 ## Progress
 - State: in-progress
 - Current phase: Phase 2 — context, attempt recovery and derived-draft foundation implemented
-- Next step: Complete exact-delta refinement and recovery tests; qualify role prompts and real-input product behavior before opening profiles. N6/N7-admission/N8 canonical execution_spec consumers and ordinary N8 CLI are implemented, with source/config-bound replay and a pre-call question Human stop. Product profile admission remains closed.
+- Next step: Complete conditional N8/regeneration composition coverage and N6/N8 prompt qualification; run agreed real-input checks before opening profiles. Exact-delta CLI recovery and its derived support audit are implemented. N6/N7-admission/N8 canonical execution_spec consumers and ordinary N8 CLI are implemented, with source/config-bound replay and a pre-call question Human stop. Product profile admission remains closed.
 - Blocker: None. Planning and implementation through Phase 2 were approved on 2026-09-09; kickoff is ready. Live qualification inputs and budget will be made concrete before model checks.
 
 ## Done when

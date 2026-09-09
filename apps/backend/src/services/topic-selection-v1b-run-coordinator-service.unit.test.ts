@@ -391,7 +391,9 @@ test('coordinator consumes N9 refinement into a new N7 pass and rewinds the fron
   );
 });
 
-test('question-contract loopback replaces the N8 frontier with an actionable delta-Debate recovery', async () => {
+for (const mode of ['external', 'cli', 'cli_timeout']) {
+test(`question-contract loopback replaces the N8 frontier with an actionable delta-Debate recovery (${mode})`, async t => {
+  const cli = mode !== 'external';
   const {
     harness,
     coordinator,
@@ -575,11 +577,23 @@ test('question-contract loopback replaces the N8 frontier with an actionable del
       },
     };
   });
-  const recovered = await coordinator.advanceUntilBlocked({
+  let releaseDelta!: () => void;
+  if (mode === 'cli_timeout') {
+    const paused = new Promise<void>(resolve => { releaseDelta = resolve; });
+    t.after(() => releaseDelta());
+    const run = n6RefinementDeltaDebateRuntime.runDebate.bind(n6RefinementDeltaDebateRuntime);
+    n6RefinementDeltaDebateRuntime.runDebate = async request => {
+      const result = await run(request);
+      await paused;
+      return result;
+    };
+  }
+  const recoveryInput: Parameters<typeof coordinator.advanceUntilBlocked>[0] = {
     workflow_run_id: RUN,
     max_steps: 1,
+    node_timeout_ms: mode === 'cli_timeout' ? 20 : undefined,
     node_inputs: {
-      [N7]: {
+      [N7]: cli ? { execution_spec: { execution_mode: 'codex_cli', model_option_id: null } } : {
         debate: {
           kind: 'n6_refinement_delta',
           execution_mode: 'mocked_llm',
@@ -588,9 +602,20 @@ test('question-contract loopback replaces the N8 frontier with an actionable del
         },
       },
     },
-  });
-  assert.deepEqual(recovered.steps.map((step) => step.node_id), [N7]);
+  };
+  let recovered = await coordinator.advanceUntilBlocked(recoveryInput);
+  if (mode === 'cli_timeout') {
+    assert.equal(recovered.halt.reason, 'node_timeout');
+    assert.equal((await coordinator.advanceUntilBlocked(recoveryInput)).halt.reason, 'node_in_flight');
+    assert.equal(n6RefinementDeltaDebateRuntime.calls.length, 1);
+    releaseDelta();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    recovered = await coordinator.advanceUntilBlocked(recoveryInput);
+  }
+  assert.deepEqual(recovered.steps.map((step) => step.node_id), mode === 'cli_timeout' ? [] : [N7]);
   assert.equal(n6RefinementDeltaDebateRuntime.calls.length, 1);
+  assert.equal(n6RefinementDeltaDebateRuntime.calls[0]!.execution_mode, cli ? 'codex_cli' : 'mocked_llm');
+  if (cli) assert.equal(n6RefinementDeltaDebateRuntime.calls[0]!.role_outputs, undefined);
   assert.deepEqual(n6RefinementDeltaDebateRuntime.calls[0]!.context.changed_fields, ['metrics']);
   const reviewedRequest = harness.invocations.at(-1)!;
   assert.equal(reviewedRequest.frozen_input.input_contract, 'N7ReviewedRefinement@v1');
@@ -640,8 +665,10 @@ test('question-contract loopback replaces the N8 frontier with an actionable del
   assert.deepEqual(noOpRecovered.steps.map((step) => step.node_id), [N7]);
   assert.equal(n6RefinementDeltaDebateRuntime.calls.length, 1, 'canonical no-op does not run Debate');
   assert.equal(harness.invocations.at(-1)!.semantic_artifacts, undefined);
+  assert.equal(harness.invocations.at(-1)!.run_mode, undefined);
   assert.equal(harness.invocations.filter((request) => request.node_id === N8).length, 0);
 });
+}
 
 /** Minimal gate-draft semantic-artifact descriptor the debate stubs return — the coordinator only
  *  ATTACHES it to the node request (the stub harness does not validate its content). */

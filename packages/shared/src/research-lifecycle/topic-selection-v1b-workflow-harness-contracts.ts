@@ -516,7 +516,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N7TopicQuestionContractGate',
     required_for_progress: false,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission],
     allowed_run_modes: ['test', 'acceptance', 'product'],

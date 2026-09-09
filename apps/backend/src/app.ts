@@ -1367,9 +1367,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       agentOrchestrator: topicSelectionV1bAgentOrchestratorService,
       resolveResearchContext: request => topicSelectionV1bWorkflowHarnessService.resolveCodexResearchContext(request),
     }),
-    n6RefinementDeltaDebateRuntime: new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(
-      topicSelectionControlPlaneService,
-    ),
+    n6RefinementDeltaDebateRuntime: new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(topicSelectionControlPlaneService, {
+      agentOrchestrator: topicSelectionV1bAgentOrchestratorService,
+      resolveResearchContext: request => topicSelectionV1bWorkflowHarnessService.resolveCodexResearchContext(request),
+    }),
     n8BoundedDebateRuntime: new TopicSelectionV1bN8BoundedDebateRuntimeService(topicSelectionControlPlaneService, {
       agentOrchestrator: topicSelectionV1bAgentOrchestratorService,
       resolveResearchContext: request => topicSelectionV1bWorkflowHarnessService.resolveCodexResearchContext(request),

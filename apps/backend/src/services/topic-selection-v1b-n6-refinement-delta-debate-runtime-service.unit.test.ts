@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import {
   TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
@@ -10,7 +16,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
-import { TopicSelectionV1bN6RefinementDeltaDebateRuntimeService } from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
+import { TopicSelectionV1bN6RefinementDeltaDebateRuntimeService, verifyRefinementDeltaCliDerivation } from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 
 const ref = (refType: string, refId: string) => ({
@@ -146,4 +152,63 @@ test('reuses the exact route-source plus delta result without spending another D
   assert.equal(replay.replayed, true);
   assert.equal(countAfterReplay, countAfterFirst);
   assert.equal(replay.admission_hash, first.status === 'completed' ? first.admission_hash : null);
+});
+
+
+test('CLI delta review reads exact Human context and prior bodies, preserves audit lineage and replays', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const { controlPlane } = makeSubject();
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  for (const profile of registry.profiles.filter(profile => profile.output_contract === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION
+    || profile.output_contract === 'N6RefinementDeltaDebateAdmission@v1')) {
+    profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  let researchContext = { previous_contract: { metrics: ['Accuracy'] }, current_contract: { metrics: ['Brier Score'] } };
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as {
+      role_slot: (typeof TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER)[number];
+      context_packet: { research_context: unknown; prior_role_outputs: unknown[]; refinement_delta_context: { refinement: unknown } };
+    };
+    assert.equal(packet.context_packet.prior_role_outputs.length, calls);
+    assert.deepEqual(packet.context_packet.research_context, researchContext);
+    assert.deepEqual(packet.context_packet.refinement_delta_context.refinement, refinement);
+    calls += 1;
+    return { stdout: [
+      { type: 'thread.started', thread_id: `delta-${calls}` },
+      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(roleOutput(packet.role_slot)) } },
+    ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  const makeRuntime = () => new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(controlPlane, {
+    modelProfileRegistry, resolveResearchContext: async () => researchContext,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+  });
+  const cliInput = { request: { ...makeRequest(), run_mode: 'product' as const, created_by: 'human' as const }, context, execution_mode: 'codex_cli' as const };
+  const originalRecord = controlPlane.recordArtifactRef.bind(controlPlane);
+  let interruptOnce = true;
+  controlPlane.recordArtifactRef = async artifact => {
+    if (artifact.payload?.schema_version === 'TopicSelectionRefinementDeltaCliDerivation@v1' && interruptOnce) {
+      interruptOnce = false;
+      throw new Error('simulated interruption before derivation audit');
+    }
+    return originalRecord(artifact);
+  };
+  await assert.rejects(makeRuntime().runDebate(cliInput), /simulated interruption/);
+  assert.equal(calls, 3);
+  const result = await makeRuntime().runDebate(cliInput);
+  assert.equal(result.status, 'completed');
+  if (result.status !== 'completed') return;
+  assert.notDeepEqual(result.semantic_artifact.runtime_audit_ref, result.semantic_artifact.normalized_output_ref);
+  const audit = await controlPlane.getArtifactRef(result.semantic_artifact.runtime_audit_ref!.ref_id);
+  assert.equal(audit?.payload?.schema_version, 'TopicSelectionRefinementDeltaCliDerivation@v1');
+  assert.equal((audit?.payload?.roles as unknown[]).length, 3);
+  assert.deepEqual(await makeRuntime().runDebate(cliInput), { ...result, replayed: true });
+  assert.equal(calls, 3);
+  await assert.rejects(verifyRefinementDeltaCliDerivation(controlPlane, cliInput.request, { ...result.semantic_artifact, prompt_packet_hash: '0'.repeat(64) }), /drift/);
+  researchContext = { ...researchContext, previous_contract: { metrics: ['F1'] } };
+  await assert.rejects(makeRuntime().runDebate(cliInput), /drift/);
+  assert.equal(calls, 3);
 });

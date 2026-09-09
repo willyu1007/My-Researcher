@@ -716,15 +716,16 @@ export class TopicSelectionV1bRunCoordinatorService {
       if (projection.recovery_frontier?.kind === 'n6_refinement_delta_debate') {
         const frontier = projection.recovery_frontier;
         const nodeInput = input.node_inputs?.[frontier.target_node_id] ?? null;
+        const cli = nodeInput?.execution_spec?.execution_mode === 'codex_cli';
         if (nodeInput?.draft_payload
-          || nodeInput?.execution_spec
+          || (nodeInput?.execution_spec && (!cli || nodeInput.execution_spec.model_option_id != null || nodeInput.debate != null))
           || nodeInput?.support_payloads
           || nodeInput?.refinement_payload
           || nodeInput?.operator_debate_request) {
           throw new AppError(
             400,
             'INVALID_PAYLOAD',
-            `${frontier.target_node_id}: refinement-delta recovery accepts only the debate input; the exact Human refinement is recovered from the persisted N7 trace.`,
+            `${frontier.target_node_id}: refinement-delta recovery accepts a CLI execution spec or external debate input; the exact Human refinement is recovered from the persisted N7 trace.`,
           );
         }
 
@@ -737,11 +738,11 @@ export class TopicSelectionV1bRunCoordinatorService {
           }
           throw error;
         }
-        if (recovery.classification.kind === 'substantive' && !nodeInput?.debate) {
+        if (recovery.classification.kind === 'substantive' && !nodeInput?.debate && !cli) {
           return halt(
             'delta_debate_required',
             frontier.target_node_id,
-            'The current question-contract loopback contains a substantive refinement and requires one bounded delta Debate before N7 can be re-admitted; supply node_inputs[N7].debate.kind=n6_refinement_delta. N8 is not executable.',
+            'The current question-contract loopback contains a substantive refinement and requires one bounded delta Debate before N7 can be re-admitted; supply node_inputs[N7].execution_spec=codex_cli or debate.kind=n6_refinement_delta. N8 is not executable.',
             [],
             projection,
           );
@@ -753,7 +754,7 @@ export class TopicSelectionV1bRunCoordinatorService {
             `${frontier.target_node_id}: recovery requires debate.kind=n6_refinement_delta, received ${nodeInput.debate.kind}.`,
           );
         }
-        if (recovery.classification.kind === 'canonical_no_op' && nodeInput?.debate) {
+        if (recovery.classification.kind === 'canonical_no_op' && (nodeInput?.debate || cli)) {
           return halt(
             'debate_not_applicable',
             frontier.target_node_id,
@@ -764,52 +765,55 @@ export class TopicSelectionV1bRunCoordinatorService {
         }
         const runMode: TopicSelectionAgentRunMode = nodeInput?.debate?.run_mode
           ?? input.run_mode
-          ?? (nodeInput?.debate?.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
-        recovery.request.run_mode = runMode;
+          ?? (cli ? 'product' : nodeInput?.debate?.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+        recovery.request.run_mode = recovery.classification.kind === 'substantive' ? runMode : undefined;
 
-        if (recovery.classification.kind === 'substantive') {
-          const debate = nodeInput?.debate;
-          if (!debate || debate.kind !== 'n6_refinement_delta') {
-            throw new AppError(500, 'INTERNAL_ERROR', 'Refinement delta Debate narrowing failed.');
-          }
-          let debateResult;
-          try {
-            debateResult = await this.deps.n6RefinementDeltaDebateRuntime.runDebate({
-              request: recovery.request,
-              context: recovery.context,
-              execution_mode: debate.execution_mode,
-              run_mode: runMode,
-              role_outputs: debate.role_outputs,
-              created_by: recovery.request.created_by,
-            });
-          } catch (error) {
-            if (error instanceof AppError) {
+        const result = await this.runWithTimeout(recovery.request,
+          Math.min(nodeTimeoutMs, Math.max(1, runTimeoutMs - (Date.now() - startedAt))), async () => {
+          if (recovery.classification.kind === 'substantive') {
+            const debate = nodeInput?.debate?.kind === 'n6_refinement_delta' ? nodeInput.debate : undefined;
+            if (!cli && (!debate || debate.kind !== 'n6_refinement_delta')) {
+              throw new AppError(500, 'INTERNAL_ERROR', 'Refinement delta Debate narrowing failed.');
+            }
+            let debateResult;
+            try {
+              debateResult = await this.deps.n6RefinementDeltaDebateRuntime.runDebate({
+                request: recovery.request,
+                context: recovery.context,
+                execution_mode: cli ? 'codex_cli' : debate!.execution_mode,
+                run_mode: runMode,
+                role_outputs: cli ? undefined : debate!.role_outputs,
+                created_by: recovery.request.created_by,
+              });
+            } catch (error) {
+              if (error instanceof AppError) {
+                return halt(
+                  'debate_blocked',
+                  frontier.target_node_id,
+                  `${frontier.target_node_id} refinement delta Debate could not run: ${error.message}`,
+                  [{ code: error.errorCode, message: error.message }],
+                  projection,
+                );
+              }
+              throw error;
+            }
+            if (debateResult.status !== 'completed') {
               return halt(
                 'debate_blocked',
                 frontier.target_node_id,
-                `${frontier.target_node_id} refinement delta Debate could not run: ${error.message}`,
-                [{ code: error.errorCode, message: error.message }],
+                `${frontier.target_node_id} refinement delta Debate ended with status=${debateResult.status}; a blocked unchanged delta requires a new Human refinement hash.`,
+                this.extractDebateBlockers(debateResult),
                 projection,
               );
             }
-            throw error;
+            recovery.request.semantic_artifacts = [debateResult.semantic_artifact];
           }
-          if (debateResult.status !== 'completed') {
-            return halt(
-              'debate_blocked',
-              frontier.target_node_id,
-              `${frontier.target_node_id} refinement delta Debate ended with status=${debateResult.status}; a blocked unchanged delta requires a new Human refinement hash.`,
-              this.extractDebateBlockers(debateResult),
-              projection,
-            );
-          }
-          recovery.request.semantic_artifacts = [debateResult.semantic_artifact];
-        }
-
-        const result = await this.invokeWithTimeout(recovery.request, nodeTimeoutMs);
+          return this.deps.harness.invokeNode(recovery.request);
+        });
         if (result.kind === 'timeout') {
           return halt('node_timeout', frontier.target_node_id, result.message);
         }
+        if ('halt' in result.value) return result.value;
         steps.push(this.step(result.value));
         continue;
       }
@@ -2452,6 +2456,12 @@ export class TopicSelectionV1bRunCoordinatorService {
     request: TopicSelectionV1bWorkflowHarnessRunRequest,
     timeoutMs: number,
   ): Promise<{ kind: 'ok'; value: TopicSelectionV1bWorkflowHarnessRunResult } | { kind: 'timeout'; message: string }> {
+    return this.runWithTimeout(request, timeoutMs, () => this.deps.harness.invokeNode(request));
+  }
+
+  private async runWithTimeout<T>(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest, timeoutMs: number, work: () => Promise<T>,
+  ): Promise<{ kind: 'ok'; value: T } | { kind: 'timeout'; message: string }> {
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<{ kind: 'timeout'; message: string }>((resolve) => {
       timer = setTimeout(
@@ -2462,7 +2472,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         timeoutMs,
       );
     });
-    const invocation = this.deps.harness.invokeNode(request).then(
+    const invocation = work().then(
       (result) => ({ kind: 'ok' as const, value: result }),
     );
     try {

@@ -1,3 +1,4 @@
+import { verifyRefinementDeltaCliDerivation } from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
 import type { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
 import type { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
 import { verifyDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
@@ -1143,6 +1144,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
         },
         evidence_unit_refs: evidenceRefs.slice(offset, offset + 12),
       }));
+    }
+    if ('reviewedRefinement' in bodies && bodies.reviewedRefinement) {
+      const { currentContract, previousContract, currentAnswerabilityPlan, previousAnswerabilityPlan } = bodies.reviewedRefinement;
+      // The review concerns this exact delta. Handoffs/formation logs duplicate these bodies and
+      // contain unrelated trials; their validated identities are already in the frozen delta packet.
+      return { frozen_domain: {
+        researchSlice: bodies.researchSlice,
+        candidate: bodies.candidates.find(candidate => candidate.topic_question_candidate_id === currentContract.source_candidate_id),
+        reviewedRefinement: { currentContract, previousContract, currentAnswerabilityPlan, previousAnswerabilityPlan },
+      }, evidence_packets: evidencePackets };
     }
     return { frozen_domain: bodies, evidence_packets: evidencePackets };
   }
@@ -5623,7 +5634,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || artifact.profile_id !== TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission
       || artifact.runtime_provenance_class !== 'runtime_verified'
       || !artifact.runtime_audit_ref
-      || !refsEqual(artifact.normalized_output_ref, artifact.runtime_audit_ref)
+      || (artifact.execution_mode !== 'codex_cli' && !refsEqual(artifact.normalized_output_ref, artifact.runtime_audit_ref))
       || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)) {
       return {
         ok: false,
@@ -5647,12 +5658,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
       || artifact.normalized_output_hash !== payloadHash
       || artifact.structured_output_hash !== payloadHash
       || artifact.support_artifact_hash !== payloadHash
-      || artifact.runtime_audit_hash !== payloadHash) {
+      || (artifact.execution_mode !== 'codex_cli' && artifact.runtime_audit_hash !== payloadHash)) {
       return {
         ok: false,
         code: 'N7_REFINEMENT_DELTA_DEBATE_ADMISSION_HASH_MISMATCH',
         message: 'N7 refinement delta-Debate admission hash does not match its persisted support artifact.',
       };
+    }
+    if (artifact.execution_mode === 'codex_cli') {
+      try { await verifyRefinementDeltaCliDerivation(this.controlPlane, input, artifact); }
+      catch (error) {
+        return { ok: false, code: 'N7_REFINEMENT_DELTA_DEBATE_PROVENANCE_INVALID',
+          message: error instanceof Error ? error.message : 'CLI refinement derivation could not be verified.' };
+      }
     }
     return {
       ok: true,

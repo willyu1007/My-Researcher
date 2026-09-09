@@ -126,7 +126,7 @@
       "system": "prompts/v1b/n6-debate-arbiter/system.md"
     },
     "topic-selection.v1b.n6.refinement-delta-debate.runtime-role": {
-      "version": "v1",
+      "version": "v2",
       "system": "prompts/v1b/n6-refinement-delta-debate/system.md"
     },
     "topic-selection.v1b.n8.bounded-micro-debate.runtime-role": {

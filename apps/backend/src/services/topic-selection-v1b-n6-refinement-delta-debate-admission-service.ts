@@ -186,6 +186,13 @@ export class TopicSelectionV1bN6RefinementDeltaDebateAdmissionService {
     }
     const materialFindings = findings.filter((finding) =>
       finding.severity === 'material' || finding.severity === 'blocking');
+    const lostCriticFinding = critic.critic_findings.some(finding => finding.severity !== 'note'
+      && !materialFindings.some(kept => kept.finding_code === finding.finding_code
+        && (finding.severity !== 'blocking' || kept.severity === 'blocking')));
+    if (lostCriticFinding) {
+      return this.block('N6_REFINEMENT_DELTA_DEBATE_ARBITER_FINDINGS_INVALID',
+        'The exact Human delta cannot be repaired by the Arbiter; retain every material Critic finding without downgrading it.');
+    }
     if ((arbiter.decision === 'admit_unchanged' && materialFindings.length > 0)
       || (arbiter.decision === 'block_with_findings' && materialFindings.length === 0)) {
       return this.block(

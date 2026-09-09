@@ -82,3 +82,25 @@ receipt binds the exact request and current runtime/profile/prompt identity to i
 repeat entry can replay the existing gate result without reloading rows changed by that gate. An
 unfinished gate still performs normal source and support admission. Other N7 support roles remain
 outside this enabled consumer slice, and shipped profile eligibility remains closed pending qualification.
+
+
+### Exact Human refinement review
+
+At the existing question-checkpoint loopback frontier, the coordinator consumes the CLI spec and
+recovers the exact persisted refinement. The same Explorer/Critic/Arbiter sequence receives the
+selected candidate/slice, previous and current contracts and answerability plans, scoped evidence,
+and verified prior-role bodies. Its packet excludes duplicate handoff/formation logs; role budget
+limits are unchanged. Prompt v2 specifies role fields, evidence insufficiency and preservation of
+material Critic findings. No role can mutate Human fields.
+
+The deterministic admission artifact is accompanied by `TopicSelectionRefinementDeltaCliDerivation@v1`,
+linking the actual three role outputs/audits/traces, original attempt, exact source/delta and runtime
+identity. N7 verifies this derivation before accepting support; the diagnostic is not presented as a
+fourth model call. CLI and historical external review receipts have separate stable keys. A retry
+can fill an interrupted derivation write using completed model attempts; complete source-bound reviews
+can be reused across node attempts without relabeling the originating model calls.
+
+The whole review plus final N7 gate shares node/run timeout and existing in-flight exclusion. A
+successful substantive review reuses the current contract and reopens a pending Human checkpoint;
+material findings block the unchanged delta. Canonical no-op recovery runs mechanically without
+model settings or support. Shipped profiles remain closed until qualification.

@@ -31,6 +31,7 @@ import {
   type TopicSelectionV1bWorkflowHarnessRunRequest,
   type TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import { resolveDebatePriorOutputs } from './topic-selection-debate-role-context.js';
 import { AppError } from '../errors/app-error.js';
 import { stableStringify } from './literature-content-processing-utils.js';
 import { defaultLlmConfig } from './llm-config-loader.js';
@@ -110,6 +111,7 @@ type DeltaHandoff = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
   context: TopicSelectionV1bN6RefinementDeltaDebateContext;
   base_source_refs: TopicSelectionFunctionalRef[];
+  research_context?: Record<string, unknown>;
 };
 
 type DeltaRoleContext = BoundedDebateRoleContext<
@@ -122,9 +124,9 @@ type DeltaRoleContext = BoundedDebateRoleContext<
 export type GenerateTopicSelectionV1bN6RefinementDeltaDebateInput = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
   context: TopicSelectionV1bN6RefinementDeltaDebateContext;
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm' | 'provider_llm'>;
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm' | 'provider_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
-  role_outputs: Partial<Record<TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId, DeltaRoleInputs>>;
+  role_outputs?: Partial<Record<TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId, DeltaRoleInputs>>;
   created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
 };
 
@@ -149,6 +151,9 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
   private readonly contextProfiles: TopicSelectionContextPolicyProfileRegistryService;
   private readonly strategy: RefinementDeltaDebateStrategy;
   private readonly core: TopicSelectionBoundedDebateCoreService;
+  private readonly modelProfiles: TopicSelectionModelProfileRegistryService;
+  private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly resolveResearchContext: ((request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>) | undefined;
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
@@ -157,6 +162,7 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
       promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
       agentOrchestrator?: TopicSelectionAgentOrchestratorService;
+      resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
     } = {},
   ) {
     this.contextProfiles = options.contextPolicyProfileRegistry
@@ -166,8 +172,11 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
       controlPlane,
       modelProfileRegistry: modelProfiles,
     });
+    this.modelProfiles = modelProfiles;
+    this.agentOrchestrator = agentOrchestrator;
+    this.resolveResearchContext = options.resolveResearchContext;
     this.core = new TopicSelectionBoundedDebateCoreService({ controlPlane, agentOrchestrator });
-    this.strategy = new RefinementDeltaDebateStrategy(this.contextProfiles);
+    this.strategy = new RefinementDeltaDebateStrategy(this.contextProfiles, controlPlane);
   }
 
   async runDebate(
@@ -180,26 +189,45 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
         'The v1b N6 refinement-delta provider Debate path is dormant; use Codex-assisted or mocked role outputs.',
       );
     }
+    if (input.execution_mode === 'codex_cli' && input.role_outputs != null) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'CLI refinement review does not accept external role answers.');
+    }
     this.assertInput(input);
     const runMode = input.run_mode ?? input.request.run_mode
-      ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+      ?? (input.execution_mode === 'codex_cli' ? 'product' : input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+    const researchContext = input.execution_mode === 'codex_cli' ? await this.cliResearchContext(input.request) : undefined;
+    const runtimeIdentity = input.execution_mode === 'codex_cli' ? canonicalHash({
+      request: derivationRequestIdentity(input.request, runMode), context: input.context, researchContext,
+      runner: this.agentOrchestrator.codexCliExecutionIdentity, prompt: PROMPT_TEMPLATE,
+      supportProfile: this.modelProfiles.resolveProfile({
+        profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission,
+        execution_mode: 'codex_cli', run_mode: runMode, model_option_id: null,
+      }).profile_hash,
+      profiles: this.strategy.roleOrder.map(slot => ({
+        model: this.modelProfiles.resolveProfile({ profile_id: this.strategy.profileId(slot), execution_mode: 'codex_cli', run_mode: runMode, model_option_id: null }).profile_hash,
+        context: this.strategy.runtimeProfile(slot).profile_hash,
+        schema: this.strategy.cliOutputSchema(slot, input.context.changed_fields),
+      })),
+    }) : null;
     const routeKey = canonicalHash([
       input.request.workflow_run_id,
       input.context.source_kind,
       input.context.source_decision_ref,
       input.context.delta_hash,
     ]);
-    const stableKey = `topic-selection.v1b.n6-refinement-delta-debate.${routeKey}`;
+    const stableKey = `topic-selection.v1b.n6-refinement-delta-debate.${routeKey}${runtimeIdentity ? '.codex_cli' : ''}`;
     const replay = await this.controlPlane.getArtifactRefByStableKey(stableKey);
-    if (replay) {
+    if (replay && (!runtimeIdentity || await this.controlPlane.getArtifactRefByStableKey(`${stableKey}:audit`))) {
       const admission = this.readPersistedAdmission(replay.payload ?? null, replay.checksum ?? null, input, routeKey);
-      return this.resultFromAdmission(input, runMode, admission, replay.artifact_ref_id, replay.title_card_id ?? null, true);
+      const result = this.resultFromAdmission(input, runMode, admission, replay.artifact_ref_id, replay.title_card_id ?? null, true);
+      return runtimeIdentity ? this.withCliDerivation(input.request, result, stableKey, runtimeIdentity) : result;
     }
 
     const handoff: DeltaHandoff = {
       request: input.request,
       context: input.context,
       base_source_refs: this.strategy.baseSourceRefs(input.context),
+      research_context: researchContext,
     };
     const loop = await this.core.runLoop(
       this.strategy,
@@ -213,7 +241,7 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
         modelOptionId: null,
         createdBy: input.created_by ?? input.request.created_by ?? 'system',
       },
-      (slot) => input.role_outputs[slot] ?? { codex_response: null, mocked_output: null },
+      (slot) => input.role_outputs?.[slot] ?? { codex_response: null, mocked_output: null },
     );
     if (loop.status !== 'completed') return { status: 'role_blocked', loop };
 
@@ -241,7 +269,7 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
       checksum: admission.payload_hash,
       created_by: input.created_by ?? input.request.created_by ?? 'system',
     });
-    return this.resultFromAdmission(
+    const result = this.resultFromAdmission(
       input,
       runMode,
       admission,
@@ -249,6 +277,47 @@ export class TopicSelectionV1bN6RefinementDeltaDebateRuntimeService {
       artifact.title_card_id ?? null,
       false,
     );
+    if (!runtimeIdentity) return result;
+    const auditPayload = {
+      schema_version: 'TopicSelectionRefinementDeltaCliDerivation@v1', runtime_identity: runtimeIdentity,
+      source_request_hash: derivationRequestIdentity(input.request, runMode), origin_node_attempt_id: input.request.node_attempt_id,
+      context: input.context, run_mode: runMode, roles: loop.ordered_role_artifacts,
+      admission_ref: result.semantic_artifact.normalized_output_ref, admission_hash: admission.payload_hash,
+      loop_transcript_hash: loop.loop_transcript_hash,
+    };
+    try {
+      await this.controlPlane.recordArtifactRef({ stable_key: `${stableKey}:audit`,
+        workspace_id: input.request.workspace_id ?? null, title_card_id: input.request.title_card_id ?? null,
+        workflow_run_id: input.request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+        payload: auditPayload, checksum: canonicalHash(auditPayload), created_by: 'system' });
+    } catch (error) {
+      if (!await this.controlPlane.getArtifactRefByStableKey(`${stableKey}:audit`)) throw error;
+    }
+    return this.withCliDerivation(input.request, result, stableKey, runtimeIdentity);
+  }
+
+  private async cliResearchContext(request: TopicSelectionV1bWorkflowHarnessRunRequest) {
+    if (!this.resolveResearchContext) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI refinement requires the scoped research context resolver.');
+    return this.resolveResearchContext(request);
+  }
+
+  private async withCliDerivation(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    result: Extract<TopicSelectionV1bN6RefinementDeltaDebateRunResult, { status: 'completed' | 'blocked' }>,
+    stableKey: string, runtimeIdentity: string,
+  ) {
+    const audit = await this.controlPlane.getArtifactRefByStableKey(`${stableKey}:audit`);
+    if (!audit?.payload || audit.checksum !== canonicalHash(audit.payload) || audit.payload.runtime_identity !== runtimeIdentity) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'CLI refinement derivation is missing or its input/runtime identity drifted.');
+    }
+    const roles = audit.payload.roles as TopicSelectionV1bN6RefinementDeltaDebateRoleArtifact[];
+    const final = roles.at(-1)!;
+    const auditRef = { ref_type: 'artifact_ref', ref_id: audit.artifact_ref_id, title_card_id: audit.title_card_id ?? null };
+    const semantic = { ...result.semantic_artifact, provenance_ref: auditRef, runtime_audit_ref: auditRef, runtime_audit_hash: audit.checksum,
+      prompt_packet_hash: final.prompt_packet_hash, runtime_invocation_context_hash: final.runtime_invocation_context_hash,
+      source_hashes: final.source_hashes };
+    await verifyRefinementDeltaCliDerivation(this.controlPlane, request, semantic);
+    return { ...result, semantic_artifact: semantic };
   }
 
   private assertInput(input: GenerateTopicSelectionV1bN6RefinementDeltaDebateInput): void {
@@ -370,12 +439,13 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
   readonly roleOrder = TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER;
   readonly debateLoopId = TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_LOOP_ID;
 
-  constructor(private readonly contextProfiles: TopicSelectionContextPolicyProfileRegistryService) {}
+  constructor(private readonly contextProfiles: TopicSelectionContextPolicyProfileRegistryService, private readonly controlPlane: TopicSelectionControlPlaneService) {}
 
   assertInput(): void {}
 
   sourceHashes(ctx: DeltaRoleContext): Record<string, string> {
-    return this.baseSourceHashes(ctx.handoff.context, ctx.priorRoleArtifactHashes);
+    return { ...this.baseSourceHashes(ctx.handoff.context, ctx.priorRoleArtifactHashes),
+      ...(ctx.handoff.research_context ? { research_context_hash: canonicalHash(ctx.handoff.research_context) } : {}) };
   }
 
   baseSourceHashes(
@@ -430,11 +500,11 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
     };
   }
 
-  buildContextPacket(args: {
+  async buildContextPacket(args: {
     ctx: DeltaRoleContext;
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
-  }): Record<string, unknown> {
+  }): Promise<Record<string, unknown>> {
     const runtimeProfile = this.runtimeProfile(args.ctx.slotId);
     return {
       schema_version: 'TopicSelectionV1bN6RefinementDeltaDebateRoleContextPacket@v1',
@@ -457,6 +527,12 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
       source_hashes: args.sourceHashes,
       refinement_delta_context: args.ctx.handoff.context,
       prior_role_artifact_hashes: args.ctx.priorRoleArtifactHashes,
+      ...(args.ctx.executionMode === 'codex_cli' ? {
+        research_context: args.ctx.handoff.research_context,
+        prior_role_outputs: await resolveDebatePriorOutputs(this.controlPlane, {
+          workflow_run_id: args.ctx.workflowRunId, title_card_id: args.ctx.handoff.request.title_card_id ?? null,
+        }, args.ctx.priorRoleArtifacts.map(role => ({ ...role, structured_output_hash: role.normalized_output_hash }))),
+      } : {}),
     };
   }
 
@@ -508,7 +584,7 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
       prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: PROMPT_TEMPLATE.version },
       prompt_variant_key: this.invocationSlotId(ctx.slotId),
       schema_name: OUTPUT_CONTRACT,
-      schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
+      schema: ctx.executionMode === 'codex_cli' ? this.cliOutputSchema(ctx.slotId, ctx.handoff.context.changed_fields) : ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
       created_by: ctx.createdBy,
     };
   }
@@ -523,7 +599,7 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
       context_policy_profile: runtimeProfile.profile,
       context_policy_profile_hash: runtimeProfile.profile_hash,
       runtime_invocation_context_hash: args.runtimeInvocationContextHash,
-      context_payloads: [args.contextPacket],
+      context_payloads: args.ctx.executionMode === 'codex_cli' ? [] : [args.contextPacket],
       compression_attempt: null,
     };
   }
@@ -582,7 +658,20 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
     ]);
   }
 
-  private runtimeProfile(slot: TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId): TopicSelectionResolvedContextPolicyProfile {
+  cliOutputSchema(slot: TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId, fields: readonly string[]): Record<string, unknown> {
+    const text = { type: 'string', minLength: 1 };
+    const finding = { type: 'object', additionalProperties: false, required: ['finding_code', 'severity', 'statement'], properties: {
+      finding_code: text, severity: { enum: ['note', 'material', 'blocking'] }, statement: text, field: { enum: [...fields, null] },
+    } };
+    const role = slot === 'n6_refinement_delta_explorer' ? { review_points: { type: 'array', items: {
+      type: 'object', additionalProperties: false, required: ['field', 'statement'], properties: { field: { enum: fields }, statement: text },
+    } } } : slot === 'n6_refinement_delta_critic' ? { critic_findings: { type: 'array', items: finding } }
+      : { decision: { enum: ['admit_unchanged', 'block_with_findings'] }, findings: { type: 'array', items: finding }, summary: text };
+    return { type: 'object', additionalProperties: false, required: ['schema_version', 'role_slot', ...Object.keys(role)],
+      properties: { schema_version: { const: OUTPUT_CONTRACT }, role_slot: { const: slot }, ...role } };
+  }
+
+  runtimeProfile(slot: TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId): TopicSelectionResolvedContextPolicyProfile {
     const key = slot === 'n6_refinement_delta_explorer' ? 'explorer'
       : slot === 'n6_refinement_delta_critic' ? 'critic' : 'arbiter';
     return this.contextProfiles.resolveProfile({
@@ -596,7 +685,7 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
     return slot;
   }
 
-  private profileId(slot: TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId): string {
+  profileId(slot: TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId): string {
     if (slot === 'n6_refinement_delta_explorer') {
       return TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID;
     }
@@ -620,4 +709,79 @@ class RefinementDeltaDebateStrategy implements BoundedDebateStrategy<
       return true;
     });
   }
+}
+
+
+function derivationRequestIdentity(request: TopicSelectionV1bWorkflowHarnessRunRequest, runMode: TopicSelectionAgentRunMode) {
+  return canonicalHash({ workflow_run_id: request.workflow_run_id, node_id: request.node_id,
+    title_card_id: request.title_card_id ?? null, workspace_id: request.workspace_id ?? null,
+    policy_version: request.policy_version, frozen_input: request.frozen_input, run_mode: runMode });
+}
+
+/** Verify the deterministic support result against its three actual CLI role calls. */
+export async function verifyRefinementDeltaCliDerivation(
+  controlPlane: TopicSelectionControlPlaneService, request: TopicSelectionV1bWorkflowHarnessRunRequest,
+  artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
+): Promise<void> {
+  const fail = () => new AppError(409, 'VERSION_CONFLICT', 'CLI refinement derivation provenance or source identity drifted.');
+  if (artifact.execution_mode !== 'codex_cli' || artifact.runtime_provenance_class !== 'runtime_verified'
+    || !artifact.runtime_audit_ref || !artifact.normalized_output_ref
+    || canonicalHash(artifact.runtime_audit_ref) !== canonicalHash(artifact.provenance_ref)) throw fail();
+  const audit = await controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
+  const output = await controlPlane.getArtifactRef(artifact.normalized_output_ref.ref_id);
+  for (const record of [audit, output]) {
+    if (!record?.payload || record.checksum !== canonicalHash(record.payload)
+      || record.workflow_run_id !== request.workflow_run_id
+      || (record.title_card_id ?? null) !== (request.title_card_id ?? null)) throw fail();
+  }
+  const data = audit!.payload!;
+  if (data.schema_version !== 'TopicSelectionRefinementDeltaCliDerivation@v1'
+    || data.source_request_hash !== derivationRequestIdentity(request, artifact.run_mode)
+    || (request.run_mode != null && artifact.run_mode !== request.run_mode)
+    || data.run_mode !== artifact.run_mode || audit!.artifact_kind !== 'diagnostic'
+    || output!.artifact_kind !== 'structured_output' || !Array.isArray(data.roles)
+    || data.roles.length !== TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER.length
+    || audit!.checksum !== artifact.runtime_audit_hash) throw fail();
+  const context = data.context as TopicSelectionV1bN6RefinementDeltaDebateContext;
+  const key = `topic-selection.v1b.n6-refinement-delta-debate.${canonicalHash([
+    request.workflow_run_id, context.source_kind, context.source_decision_ref, context.delta_hash,
+  ])}.codex_cli:audit`;
+  if ((await controlPlane.getArtifactRefByStableKey(key))?.artifact_ref_id !== audit!.artifact_ref_id) throw fail();
+  const roles = data.roles as TopicSelectionV1bN6RefinementDeltaDebateRoleArtifact[];
+  const bodies = await resolveDebatePriorOutputs(controlPlane, { workflow_run_id: request.workflow_run_id, title_card_id: request.title_card_id ?? null },
+    roles.map(role => ({ ...role, structured_output_hash: role.normalized_output_hash })));
+  for (const [index, role] of roles.entries()) {
+    const call = await controlPlane.getArtifactRef(role.runtime_audit_ref.ref_id);
+    const provenance = call?.payload?.provenance as Record<string, unknown> | undefined;
+    if (!call?.payload || call.artifact_kind !== 'diagnostic' || call.checksum !== canonicalHash(call.payload)
+      || call.checksum !== role.runtime_audit_hash || call.workflow_run_id !== request.workflow_run_id
+      || (call.title_card_id ?? null) !== (request.title_card_id ?? null) || call.payload.status !== 'succeeded'
+      || role.slot_id !== TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER[index]
+      || !provenance || provenance.source_kind !== 'codex_cli_response' || provenance.execution_mode !== 'codex_cli'
+      || provenance.node_id !== request.node_id || provenance.node_attempt_id !== data.origin_node_attempt_id
+      || provenance.run_mode !== artifact.run_mode || provenance.profile_id !== role.profile_id
+      || provenance.prompt_packet_hash !== role.prompt_packet_hash || provenance.structured_output_hash !== role.normalized_output_hash) throw fail();
+    const traceRef = provenance.trace_artifact_ref as { ref_type?: string; ref_id?: string } | undefined;
+    if (traceRef?.ref_type !== 'artifact_ref' || !traceRef.ref_id) throw fail();
+    const trace = await controlPlane.getArtifactRef(traceRef.ref_id);
+    if (!trace?.payload || trace.checksum !== canonicalHash(trace.payload) || trace.checksum !== provenance.trace_artifact_hash
+      || trace.workflow_run_id !== request.workflow_run_id || (trace.title_card_id ?? null) !== (request.title_card_id ?? null)
+      || trace.payload.status !== 'succeeded' || trace.payload.thread_id !== provenance.thread_id
+      || trace.payload.invocation_attempt_id !== provenance.invocation_attempt_id) throw fail();
+  }
+  const admission = new TopicSelectionV1bN6RefinementDeltaDebateAdmissionService().admit({
+    workflow_run_id: request.workflow_run_id, policy_version: request.policy_version, context,
+    role_results: roles.map((role, index) => ({ slot_id: role.slot_id, role_artifact_hash: role.role_artifact_hash,
+      structured_output: bodies[index]!.output as unknown as TopicSelectionV1bN6RefinementDeltaDebateRolePayload })),
+    loop_transcript_hash: data.loop_transcript_hash as string,
+  });
+  const final = roles.at(-1)!;
+  if (!admission.admitted || admission.payload_hash !== output!.checksum || data.admission_hash !== output!.checksum
+    || artifact.structured_output_hash !== output!.checksum || artifact.support_artifact_hash !== output!.checksum
+    || artifact.normalized_output_hash !== output!.checksum
+    || canonicalHash(artifact.support_artifact_ref) !== canonicalHash(artifact.normalized_output_ref)
+    || canonicalHash(data.admission_ref) !== canonicalHash(artifact.normalized_output_ref)
+    || artifact.prompt_packet_hash !== final.prompt_packet_hash
+    || artifact.runtime_invocation_context_hash !== final.runtime_invocation_context_hash
+    || canonicalHash(artifact.source_hashes) !== canonicalHash(final.source_hashes)) throw fail();
 }

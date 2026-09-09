@@ -129,3 +129,16 @@ test('rejects an Explorer that does not cover the complete changed-field delta',
   if (result.admitted) return;
   assert.equal(result.blocker.code, 'N6_REFINEMENT_DELTA_DEBATE_ROLE_STRUCTURE_INVALID');
 });
+
+
+test('rejects an Arbiter that erases or downgrades a material Critic finding', () => {
+  const outputs = TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER.map(output);
+  outputs[1] = { ...outputs[1]!, critic_findings: [{ finding_code: 'missing_probabilities', severity: 'material', field: 'metrics',
+    statement: 'The proposed Brier score cannot be calculated from the available labels alone.' }] };
+  const service = new TopicSelectionV1bN6RefinementDeltaDebateAdmissionService();
+  assert.equal(service.admit(admissionInput(outputs)).admitted, false);
+  outputs[2] = { ...outputs[2]!, decision: 'block_with_findings', findings: outputs[1].critic_findings };
+  const blocked = service.admit(admissionInput(outputs));
+  assert.equal(blocked.admitted, true);
+  if (blocked.admitted) assert.equal(blocked.payload.verdict, 'block_with_findings');
+});

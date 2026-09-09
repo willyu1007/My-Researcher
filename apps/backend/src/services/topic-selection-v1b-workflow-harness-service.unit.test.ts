@@ -7428,7 +7428,8 @@ test('v1b workflow harness N9 rejects material N8 narrative when stable findings
   assert.equal(result.authority_ref, null);
 });
 
-test('v1b workflow harness N9 refine_question prevents package creation and emits N7 recovery handoff', async () => {
+for (const deltaMode of ['mocked_llm', 'codex_cli'] as const) {
+test(`v1b workflow harness N9 refine_question prevents package creation and emits N7 recovery handoff (${deltaMode})`, async t => {
   const ctx = await seedHarnessV1aBundle();
   const { n5 } = await runReadyN5(ctx);
   const n6Input = await n6Request(ctx, n5);
@@ -7815,7 +7816,8 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
       payload: reviewedPayload,
     },
   });
-  const deltaRuntime = new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(ctx.controlPlane);
+  let deltaRuntime = new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(ctx.controlPlane);
+  let reviewService = ctx.service;
   const deltaContext = {
     source_kind: 'question_checkpoint_loopback' as const,
     source_decision_ref: reviewedPayload.source_checkpoint_decision_ref,
@@ -7864,19 +7866,57 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
       return [slot, { mocked_output: { fixture_id: `reviewed_${slot}`, output }, codex_response: null }];
     }),
   );
+  if (deltaMode === 'codex_cli') {
+    reviewedRequest.run_mode = 'product';
+    const home = mkdtempSync(join(tmpdir(), 'harness-delta-cli-'));
+    t.after(() => rmSync(home, { recursive: true, force: true }));
+    const registry = createDefaultTopicSelectionModelProfileRegistry();
+    for (const profile of registry.profiles.filter(profile => profile.output_contract === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION
+      || profile.output_contract === 'N6RefinementDeltaDebateAdmission@v1')) {
+      profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+    }
+    const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+    let calls = 0;
+    const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as {
+        role_slot: string; context_packet: { prior_role_outputs: unknown[]; research_context: { frozen_domain: { reviewedRefinement: unknown } } };
+      };
+      assert.equal(packet.context_packet.prior_role_outputs.length, calls++);
+      assert.ok(packet.context_packet.research_context.frozen_domain.reviewedRefinement);
+      return { stdout: [
+        { type: 'thread.started', thread_id: `reviewed-delta-${calls}` },
+        { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(role_outputs[packet.role_slot]!.mocked_output.output) } },
+      ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    });
+    const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
+    reviewService = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, {
+      modelProfileRegistry, agentOrchestrator,
+      evidencePacketResolver: { resolve: async input => ({ schema_version: 'TopicSelectionResearchEvidencePacket@v1', title_card_id: TITLE_CARD_ID,
+        participant_role: input.participant_role, query_intent: input.query_intent, items: [], source_refs: input.evidence_unit_refs,
+        total_excerpt_chars: 0, packet_hash: canonicalHash(input) }) },
+      runnerDependencies: { evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
+        recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
+        researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
+        topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
+        valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository },
+    });
+    deltaRuntime = new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(ctx.controlPlane, { modelProfileRegistry, agentOrchestrator,
+      resolveResearchContext: request => reviewService.resolveCodexResearchContext(request) });
+  }
   const debate = await deltaRuntime.runDebate({
     request: reviewedRequest,
     context: deltaContext,
-    execution_mode: 'mocked_llm',
-    role_outputs,
+    execution_mode: deltaMode,
+    role_outputs: deltaMode === 'codex_cli' ? undefined : role_outputs,
   });
-  assert.equal(debate.status, 'completed');
+  assert.equal(debate.status, 'completed', debate.status === 'role_blocked' ? JSON.stringify(debate.loop.status === 'blocked' ? debate.loop.turn.invocation_result.token_budget_gate_result ?? debate.loop.turn.invocation_result.blocker_codes : debate.loop.status) : JSON.stringify(debate.status));
   if (debate.status !== 'completed') throw new Error('Expected refinement delta Debate admission.');
 
   const evidenceCeilingDrift = await ctx.service.invokeNode(request({
     ...reviewedRequest,
     node_attempt_id: 'node_attempt_v1b_n7_reviewed_refinement_evidence_drift',
-    semantic_artifacts: undefined,
+    run_mode: undefined, semantic_artifacts: undefined,
     frozen_input: {
       ...reviewedRequest.frozen_input,
       frozen_input_hash: undefined,
@@ -7889,7 +7929,7 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   assert.equal(evidenceCeilingDrift.gate_status, 'blocked');
   assert.equal(evidenceCeilingDrift.error_code, 'N7_REFINEMENT_DELTA_EVIDENCE_CEILING_MISMATCH');
 
-  const reviewedN7 = await ctx.service.invokeNode({
+  const reviewedN7 = await reviewService.invokeNode({
     ...reviewedRequest,
     semantic_artifacts: [debate.semantic_artifact],
   });
@@ -7977,6 +8017,7 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   for (const risk of independentRisks) assert.ok(changedMetrics.warnings.some((warning) => warning.message === risk));
 
 });
+}
 
 test('v1b workflow harness N11 publishes v1c input bundle and closes N1-N11 service-level E2E', async () => {
   const ctx = await seedHarnessV1aBundle();

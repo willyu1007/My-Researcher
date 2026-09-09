@@ -39,8 +39,17 @@ requires an explicit new attempt identity. Never automatically retry ambiguous m
 
 N7 consumes the CLI setting to generate `n7_n8_debate_admission_review` support on initial and
 N8-feedback entry. Its mechanical contract selection and Human boundary remain unchanged;
-completed entry requests reuse their support and gate results. Exact-delta refinement and live
-qualification remain unfinished in this integration checkpoint. The external operator paths below remain the usable shipped route.
+completed entry requests reuse their support and gate results.
+
+At the question-checkpoint `n6_refinement_delta_debate` recovery frontier, coordinator `advance`
+also consumes the N7 CLI setting. It recovers the exact persisted Human refinement and executes
+Explorer → Critic → Arbiter without caller role answers. A substantive unchanged delta with material
+findings stays blocked; the model cannot repair Human fields. An admitted review reuses the current
+contract and opens a fresh pending Human checkpoint. Canonical no-op refinement needs no CLI setting.
+The support artifact's audit is a deterministic derivation record linking all three real CLI role
+outputs, audits and traces; it is not an extra model invocation. Completed reviews remain bound to
+the exact source decision/delta and runtime identity, including when reused at a later node attempt.
+Live qualification and the remaining Phase 2 recovery coverage remain unfinished. The external operator paths below remain the usable shipped route.
 
 ## Regular N6 question candidates
 
