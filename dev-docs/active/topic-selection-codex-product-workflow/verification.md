@@ -1,55 +1,77 @@
 # Verification
 
-## Evidence
+## Current evidence
 
-| Claim / reference | Check / procedure | Latest result | Evidence / limitation |
+| Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
-| Full workflow, Codex-only generation rollout, N6/N8-first milestone | Latest user instruction, 2026-09-09 | confirmed | Other generation-provider activation can wait; completing the first stage cannot complete the task. |
-| Task identity, planning structure and projection | Governance recovery, scoped sync and `lint --task T-153` | passed, 2026-09-09 | One valid task; in-progress implementation and ready kickoff. First lint found the expected planned→in-progress projection mismatch; scoped sync reconciled it and lint then passed. User approved the checkpoint and implementation through Phase 2 on 2026-09-09. |
-| Existing node semantics have a maintained authority | `node apps/backend/scripts/topic-selection-workflow-matrix-consistency.mjs` | passed, 2026-09-09 planning recheck | Proves matrix/code/scenario consistency only, not product-mode activation or scientific quality. |
-| Existing CLI foundations | Runner, orchestrator, registry, MCP scope/protocol and route checks executed in this conversation | 72 tests passed before opening | Deterministic local tests; no new real-model execution or product-node activation proved. |
-| Runner dependency | T-152 completed task, runner source and commits through `a5263023` | inherited evidence reviewed | App Server default, fresh attempts, MCP/schema/budget/live transport proofs belong to T-152. No T-153 live model check was run during planning. |
-| Required integration gaps | Read product app composition, v1b harness/coordinator, role runtimes and model registry | observed | No application-wide CLI composition; profiles/v1b exclude mode; v1a final synthesis permits provider/mock; resource classification and ordinary promotion support are provider-only; promotion Debate caller fixes `codex_assisted`. |
-| N6/N8 role context and bridge | Read bounded core, N6/N8 context builders and N6 draft runtime | observed, not runtime-reproduced | Prior artifact hashes are supplied without role-output bodies; N6 frozen refs need resolved research content. Existing external bridge invokes draft generation; CLI requires deterministic role-derived projection with accurate output hash identity. |
-| Duplicate/interrupted execution boundary | Read N6 receipts, N8 loop, orchestrator and control-plane repositories | design grounded; behavior not yet implemented | N6 completed receipt/process-local single-flight is insufficient for pre-call restart exclusion. Existing artifact stable-key uniqueness can support an exclusive typed claim; relational concurrency/restart proof remains required. |
-| Evidence-stage integration boundary | T-150 architecture and verification | source reviewed | Its local/relational evidence does not prove a live Codex model path or downstream mutable-evidence rollout. |
-| T-129 inheritance | Historical `5cf904fb` C-1/C-2/C-3 plus current prompt source | mapped; qualification change approved | D-30 already removed calibration sign-off as release prerequisite. C-2 retained corpus dependency; its replacement was approved at this checkpoint. Historical six include ordinary N8 and promotion, with refinement added later. |
-| CX-01 / Phase 1 inventory | Load default profile registry using backend `node --import tsx`; compare exact IDs to inventory rows and inspect execution/run-mode eligibility | passed, 2026-09-09 | 36 registered, 36 documented, 36 unique; no missing/extra IDs. All 36 exclude CLI and have empty `run_mode_eligibility.codex_cli`. Non-profile Human/deterministic operations mapped separately. This proves inventory coverage, not CX-01 implementation completion. |
-| CX-02 / Phase 2 | N6 regular/escalation/refinement and N8 ordinary/conditional Debate through canonical product callers | not-run | Real Codex role execution, deterministic gate and next Human checkpoint; include bad output, weak evidence and replay. |
-| CX-03 / Phase 3 | Upstream resource/evidence/need roles, final synthesis and evidence convergence | not-run | Prove exact evidence scope, quote admission, no/material delta, successor lineage, linked-round execution and Human boundary; account for retrieval separately. |
-| CX-04 / Phase 4 | Remaining v1b option and semantic support roles | not-run | Optional support remains optional; exact constraints and slice/question choices remain human-owned. |
-| CX-05 / Phase 4 | Risk/no-risk promotion, complete conditions, feedback and deterministic bridge/intake composition | not-run | Check non-promote outcomes, unmapped risk refusal and late objection invalidation without partial authority writes. |
-| CX-06/CX-08 / Phase 5 | Composed product API flow from fresh evidence through promotion/handoff and feedback, plus real-model coverage across enabled semantic roles | not-run | Distinguish test-fixture human decisions from actual researcher choices; do not force the live topic to advance or infer live proof from skips. |
-| CX-07 / each enabled slice | Scope/budget, source identity, timeout/failure/interruption and exact-recovery checks | not-run | No repeated ambiguous model work or invented hash replay; keep failed traces and distinguish CLI generation from retrieval/cost effects. |
-| CX-09 / closeout | Reconcile inherited obligations and policy/prompt/API/process/task records; focused checks and relevant typechecks | not-run | No blanket disabled→enabled constant change, competing policy source or unresolved provider obligation hidden by archive. |
+| Task scope and authorization | User selected full topic-selection Codex task; approved through Phase 2 on 2026-09-09 | confirmed | Phases 3–5 remain required; N6/N8 alone cannot complete T-153. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | Source inventory covers all profiles; all shipped profiles still exclude codex_cli. No activation claim. |
+| Runner prerequisite | T-152 code and evidence through a5263023 | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
+| CX-02 / N6/N8 local composition | N6/N8 runtime/admission and full harness suites after ea29ea83 changes | 184 passed | Includes ordinary N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8, and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; test-local profile admission. |
+| Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
+| CX-07 / persistent attempt exclusion | Attempt/orchestrator/runner suites; opt-in relational attempt integration test | 48 local checks and 1 PostgreSQL integration test passed | Four concurrent relational requests execute once; reconstructed consumer reuses completion; ambiguous unfinished claim refuses another call. Unique test artifacts removed in finally; no migration. |
+| CX-07 / post-model receipt races | N7 concurrent support test; ordinary N8 value runtime suite after 9cb4fe80 | passed; latest N8 suite 6 passed | Two consumers return the same winning receipt after one model attempt. N8 test first reproduced the content conflict; source/config drift remains refused. Joint reviews completed. |
+| Exact Human delta / CX-02 | Coordinator/harness/refinement tests | 196 passed before final timeout fix; coordinator then 68 passed; directed final recovery 3 passed | Three CLI role calls preserve the exact current contract, produce a separately audited deterministic admission, and reopen pending Human confirmation. Interrupted derivation write reuses completed attempts. No real Human decisions. |
+| Timeout and no-op recovery | Delayed refinement runtime test and directed coordinator cases | passed | Whole review plus final N7 gate shares timeout; node_timeout→node_in_flight→settled recovery executes once. Canonical no-op is mechanical. Joint review finding corrected and re-reviewed. |
+| Critic objections / prompt contracts | N6 semantic admission test, refinement admission tests, production Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
+| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; integrated consumer mode remains behind closed shipped profiles. |
+| Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
+| CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
 
-## Phase 2 foundation checkpoint
+## Live qualification proposal — not executed
 
-- N6 CLI context now resolves both persisted Explorer output bodies with scope/checksum validation; initial Explorers receive no peer draft bodies. N8 uses the same resolver. Existing external/mock packet bytes remain unchanged.
-- The CLI orchestrator claims each logical attempt before runner execution, persists the runner outcome and refuses changed request/configuration or ambiguous unfinished work. A fresh consumer can reuse the completed attempt without another runner call. Required MCP evidence cannot silently run without configured scope/tool access.
-- Focused checks: N6/N8 runtime suites **19 passed**; orchestrator, attempt and runner suites **48 passed**. The two new behavioral tests first failed on absent role bodies and duplicate runner execution, then passed after implementation. Backend `pnpm exec tsc -p tsconfig.json --noEmit` passed.
-- Stable CLI context/output artifact keys now allow all four N6 roles to replay through a reconstructed consumer without another model call. Deterministic final-role projection records `debate_derived` provenance and a bound receipt, verifies the actual parent audit/CLI trace and rejects output/attempt drift; projection performs no fifth invocation. N6/N8 CLI output schemas require role-specific content.
-- App composition owns one runner and its shutdown, resolving MCP from the listening port. The N6/N8 source compiler loads frozen domain bodies and uses the existing scoped evidence-packet resolver (including its quote/currentness checks). These paths remain behind closed profiles until product qualification.
-- Latest local checks: N6/N8 runtime suites **20 passed**; broader HTTP/contract/harness/runtime suite **162 passed, 1 environment skip**; backend typecheck and matrix consistency passed. The CLI replay test uses a fake process boundary and test-local profile admission; it does not prove model reasoning or public CLI activation.
-- Relational check: opt-in `topic-selection-codex-attempt-service.relational.integration.test.ts` **1 passed** against the configured local PostgreSQL database. Four concurrent requests execute once; reconstruction reuses completion; an unfinished claim refuses a second run. Unique workflow-scoped test artifacts were deleted in `finally`; no schema migration or research authority writes.
-- Canonical harness and coordinator now consume N6/N8 CLI execution specs. The combined service test uses the actual source compiler, orchestrator, four N6 roles, deterministic gates and ordinary N8 runtime with test-local eligible profiles/fake process output. It verifies exact replay (four plus one calls total), passes frozen EvidenceUnit refs to the resolver, and blocks an unconfirmed question before model work. The resolver itself is stubbed in this composition test; its source/quote behavior is not a new live claim.
-- Latest consumer checks: **97 passed** across coordinator/N6/N8/admission runtimes; **143 passed, 1 environment skip** across HTTP/contract/harness tests; backend typecheck passed. N8 source-content drift refuses replay. CLI budget estimates count context already serialized in messages once, without changing limits or accepting caller overrides.
-- N7 CLI admission support is now composed through harness/coordinator. The combined test covers N6 → N7 support → strict-human stop → ordinary N8 with six model-process calls and exact replay. N7 runtime independently verifies content drift rejection and the concurrent post-model/pre-receipt window: both callers receive the winning result, with one model attempt. Missing N7 evidence repository fails before model work.
-- N7 checkpoint checks: harness **121 passed**, coordinator **66 passed**, N7 runtime/admission **13 passed**; the combined run initially had one stale error-message assertion, corrected and the coordinator suite rerun green. Updated concurrency/dependency checks **2 passed**, public contract drift **4 passed**, backend typecheck and matrix consistency passed. Joint code review found the two recovery issues above; both were corrected with targeted tests. These checks use fixture output and test-local eligibility; production profiles remain closed.
-- Exact-delta CLI checkpoint: coordinator/harness/refinement suites **196 passed** before the final timeout fix; the coordinator suite then **68 passed**. Directed recovery cases **3 passed** after the no-op runtime-field correction. The CLI composition uses actual frozen pre/post contracts and returns the same current contract with a new pending Human checkpoint. An interrupted derivation write resumes with the same three model calls; changed source identity and altered audit identity are rejected. A red→green semantic check prevents Arbiter removal/downgrade of a material Critic finding. Joint review's timeout finding was fixed and re-reviewed with a delayed runtime test (`node_timeout` → `node_in_flight` → settled recovery, one invocation).
-- Refinement Prompt v2 and application composition: `pnpm llm:config:check` **5 passed**, targeted HTTP refinement/advance checks **3 passed**, backend typecheck and matrix consistency passed. Real model reasoning is still unverified; test-local profiles and fake process output do not constitute product activation.
-- N6/N8 Prompt v2 now states source-content requirements, evidence insufficiency/conflict and non-advance behavior. N6 admission rejects erased substantive Critic findings, duplicate finding codes, malformed findings and unresolved repairs. Joint review found the duplicate-code ambiguity; it was fixed and re-reviewed.
-- Canonical CLI composition now covers both N6 regeneration contexts and the actual N8 operator-triggered feedback producer → N7 CLI admission → four-role N8 Debate. Three directed cases passed. They check actual consumer source/mode, exact replay, Human stop, and no fifth draft call; model responses and upstream/Human fixture decisions remain controlled test input.
-- Prompt/composition checkpoint checks: N6/N8 runtime/admission plus full harness **184 passed**; LLM config **5 passed**, backend typecheck and matrix consistency passed.
-- Ordinary N8 concurrent draft recovery: a directed test first reproduced the post-model/pre-receipt content conflict, then passed after reusing the validated winning receipt. The N8 value runtime suite **6 passed**, backend typecheck passed, and joint review found no remaining issue. Source/config identity checks still apply and the competing requests execute one model attempt.
-- Limits: production prompt qualification and real-model checks remain unfinished. Node/slot types admit the integrated consumer, but shipped profiles still exclude CLI; no supported product rollout is claimed.
+The earlier repository-sample fallback is not suitable: titleCardDemoFixtures.ts contains invented
+titles and example.com links. Use the following public original-paper inputs instead. Abstract
+pages and exact versions were inspected on 2026-09-09; full experimental details have not yet been
+validated. Abstract-level evidence supports a bounded reasoning check, not a novelty or calibration
+claim. Before execution, materialize the inspected source text through existing evidence owners,
+pin content hashes and source locations, and inspect the exact rendered role requests.
+
+| Input | Verified source and content boundary |
+|---|---|
+| DPR | [Dense Passage Retrieval for Open-Domain Question Answering, v3](https://arxiv.org/abs/2004.04906v3): supervised dense passage retrieval is evaluated on open-domain QA benchmarks against BM25. Its reported improvement does not establish universal domain transfer. |
+| BEIR | [BEIR, v4](https://arxiv.org/abs/2104.08663v4): a heterogeneous zero-shot retrieval benchmark across 18 datasets; BM25 remains a robust comparator and efficiency/generalization tradeoffs matter. |
+| Context placement | [Lost in the Middle, v3](https://arxiv.org/abs/2307.03172v3): relevance position affects performance on multi-document QA and key-value retrieval in the models studied. It is not evidence about every present-day model. |
+
+Proposed controlled research slice: retrieval and context-placement robustness under distribution
+shift. Constraints are explicit test inputs: one existing retriever and lexical baseline, fixed
+held-out evaluation, no foundation-model training, no assumed access to unavailable data or compute.
+All Human accept/reject/refinement fixtures are labeled isolated test decisions, not researcher
+approval or scientific labels. Do not write them into a live research project.
+
+| Case | Input difference | Required observation |
+|---|---|---|
+| Ordinary bounded evidence | Visible source bodies and scoped refs from the three originals | N6 proposes bounded, testable alternatives; N7 support respects the exact candidate; N8 distinguishes evidence from hypotheses and can legitimately decline advancement. No mandatory positive verdict. |
+| Insufficient evidence | Only titles/metadata, with absent bodies explicitly marked | Roles disclose missing evidence and avoid invented results or unsupported confident advancement. Gate/source refusal before a model call is recorded separately from a model's semantic response. |
+| Apparent conflict | DPR QA results alongside BEIR zero-shot generalization findings | Recognize the different evaluation conditions; do not erase either source or falsely call them a same-setting contradiction. This expected distinction is our inference from the inspected abstracts. |
+| Exact-delta review | Same source bundle and a controlled bounded-vs-overgeneralized question delta | Preserve immutable Human fields; carry material objections into admission; no silent rewrite. |
+
+Run ordinary/conditional N8 and N6 regeneration using their actual producer payloads when a live
+result provides that route. Do not manufacture successful role output to force the chain. A
+controlled supported-domain setup may be used to qualify a later role independently; disclose that
+boundary. Inspect actual Critic resolutions, evidence support, failure behavior and prior-role
+consumption before accepting a role. Existing deterministic fixtures do not replace this inspection.
+
+Pending budget proposal: **40 model attempts, 1,000,000 aggregate tokens, 180 seconds per attempt,
+90 minutes overall**, stopping at the first ceiling. Alternative smaller first check: **12 attempts,
+300,000 tokens, 30 minutes overall**, retaining the 180-second per-attempt ceiling. Failed and
+interrupted attempts count; where usage is unavailable, retain a conservative reservation rather
+than treating it as zero. Keep existing runner/model configuration and product limits; no gateway
+fallback. No budget selection has been received. This proposal authorizes no live execution by itself.
 
 ## Outstanding verification
 
-- Implement the approved role-appropriate qualification criteria. Inventory and first-slice technical design do not constitute prompt qualification or product readiness.
-- For Phase 2, check actual evidence/prior-role content in each request, two initial Explorers' independent inputs, rejected stale/mismatched parents, and a final bridge with no extra model invocation and no false operator/single-agent provenance.
-- Extend the proved attempt exclusion/replay boundary to canonical product requests and applicable recovery paths. No ambiguous retry may silently launch another metered call.
-- Verify the actual selected Codex binary/runner in T-153 consumer runs; T-152 transport canaries alone cannot establish consumer readiness.
-- Plan live attempts with concrete evidence inputs, model/configuration, expected boundaries and an explicit operational budget. No paid live invocation or Human research action was performed by this opening.
-- Each phase records only decisive evidence for its own outcome. The final whole-workflow proof must include success composition, legitimate non-advance, material objections, upstream loopback and exact recovery; a partial canary or N6/N8-only result is insufficient.
-- Re-run scoped task lint and inspect the final diff at each checkpoint. Do not infer product or live readiness from the local tests above.
+- Implement the chosen live-run execution/usage accounting around existing consumers, materialize
+  the pinned evidence inputs, verify the selected CLI binary/configuration and inspect rendered
+  packets before the first model call. No launch occurs before budget confirmation.
+- Qualify N6 Explorer/Critic/Arbiter, N7 admission, ordinary/conditional N8 and exact-delta roles
+  against actual inputs and failure cases. Validate live schema compatibility, evidence scope,
+  substantive resolution and non-advance outcomes; record each actual attempt and limitations.
+- Open only the proved profiles together with scenario/policy/operating-doc alignment. No
+  canary-only profile modification counts as supported product readiness.
+- Phases 3–5: resource/evidence/need final synthesis and convergence, remaining v1b support,
+  promotion/feedback and whole product API chain are unimplemented in this authorized slice.
+- CX-06/CX-08 whole-workflow proof must include legitimate non-advance, upstream loopback and
+  exact recovery, distinguish real models from fixtures and preserve Human boundaries.
+- Task completion, phase closeout and T-129 archival have not been claimed. Governance checks and
+  reviewed commits provide recoverable local checkpoints, not end-to-end product acceptance.

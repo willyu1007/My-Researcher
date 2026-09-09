@@ -4,10 +4,10 @@
 Align the existing topic-selection agent execution policies and make the complete product workflow executable with product-driven `codex_cli` model roles, starting with N6/N8 Debate and continuing through evidence, need discovery, question/value work, promotion, handoff, and recovery while preserving deterministic and strict-human authority.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 2 — context, attempt recovery and derived-draft foundation implemented
-- Next step: Prepare and run the agreed real-input qualification before opening profiles; reconcile T-129 successor handoff. Conditional N8 and both N6 regeneration paths now have canonical CLI composition coverage. Exact-delta CLI recovery and its derived support audit are implemented. N6/N7-admission/N8 canonical execution_spec consumers and ordinary N8 CLI are implemented, with source/config-bound replay and a pre-call question Human stop. Product profile admission remains closed.
-- Blocker: None. Planning and implementation through Phase 2 were approved on 2026-09-09; kickoff is ready. Local work can continue; live qualification awaits the proposed explicit attempt/token/time budget response. No live model calls have been made.
+- State: blocked
+- Current phase: Phase 2 — local consumer/recovery integration verified; real-model qualification pending
+- Next step: Confirm the concrete live-input/budget proposal in verification.md, then execute real-role qualification and open only the proved profiles with matching scenarios/docs. Full workflow Phases 3–5 remain required but outside this authorization.
+- Blocker: Live execution awaits the explicit attempt/token/time budget response required by the approved roadmap. Local integration, prompt edits and recovery checks are committed; no live model calls or product profile activation have occurred. T-129 successor handoff is recorded; its separate archive waits on a second worktree occurrence.
 
 ## Done when
 - [ ] CX-01: Every existing topic-selection model/support role across resource sampling, v1a, v1b, v1c and downstream feedback has an explicit Codex execution disposition in the existing policy/matrix authorities, with a product entry point and verification reference. Deterministic steps and human decisions are identified separately; required model roles cannot remain dependent on manually supplied `codex_response` or another generation provider.

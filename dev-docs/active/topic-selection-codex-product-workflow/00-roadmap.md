@@ -80,7 +80,7 @@ Live checks use an explicit input set and attempt/token/time ceiling agreed for 
 | C-3 activation of other `provider_llm` Debate paths | Explicitly deferred by the user | Remains disabled where disabled today; record the deferred intent when T-129 is retired, without forcing implementation into this task. |
 | Old `calibration_gate_release` references | Reconcile as each Codex path becomes ready | Separate Codex readiness from deferred gateway activation; update affected code/tests/docs atomically, preserving actual semantic protections. |
 
-T-129 remains historical/current evidence until its successor handoff is reconciled. This bundle does not mark its original completion claims as passed. Its eventual retirement must preserve the deferred gateway work and the reason its original release route was superseded.
+T-129's successor handoff is recorded in e44e862c. Its current main-worktree record directs implementation here and preserves original C-2/C-3 non-completion and deferred gateway activation. Physical archival awaits reconciliation of its second checked-out occurrence; that administrative boundary does not block T-153 implementation.
 
 ## Implementation plan
 
@@ -91,7 +91,7 @@ T-129 remains historical/current evidence until its successor handoff is reconci
   1. Inventory ordinary model, Debate and support roles across all stages, distinguishing deterministic and strict-human operations; identify every provider-only or external-output-only product dependency.
   2. Inspect current prompts/evidence packets and specify the concrete semantic and engineering checks for Codex admission, including insufficient evidence and disagreement.
   3. Design N6/N8 role execution and provenance bridges, configuration composition, failure/replay behavior and coordination with T-152.
-  4. Review the now-drafted inventory, qualification decision and N6/N8 design. On approval, reconcile T-129's successor handoff and deferred provider scope in task records; runtime/policy activation waits for integrated implementation. Preserve original unmet claims when retiring the old record.
+  4. Review the now-drafted inventory, qualification decision and N6/N8 design. The approved T-129 successor handoff and deferred provider scope are now reconciled in its task records; runtime/policy activation waits for integrated implementation. Preserve original unmet claims when retiring the old record.
 - Affected boundaries / entry points: existing workflow matrix/scenarios; node/slot policies; model-profile registry; `.ai/llm/topic-selection`; agent orchestrator; N6/N8 runtimes and run coordinator; T-129 records.
 - Dependencies: Current source inventory and the runner interface; no new calibration corpus is presumed available.
 - Exit criteria: No unidentified required model role; explicit Codex quality/admission criteria; first implementation slice executable; later stages remain required in status and roadmap.
