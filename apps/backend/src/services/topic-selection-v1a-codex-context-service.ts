@@ -113,6 +113,14 @@ export class TopicSelectionV1aCodexContextService {
       || !sameRefs(input.resource_snapshot_refs, [bundle.literature_snapshot_ref])) {
       throw new AppError(409, 'VERSION_CONFLICT', 'CLI need discovery search and resource refs must match the evidence map lineage.');
     }
+    if (input.persist_admitted_candidates) {
+      const persistence = input.persistence_context;
+      if (!persistence || refIdentity(persistence.search_run_ref) !== refIdentity(bundle.search_run_ref)
+        || refIdentity(persistence.search_plan_ref) !== refIdentity(bundle.search_plan_ref)
+        || refIdentity(persistence.literature_snapshot_ref) !== refIdentity(bundle.literature_snapshot_ref)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'CLI candidate persistence lineage must match the compiled evidence map.');
+      }
+    }
     const [assessments, conflicts] = await Promise.all([
       this.options.evidenceMaps.listEvidenceStrengthAssessmentsByEvidenceMapId(input.evidence_map_ref.ref_id),
       this.options.evidenceMaps.listConflictSetsByEvidenceMapId(input.evidence_map_ref.ref_id),

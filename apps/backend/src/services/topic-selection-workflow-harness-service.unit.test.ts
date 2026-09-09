@@ -1101,7 +1101,7 @@ function validationManualLocator(input: {
   };
 }
 
-async function seedValidateNeedAdjudicationRuntime(options: {
+async function seedNeedValidationEvidenceRuntime(options: {
   originalFulltext?: string;
   candidateNeed?: string;
   unmetNeed?: string;
@@ -1235,6 +1235,7 @@ async function seedValidateNeedAdjudicationRuntime(options: {
   if (options.originalFulltext) {
     for (const unit of evidenceUnits) {
       unit.source_statement = options.originalFulltext;
+      unit.normalized_statement = options.originalFulltext;
       unit.locator = { locator_type: 'paragraph', literature_ref: literatureRef, source_ref: sourceRef,
         document_ref: refForTitleCard('fulltext_document', 'document_001', titleCardId),
         locator_ref: refForTitleCard('fulltext_paragraph', 'paragraph_001', titleCardId),
@@ -1256,9 +1257,15 @@ async function seedValidateNeedAdjudicationRuntime(options: {
       : [],
     created_by: 'system',
   });
+  return { ...ctx, searchRunResult, evidenceMap: evidenceMapRecords.evidence_map, evidenceUnits: evidenceMapRecords.evidence_units };
+}
+
+async function seedValidateNeedAdjudicationRuntime(options: Parameters<typeof seedNeedValidationEvidenceRuntime>[0] = {}) {
+  const ctx = await seedNeedValidationEvidenceRuntime(options);
+  const titleCardId = ctx.titleCard.title_card_id;
   const candidate = await ctx.needService.createNeedCandidateFromEvidenceMap({
     title_card_id: titleCardId,
-    evidence_map_id: evidenceMapRecords.evidence_map.evidence_map_id,
+    evidence_map_id: ctx.evidenceMap.evidence_map_id,
     candidate_need: options.candidateNeed ?? 'Need traceable validation before promoting RAG adaptation topics.',
     unmet_need_statement: options.unmetNeed ?? 'Existing workflows do not preserve enough evidence lineage before topic promotion.',
     mechanism_type: 'workflow_gap',
@@ -1281,9 +1288,6 @@ async function seedValidateNeedAdjudicationRuntime(options: {
     : null;
   return {
     ...ctx,
-    searchRunResult,
-    evidenceMap: evidenceMapRecords.evidence_map,
-    evidenceUnits: evidenceMapRecords.evidence_units,
     candidate,
     readiness,
     supportPacket,
@@ -3241,10 +3245,151 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
   }
 });
 
-function useJsonArtifactStorage(ctx: ValidateNeedAdjudicationSeed) {
+function useJsonArtifactStorage(ctx: Pick<ValidateNeedAdjudicationSeed, 'controlPlaneRepository'>) {
   const create = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
   ctx.controlPlaneRepository.createArtifactRef = record => create(JSON.parse(JSON.stringify(record)));
 }
+
+test('Codex discovery qualification persists its actual candidate through frozen v1b lineage', {
+  skip: process.env.TOPIC_SELECTION_CODEX_LINEAGE_QUALIFICATION !== 'live',
+}, async t => {
+  const { qualificationRunner } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const sourceFile = process.env.TOPIC_SELECTION_QUALIFICATION_FULLTEXT;
+  const outputRoot = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  if (!sourceFile || !outputRoot || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit live lineage qualification configuration is required.');
+  const selectedCase = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'bounded_capability';
+  assert.ok(['bounded_capability', 'evaluation_overlap'].includes(selectedCase));
+  const source = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as { url: string; text: string };
+  assert.equal(source.url, 'https://arxiv.org/html/2307.03172v3#S2.SS3');
+  assert.equal(sha256Text(source.text), '137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21');
+  const seed = await seedNeedValidationEvidenceRuntime({ originalFulltext: source.text });
+  useJsonArtifactStorage(seed);
+  const title = seed.titleCard.title_card_id;
+  assert.deepEqual(await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title), []);
+  await seed.literature.upsertLiteratureSource({ id: 'source_001', literatureId: 'lit_001', provider: 'arxiv', sourceItemId: '2307.03172v3',
+    sourceUrl: source.url, rawPayload: { source_hash: sha256Text(source.text) }, fetchedAt: '2026-09-10T00:00:00.000Z' });
+  const mapRef = refForTitleCard('evidence_map', seed.evidenceMap.evidence_map_id, title, seed.evidenceMap.evidence_map_version);
+  await seed.evidenceMaps.assessEvidenceStrength({ evidence_map_id: mapRef.ref_id, target_ref: mapRef, purpose: 'need_validation',
+    role_bundle: {
+      support_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'support').map(unit => unit.evidence_unit_id),
+      challenge_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'challenge').map(unit => unit.evidence_unit_id),
+      baseline_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'baseline').map(unit => unit.evidence_unit_id),
+      context_unit_ids: seed.evidenceUnits.filter(unit => unit.evidence_role === 'context').map(unit => unit.evidence_unit_id),
+    }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
+  const bundle = await seed.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
+  const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+  t.after(() => runner.shutdown());
+  t.after(() => budget?.close());
+  const save = async (name: string, value: unknown) => fs.writeFile(join(directory, `${runId}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
+  await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'discovery-to-v1b', source: source.url,
+    source_hash: sha256Text(source.text), controlled_search_and_evidence_roles: true, same_source_in_four_roles: true,
+    selected_case: selectedCase, candidate_is_model_generated: true, controlled_human_input: true, actual_human_decision: false,
+    app_checkpoint_guard_not_exercised: true, repositories: 'in-memory with JSON artifact storage', model, limits,
+    started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
+  const profiles = new TopicSelectionModelProfileRegistryService();
+  const harness = seed.buildCliHarness(runner, profiles);
+  const id = (stage: string) => `${runId}_${stage}`;
+  try {
+    await save('evidence', { search_run: seed.searchRunResult, evidence_map: seed.evidenceMap, evidence_units: seed.evidenceUnits, bundle });
+    const request = scenarioInput({ title_card_id: title, workspace_id: null, input_snapshot_id: seed.evidenceMap.input_snapshot_id,
+      workflow_run_id: id('discovery'), node_attempt_id: id('discovery'), topic_scope_ref: seed.topicSeedRef,
+      evidence_map_ref: mapRef, evidence_strength_ref: bundle.strength_assessment_refs[0]!,
+      execution_mode: 'codex_cli', run_mode: 'product', executor_kind: 'single_agent', mocked_output: null,
+      resource_sample_set_ref: null, candidate_pool_projection_ref: null,
+      search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref],
+      persist_admitted_candidates: true, persistence_context: { search_run_ref: bundle.search_run_ref,
+        search_plan_ref: bundle.search_plan_ref, literature_snapshot_ref: bundle.literature_snapshot_ref }, expectations: {},
+      exploration_payload: { ...explorationPayload(), topic_scope: {
+        intent: selectedCase === 'evaluation_overlap'
+          ? 'Discover a bounded need for position-sensitive evaluation before selecting long-context QA configurations. The source documents failures to use relevant middle-position information. Inspect whether that supports a need; do not claim a novel repair or force advancement.'
+          : 'Discover a bounded unmet capability in reliable multi-document question answering when the answer-bearing document is in the middle of context, confined to the model configurations and conditions actually tested in this source. Distinguish the documented capability failure from the already-published evaluation method. A candidate research need is not a claim to a novel solution, nor evidence that current models still fail. Do not force advancement if the supplied findings do not support this need.',
+        evidence_boundary: 'One original results section reused in four controlled role slots. These are not independent sources. Broader prior art, current model behavior, dataset access and efficacy of any repair are unverified.',
+      }, resource_sample_digest: { status: 'not_supplied' }, search_coverage_digest: { status: 'one_original_results_section',
+        limitations: ['Controlled retrieval and role assignments; no independent prior-art coverage.'] } },
+      arbiter_payload: { ...arbiterPayload(), role_level_summaries: [] },
+    });
+    const discovered = await harness.runGenerateNeedCandidateScenario(request);
+    await save('discovery', discovered);
+    assert.equal(discovered.adapter_result.invocation_result.status, 'succeeded', JSON.stringify(discovered.adapter_result));
+    const persistence = discovered.adapter_result.persist_need_candidate_batch_result;
+    const attemptCount = budget!.snapshot().attempts.length;
+    assert.deepEqual(await seed.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(request), discovered);
+    assert.equal(budget!.snapshot().attempts.length, attemptCount);
+    if (selectedCase === 'evaluation_overlap') {
+      assert.equal(discovered.adapter_result.supplemental_round_routing_decision?.routing_decision, 'expand_evidence');
+      assert.equal(persistence, null);
+      assert.deepEqual(await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title), []);
+      return;
+    }
+    assert.ok(persistence?.persisted_candidates.length, JSON.stringify({ routing: discovered.adapter_result.supplemental_round_routing_decision, batch: discovered.adapter_result.ranked_candidate_draft_batch }));
+    assert.equal(persistence.persisted_candidates.length, 1);
+    const candidate = persistence.persisted_candidates[0]!;
+    const draft = discovered.adapter_result.ranked_candidate_draft_batch!.drafts[0]!;
+    assert.equal(candidate.candidate_need, draft.candidate_need);
+    assert.equal(candidate.unmet_need_statement, draft.unmet_need_statement);
+    assert.deepEqual(candidate.evidence_role_bundle, draft.evidence_role_bundle);
+    assert.deepEqual(candidate.evidence_map_ref, mapRef);
+    assert.equal((await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title)).length, 1);
+    const readiness = await seed.needService.assessCandidateReadiness({ need_candidate_id: candidate.need_candidate_id, assessed_by: 'system' });
+    await save('readiness', readiness);
+    assert.equal(readiness.recommendation, 'ready_for_validation', JSON.stringify(readiness));
+    const supportPacket = await seed.needService.createValidationDecisionSupportPacket({ need_candidate_id: candidate.need_candidate_id,
+      readiness_assessment_id: readiness.readiness_assessment_id, created_by: 'system' });
+    const ctx = { ...seed, candidate, readiness, supportPacket };
+    await save('support-packet', supportPacket);
+    const adjudicationInput = validateNeedAdjudicationScenarioInput(ctx, null, { execution_mode: 'codex_cli', run_mode: 'product',
+      mocked_output: null, workflow_run_id: id('adjudication'), node_attempt_id: id('adjudication'), expectations: {} });
+    const adjudicated = await harness.runValidateNeedAdjudicationScenario(adjudicationInput);
+    await save('adjudication', adjudicated);
+    assert.equal(adjudicated.node_result.final_decision, 'validate', JSON.stringify(adjudicated.node_result));
+    assert.ok(adjudicated.node_result.adjudication_result_ref);
+    const afterAdjudication = budget!.snapshot().attempts.length;
+    assert.deepEqual(await seed.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario(adjudicationInput), adjudicated);
+    assert.equal(budget!.snapshot().attempts.length, afterAdjudication);
+    // An explicit controlled Human input follows actual N7 output. No model may author this decision.
+    const confirmation = humanConfirmationInput(ctx, { accountable_human_ref: { actor_type: 'human', actor_id: 'controlled_lineage_fixture' },
+      rationale: `Controlled Human fixture: I accept the exact candidate and validate adjudication at the stated evidence boundary. Checks reviewed: ${supportPacket.required_human_checks.join(', ')}. I accept exactly the listed residual risks, including single-source coverage and unverified novelty, data access and repair efficacy. This is not an actual research approval.` });
+    const confirmationInput = humanConfirmNeedScenarioInput(ctx, adjudicated, { execution_mode: 'codex_cli', run_mode: 'product',
+      workflow_run_id: id('confirmation'), node_attempt_id: id('confirmation'), confirmation_input: confirmation, expectations: {} });
+    await save('human-input', confirmationInput);
+    const confirmed = await harness.runHumanConfirmNeedScenario(confirmationInput);
+    await save('confirmation', confirmed);
+    assert.equal(confirmed.node_result.status, 'ready', JSON.stringify(confirmed.node_result));
+    const afterConfirmation = budget!.snapshot().attempts.length;
+    assert.deepEqual(await seed.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario(confirmationInput), confirmed);
+    assert.equal(budget!.snapshot().attempts.length, afterConfirmation);
+    const publishInput = await publishV1bInputBundleScenarioInput(ctx, confirmed, {
+      workflow_run_id: id('publish'), node_attempt_id: id('publish'), expectations: {} });
+    const published = await harness.runPublishV1bInputBundleScenario(publishInput);
+    await save('published', published);
+    assert.equal(published.node_result.status, 'ready', JSON.stringify(published.node_result));
+    const replay = await seed.buildCliHarness(runner, profiles).runPublishV1bInputBundleScenario(publishInput);
+    assert.equal(replay.node_result.v1b_input_bundle_ref?.ref_id, published.node_result.v1b_input_bundle_ref?.ref_id);
+    const frozen = await seed.needValidationRepository.listV1aToV1bInputBundlesByValidatedNeedId(confirmed.node_result.validated_need_ref!.ref_id);
+    await save('frozen-bundles', frozen);
+    assert.equal(frozen.length, 1);
+    assert.equal(frozen[0]!.source_need_candidate_ref.ref_id, candidate.need_candidate_id);
+    assert.deepEqual(frozen[0]!.evidence_map_ref, mapRef);
+    assert.deepEqual(frozen[0]!.evidence_role_bundle, candidate.evidence_role_bundle);
+    assert.equal(budget!.snapshot().attempts.length, afterConfirmation);
+    assert.equal(seed.llmGateway.calls.length, 0);
+  } finally {
+    for (const stage of ['discovery', 'adjudication', 'confirmation', 'publish']) {
+      const artifacts = await seed.controlPlaneRepository.listArtifactRefsByWorkflowRunId(id(stage));
+      await save(`${stage}-artifacts`, artifacts);
+      for (const artifact of artifacts) if (artifact.payload && artifact.checksum) {
+        assert.equal(sha256Text(stableStringify(artifact.payload)), artifact.checksum, `Persisted artifact ${artifact.stable_key} checksum`);
+      }
+    }
+    await save('candidates', await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title));
+  }
+});
 
 test('Codex validation qualification adjudicates original fulltext and reviews fixed Human inputs', {
   skip: process.env.TOPIC_SELECTION_CODEX_VALIDATION_QUALIFICATION !== 'live',
@@ -3551,13 +3696,26 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
   const discovery = scenarioInput({ title_card_id: ctx.titleCard.title_card_id, node_attempt_id: 'cli-need-1',
     workflow_run_id: 'cli-need-workflow', topic_scope_ref: ctx.topicSeedRef, evidence_map_ref: evidenceMapRef,
     evidence_strength_ref: bundle.strength_assessment_refs[0]!, execution_mode: 'codex_cli', run_mode: 'product',
-    mocked_output: null, persist_admitted_candidates: false, persistence_context: null, expectations: {},
+    mocked_output: null, persist_admitted_candidates: true, persistence_context: { search_run_ref: bundle.search_run_ref,
+      search_plan_ref: bundle.search_plan_ref, literature_snapshot_ref: bundle.literature_snapshot_ref }, expectations: {},
     resource_sample_set_ref: null, search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref] });
   const result = await harness.runGenerateNeedCandidateScenario(discovery);
   assert.equal(result.adapter_result.status, 'succeeded');
+  assert.equal(result.adapter_result.persist_need_candidate_batch_result?.persisted_candidates.length, 1);
   assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(discovery), result);
   assert.equal(calls, 2);
+  assert.equal((await ctx.needValidationRepository.listNeedCandidatesByTitleCardId(ctx.titleCard.title_card_id)).length, 1);
   assert.equal(ctx.llmGateway.calls.length, 0);
+  const persistenceContext = { search_run_ref: bundle.search_run_ref, search_plan_ref: bundle.search_plan_ref,
+    literature_snapshot_ref: bundle.literature_snapshot_ref };
+  for (const [field, value] of [['ref_id', 'foreign-search'], ['version_id', 'stale'], ['title_card_id', 'foreign-title'], ['legacy_ref', 'foreign-legacy']] as const) {
+    await assert.rejects(harness.runGenerateNeedCandidateScenario({ ...discovery, node_attempt_id: `cli-need-persistence-${field}`,
+      persist_admitted_candidates: true, persistence_context: { ...persistenceContext,
+        search_plan_ref: { ...persistenceContext.search_plan_ref, [field]: value } } }), /persistence lineage/);
+  }
+  await assert.rejects(harness.runGenerateNeedCandidateScenario({ ...discovery, node_attempt_id: 'cli-need-persistence-missing',
+    persist_admitted_candidates: true, persistence_context: null }), /persistence lineage/);
+  assert.equal(calls, 2, 'Reject invalid persistence lineage before charging a model call.');
   await assert.rejects(harness.runBuildEvidenceMapScenario({ ...request, policy_version: 'changed' }), /different input/);
   output = { schema_version: 'v1', debate_loop_id: 'invented-loop', round_index: 1, role: 'explorer',
     stage: 'round_1_discovery', agent_instance_id: 'explorer_1', candidate_angles: [], evidence_refs: [],

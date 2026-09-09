@@ -499,13 +499,44 @@ an explicitly local profile override, not a new real-model qualification. Those 
 - Through 147: 3,026,901 reported tokens, including 68,434 across Arena attempts 143–147. The same
   nine historical calls have unknown usage, with no pending call. Aggregate ceilings remain null;
   the per-call deadline remains 600 seconds. Private evidence remains under the shared live path.
-- Fresh upstream-to-v1b lineage and real candidate admission remain authorized Phase 3 work. CX-03
-  and task-level completion remain open.
+- The following qualification covers real candidate admission and candidate-to-v1b lineage.
+  Source-extraction composition and task-level completion remain open.
+
+## Real candidate admission and frozen v1b lineage
+
+- Attempt 148 (`lineage_v1_live`) correctly returned `evidence_expansion_required` with no drafts
+  or candidates: claiming a missing position-sweep evaluation duplicates the supplied study.
+  Independent review verified 15 artifact checksums and 10 full output references; no later node ran.
+- Attempts 149–151 (`lineage_capability_live`) used the same pinned original Results section but
+  inspected its documented capability deficit. The model produced one bounded candidate about the
+  source-tested GPT-3.5-Turbo 20-/30-document QA conditions. It retained unknown prior art, original
+  configuration/data access, single-source limits and unverified repair efficacy; it rejected a new
+  benchmark claim and context-window expansion as a proven remedy.
+- The actual draft passed admission and was persisted once. Existing readiness and support-packet
+  services consumed its unchanged text and role refs. N7 returned `validate`; N8 reviewed an explicit
+  controlled Human fixture; deterministic publication produced one v1b bundle with the same candidate,
+  evidence map and role bundle. Reconstructed services replayed each node without additional model
+  calls or duplicate candidates/bundles. This is source-backed model/consumer evidence, not an actual
+  research approval or a novelty/efficacy judgment.
+- The live helper starts with a controlled SearchRun/fulltext map and four roles from one section;
+  it does not run extraction or the app checkpoint guard. In-memory domain repositories and JSON
+  artifact storage are disclosed. Fresh N5-to-v1b composition remains; this result alone does not close CX-03.
+- Review found that CLI persistence_context could differ from the map lineage checked for model
+  context. The context compiler now refuses missing/mismatched SearchRun, SearchPlan or snapshot
+  refs before model work. A public-harness regression failed before correction and passes after it,
+  covering wrong id/version/title/legacy metadata, missing context and legitimate persistence/replay.
+- Independent review verified 38 artifact checksums, 22 complete output references, source pin,
+  candidate text, audit/receipt hashes and cross-node lineage for 149–151; no finding remains.
+- Backend no-emit typecheck and the full v1a harness pass: 124 offline checks, three opt-in live
+  skips; the new positive live lineage test separately passed. No profile or production prompt changed.
+- Through 151: 3,121,219 reported tokens, including 94,318 across 148–151. The same nine historical
+  calls have unknown usage; none is pending. Aggregate limits remain null, per-call deadline 600 seconds.
+  Private source, inputs, outputs, audit artifacts and frozen bundle exports remain under the shared live directory.
 
 ## Outstanding verification
 
-- Compose and qualify fresh upstream-to-v1b lineage, including a real candidate admission/persistence case with sufficient
-  source evidence. The currently enabled slice does not close CX-03 or whole-flow acceptance.
+- Compose original-source extraction into the qualified candidate-to-v1b chain and exercise its
+  upstream checkpoint boundary. The current evidence does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
 - Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and

@@ -200,7 +200,10 @@ Every extracted quote and abstract locator must match that compiled source befor
 materializer may write EvidenceMap authority. Abstract-only warnings remain visible.
 
 Need discovery reads the current EvidenceMap and strength assessment with exact search/resource
-lineage. The existing research-evidence packet service resolves reviewed current units and original
+lineage. When persistence is requested, all three persistence-context references must exactly match
+the compiled map’s SearchRun, SearchPlan and literature snapshot, including scope/version/legacy
+metadata, before a model call. Missing or changed persistence lineage is refused.
+The existing research-evidence packet service resolves reviewed current units and original
 quotes; complete strength/conflict records enter the role contexts. The existing Debate loop carries
 actual Explorer bodies and parent invocation IDs into Critic, then both role summaries and the issue
 frame into final synthesis. Every CLI role must echo its supplied loop/round/role/stage/instance

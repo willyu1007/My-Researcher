@@ -98,7 +98,10 @@ profile registry; a configured runner is required.
   issue framing and final synthesis through Codex. Critic reads both actual Explorer proposals; final
   reads recorded summaries and the issue frame. Exact role identity and complete output references are
   checked, and a failed required worker stops subsequent calls. No role execution overrides or caller answers are
-  accepted on this node. Candidate admission/persistence and Human confirmation keep their usual gates.
+  accepted on this node. To persist admitted candidates, supply `persist_admitted_candidates: true`
+  and a `persistence_context` whose SearchRun, SearchPlan and literature-snapshot refs exactly match
+  the current evidence map. A mismatch is rejected before model execution. Candidate
+  admission/persistence and Human confirmation keep their usual gates.
 
 Reuse the exact workflow/node-attempt identity and request after a lost response; completed results
 replay without another model invocation. Changed input or an unfinished claim returns 409. Inspect
