@@ -38,6 +38,7 @@ export type BoundedDebateRoleGenerationResult<TOut, TArtifact> =
   | {
     status: 'blocked';
     invocation_result: TopicSelectionAgentInvocationResult<TOut>;
+    blocker_codes?: string[];
     context_packet_ref: TopicSelectionArtifactFunctionalRef;
     context_packet_hash: string;
   };
@@ -87,6 +88,10 @@ export interface BoundedDebateCoreDeps {
 
 export class TopicSelectionBoundedDebateCoreService {
   constructor(private readonly deps: BoundedDebateCoreDeps) {}
+
+  assertProductCodexProfiles(profileIds: readonly string[]): void {
+    for (const profileId of profileIds) this.deps.agentOrchestrator.assertProductCodexProfile(profileId);
+  }
 
   // Single-source with the harness + human-path services (D1 consolidation) so the core's
   // loop_transcript_hash / context_packet_hash can never drift from the admission side.
@@ -163,6 +168,11 @@ export class TopicSelectionBoundedDebateCoreService {
     const outputHash = this.hash(structuredOutput);
     if (invocation.provenance.structured_output_hash !== outputHash) {
       throw new AppError(500, 'INTERNAL_ERROR', `${strategy.debateLoopId} structured output hash drift detected.`);
+    }
+    const blockerCodes = strategy.outputBlockerCodes?.(ctx, structuredOutput) ?? [];
+    if (blockerCodes.length) {
+      return { status: 'blocked', invocation_result: invocation, blocker_codes: blockerCodes,
+        context_packet_ref: contextPacketRef, context_packet_hash: contextPacketHash };
     }
     const outputScope = strategy.outputArtifactScope(ctx);
     const outputArtifact = await this.deps.controlPlane.recordArtifactRef({

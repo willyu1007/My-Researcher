@@ -140,6 +140,12 @@ export interface BoundedDebateStrategy<
     ctx: BoundedDebateRoleContext<THandoff, TRole, TArtifact, TInputs>,
   ): BoundedDebateContextArtifactInput;
 
+  /** Consumer admission after model/schema validation, before recording or exposing a role output. */
+  outputBlockerCodes?(
+    ctx: BoundedDebateRoleContext<THandoff, TRole, TArtifact, TInputs>,
+    output: TOut,
+  ): string[];
+
   /** assemble the version role artifact from the verified output + identity pieces. */
   assembleRoleArtifact(args: {
     ctx: BoundedDebateRoleContext<THandoff, TRole, TArtifact, TInputs>;

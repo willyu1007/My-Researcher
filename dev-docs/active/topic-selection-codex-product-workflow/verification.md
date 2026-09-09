@@ -5,7 +5,7 @@
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 2 closeout then Phase 3 on 2026-09-09 | confirmed through Phase 3 | Phases 4–5 remain required and outside current authorization; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2 and nine upstream profiles admit product CLI (20 total); 16 others remain closed. Convergence and promotion roles remain closed. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream and three evidence-convergence profiles admit product CLI (23 total); 13 others remain closed. Optional Arena and remaining selection/promotion roles are not enabled. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
 | Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
@@ -400,9 +400,59 @@ an explicitly local profile override, not a new real-model qualification. Those 
   checkpoint integration or a complete fresh upstream-to-v1b product chain. Convergence/optional
   Arena and fresh lineage remain Phase 3 work; CX-03 and whole-flow acceptance remain open.
 
+## Phase 3 evidence-convergence qualification
+
+- Product CLI now runs the three existing linked-round roles without caller-authored outputs.
+  Integration composes existing managed-library retrieval, exact claim admission, material delta,
+  successor publication, source-packet resolution, Arena claim/roles/transcript and Human checkpoint.
+  Arbiter consumes both actual independent first-pass bodies; output role and complete references
+  are admitted before persistence/exposure. Failed required work stops subsequent calls.
+- The public pilot uses real InMemory owners and JSON artifact serialization, an external CLI
+  process boundary, and controlled retrieval/readiness/Human-loopback fixtures. It exercises missing
+  retrieval, stale retrieval and provider failure without fabricating a successor; two competing
+  consumers, exact reconstructed replay, mixed ingress, wrong role/ref, timeout and interrupted
+  transcript write preserve their respective stop/recovery boundaries. No relational concurrency or
+  actual Human decision is claimed by these new tests.
+- Red/green checks exposed the former requirement for caller role output, acceptance-only internal
+  audit admission and the unequal treatment of null versus missing optional ref versions; all were
+  corrected before successful CLI composition. Independent review then found missing post-execution
+  budget evaluation. CLI roles now recheck standing policy after each return and before terminal
+  publication. At 299,999 ms the next role return stops after one call; when a round raises the count
+  from three to four, all three model results are retained but no new checkpoint is created. Both
+  exhausted outcomes replay exactly without additional model work. Existing policy values remain.
+- `convergence_v1` (137–139) passed source/role/admission/replay with three actual models. Independent
+  review verified all 12 full references, source hashes, both consumed first-pass bodies and 30
+  artifact checksums. Its test clock recorded 75 ms, so this case is only semantic/composition
+  evidence, not real elapsed-time verification.
+- Corrected `convergence_v2` (140–142) uses actual wall-clock accounting: 64,867 ms in the linked
+  round, three successful App Server calls, `linked_round_completed`, Arena
+  `evidence_expansion_required`, and an undecided Human checkpoint. The pinned original Lost in the
+  Middle section and source hash are the same as the N7 case above. Models retain positional-QA
+  findings and explicitly refuse unsupported distribution-shift repair, independent coverage and
+  sufficient-evidence conclusions. The Arbiter preserves both first-pass limitations.
+- Live qualification has controlled retrieval results/index readiness, an initial map with fixture
+  claims, and a fixed Human loopback. Only the admitted challenge section supplied to the roles is
+  original source evidence resolved through the real repository parser. It does not establish live
+  corpus retrieval quality, real Human acceptance, sufficient research evidence or end-to-end
+  candidate discovery/admission. The generated advisory does not override deterministic gate policy.
+- The three profile hashes match defaults and are now product-CLI-enabled, bringing topic selection
+  to 23 enabled/13 closed. Tests and the opt-in helper use defaults after qualification. The shared
+  core's existing v1b N6/N8 and v1c bounded/divergent checks passed all 35 tests. Forty affected
+  registry/HTTP/convergence/Arena checks passed (one live skip), backend no-emit typecheck, five LLM
+  configuration checks and matrix consistency passed. Final independent evidence review passed:
+  all 30 artifact checksums, 12 full references, output/audit/profile hashes, prior-role bodies and
+  parent/delta lineage agree. Actual 64,867 ms accounting and three successful calls were verified;
+  no unresolved code finding remains after the boundary correction.
+- Through 142: 2,958,467 reported tokens; the same nine historical calls have unknown usage, with
+  no pending call. Convergence attempts 137–142 used 84,413 reported tokens. Shared aggregate limits
+  remain null and each model call retains its 600-second deadline. The standing product convergence
+  limits are separate from this qualification ledger. Private evidence is under the same live path.
+- Optional Arena support and fresh upstream-to-v1b lineage with real candidate admission remain
+  authorized Phase 3 work. CX-03 and whole-flow acceptance remain open.
+
 ## Outstanding verification
 
-- Connect evidence convergence and optional Arena support, then qualify those roles and
+- Connect optional Arena support, then qualify those roles and
   fresh upstream-to-v1b lineage, including a real candidate admission/persistence case with sufficient
   source evidence. The currently enabled slice does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;

@@ -73,9 +73,9 @@ type RuntimeAccounting = {
 export type TopicSelectionEvidenceConvergenceRoundRoleInput = {
   participant_role: TopicSelectionEvidenceConvergenceRoundRole;
   evidence_packet_artifact_ref: TopicSelectionFunctionalRef;
-  structured_output: TopicSelectionEvidenceConvergenceRoundRoleOutput;
-  fixture_id: string | null;
-  operator_label: string | null;
+  structured_output?: TopicSelectionEvidenceConvergenceRoundRoleOutput | null;
+  fixture_id?: string | null;
+  operator_label?: string | null;
 };
 
 export type TopicSelectionRunEvidenceConvergenceRoundInput = {
@@ -85,7 +85,7 @@ export type TopicSelectionRunEvidenceConvergenceRoundInput = {
   successor_evidence_map_id: string;
   evidence_delta_ref: TopicSelectionFunctionalRef;
   issue_ref: TopicSelectionFunctionalRef;
-  execution_mode: 'mocked_llm' | 'codex_assisted';
+  execution_mode: 'mocked_llm' | 'codex_assisted' | 'codex_cli';
   role_inputs: TopicSelectionEvidenceConvergenceRoundRoleInput[];
   accounting: RuntimeAccounting;
   policy_version_id?: string | null;
@@ -160,6 +160,7 @@ type RoundHandoff = {
   evidence_map_ref: TopicSelectionFunctionalRef;
   evidence_delta_ref: TopicSelectionFunctionalRef;
   evidence_delta_hash: string;
+  evidence_delta: Record<string, unknown>;
   predecessor_arena_session_ref: TopicSelectionFunctionalRef;
   parent_transcript_hash: string;
   search_run_ref: TopicSelectionFunctionalRef;
@@ -173,6 +174,7 @@ type RoundRoleArtifact = {
   audit_ref: TopicSelectionFunctionalRef;
   audit_hash: string;
   execution_provenance: TopicSelectionAgentInvocationProvenance;
+  structured_output: TopicSelectionEvidenceConvergenceRoundRoleOutput;
 };
 
 type RoundInvocationInputs = {
@@ -200,12 +202,25 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
   constructor(
     roundId: string,
     private readonly contextProfiles: TopicSelectionContextPolicyProfileRegistryService,
+    private readonly boundaryBlockers: () => string[] = () => [],
   ) {
     this.debateLoopId = `evidence_convergence:${roundId}`;
   }
 
   assertInput(ctx: RoundRoleContext): void {
+    if (ctx.invocationInputs.role_input.participant_role !== ctx.slotId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Evidence-convergence participant role differs from its slot.');
+    }
+    if (ctx.executionMode === 'codex_cli') return;
     const output = ctx.invocationInputs.role_input.structured_output;
+    if (!output || this.outputBlockerCodes(ctx, output).length) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `Evidence-convergence role ${ctx.slotId} escaped its frozen support boundary.`);
+    }
+  }
+
+  outputBlockerCodes(ctx: RoundRoleContext, output: TopicSelectionEvidenceConvergenceRoundRoleOutput): string[] {
+    const exhausted = this.boundaryBlockers();
+    if (exhausted.length) return exhausted;
     const packet = ctx.handoff.packets[ctx.slotId].packet;
     const cited = new Set(packet.items.map((item) => this.refKey(item.evidence_unit_ref)));
     if (ctx.invocationInputs.role_input.participant_role !== ctx.slotId
@@ -216,8 +231,9 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
       || !this.sameRef(output.evidence_delta_ref, ctx.handoff.evidence_delta_ref)
       || output.support_only !== true
       || output.cited_evidence_unit_refs.some((ref) => !cited.has(this.refKey(ref)))) {
-      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `Evidence-convergence role ${ctx.slotId} escaped its frozen support boundary.`);
+      return ['EVIDENCE_CONVERGENCE_ROLE_OUTPUT_OUT_OF_SCOPE'];
     }
+    return [];
   }
 
   sourceHashes(ctx: RoundRoleContext): Record<string, string> {
@@ -263,6 +279,7 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
       issue_ref: args.ctx.handoff.issue_ref,
       evidence_map_ref: args.ctx.handoff.evidence_map_ref,
       evidence_delta_ref: args.ctx.handoff.evidence_delta_ref,
+      ...(args.ctx.executionMode === 'codex_cli' ? { evidence_delta: args.ctx.handoff.evidence_delta } : {}),
       predecessor_arena_session_ref: args.ctx.handoff.predecessor_arena_session_ref,
       evidence_packet: args.ctx.handoff.packets[args.ctx.slotId].packet,
       prior_role_outputs: args.ctx.slotId === 'synthesis_arbiter'
@@ -270,6 +287,7 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
             participant_role: artifact.participant_role,
             output_ref: artifact.output_ref,
             output_hash: artifact.output_hash,
+            ...(args.ctx.executionMode === 'codex_cli' ? { structured_output: artifact.structured_output } : {}),
           }))
         : [],
       source_hashes: args.sourceHashes,
@@ -326,7 +344,7 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
       invocation_attempt_id: `${ctx.nodeAttemptId}:${ctx.slotId}:invocation`,
       execution_mode: ctx.executionMode,
       executor_kind: 'multi_agent_debate',
-      run_mode: 'acceptance',
+      run_mode: ctx.runMode,
       profile_id: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS[ctx.slotId],
       output_contract: OUTPUT_CONTRACT,
       model_option_id: null,
@@ -352,7 +370,7 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
       context_policy_profile: runtimeProfile.profile,
       context_policy_profile_hash: runtimeProfile.profile_hash,
       runtime_invocation_context_hash: args.runtimeInvocationContextHash,
-      context_payloads: [args.contextPacket],
+      context_payloads: args.ctx.executionMode === 'codex_cli' ? [] : [args.contextPacket],
     };
   }
 
@@ -361,18 +379,19 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
     mocked_output: TopicSelectionMockedAgentOutput<TopicSelectionEvidenceConvergenceRoundRoleOutput> | null;
   } {
     const roleInput = ctx.invocationInputs.role_input;
+    if (ctx.executionMode === 'codex_cli') return { codex_response: null, mocked_output: null };
     return ctx.executionMode === 'mocked_llm'
       ? {
           mocked_output: {
             fixture_id: roleInput.fixture_id!,
-            output: roleInput.structured_output,
+            output: roleInput.structured_output!,
             mock_profile: 'evidence_convergence_round_v1',
           },
           codex_response: null,
         }
       : {
           codex_response: {
-            output: roleInput.structured_output,
+            output: roleInput.structured_output!,
             operator_label: roleInput.operator_label!,
           },
           mocked_output: null,
@@ -394,6 +413,7 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
       audit_ref: args.invocation.audit_artifact_ref!,
       audit_hash: args.auditHash,
       execution_provenance: args.invocation.provenance,
+      structured_output: args.structuredOutput,
     };
   }
 
@@ -406,7 +426,7 @@ class EvidenceConvergenceRoundStrategy implements BoundedDebateStrategy<
   }
 
   private refKey(ref: TopicSelectionFunctionalRef): string {
-    return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
+    return stableStringify([ref.ref_type, ref.ref_id, ref.version_id ?? null, ref.title_card_id ?? null, ref.legacy_ref ?? null]);
   }
 
   private uniqueRefs(refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] {
@@ -587,6 +607,9 @@ export class TopicSelectionEvidenceConvergenceRoundService {
         throw new AppError(409, 'VERSION_CONFLICT', 'A new linked round requires the current successor map and current synthesized parent arena.');
       }
     }
+    if (input.execution_mode === 'codex_cli') {
+      this.dependencies.debateCore.assertProductCodexProfiles(Object.values(TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS));
+    }
     const packets = await this.loadPackets(input, snapshot.input_snapshot_id, evidenceMap, evidenceUnits);
     const planPayload = {
       schema_version: 'TopicSelectionEvidenceConvergenceRoundExecutionPlan@v1',
@@ -677,20 +700,27 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       evidence_map_ref: this.evidenceMapRef(evidenceMap),
       evidence_delta_ref: input.evidence_delta_ref,
       evidence_delta_hash: evidenceDeltaHash,
+      evidence_delta: deltaArtifact.payload!,
       predecessor_arena_session_ref: this.ref('research_arena_session', parentSession.arena_session_id, input.title_card_id),
       parent_transcript_hash: parentSession.loop_transcript_hash!,
       search_run_ref: evidenceMap.search_run_ref,
       packets,
     };
     const inputsByRole = new Map(input.role_inputs.map((roleInput) => [roleInput.participant_role, roleInput]));
+    const elapsedMs = () => input.accounting.elapsed_ms + Math.max(0, (this.dependencies.nowMs ?? Date.now)() - startedAt);
+    const evaluateBoundary = (accounting: RuntimeAccounting) => evaluateEvidenceConvergenceBoundary({
+      policy: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY, ...accounting,
+      execution_completed: false, material_delta: true, strategy_changed: false,
+    });
     const loop = await this.dependencies.debateCore.runLoop(
-      new EvidenceConvergenceRoundStrategy(session.arena_session_id, this.dependencies.contextProfiles),
+      new EvidenceConvergenceRoundStrategy(session.arena_session_id, this.dependencies.contextProfiles,
+        input.execution_mode === 'codex_cli' ? () => evaluateBoundary({ ...input.accounting, elapsed_ms: elapsedMs() }).reason_codes : undefined),
       {
         handoff,
         workflowRunId,
         nodeAttemptId: `evidence_convergence_round:${session.arena_session_id}`,
         executionMode: input.execution_mode,
-        runMode: 'acceptance',
+        runMode: input.execution_mode === 'codex_cli' ? 'product' : 'acceptance',
         policyVersion: input.policy_version_id ?? null,
         modelOptionId: null,
         createdBy: input.execution_mode === 'codex_assisted' ? 'hybrid' : 'system',
@@ -701,20 +731,22 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       ...input.accounting,
       orchestration_steps: input.accounting.orchestration_steps + 1,
       linked_rounds: input.accounting.linked_rounds + 1,
-      elapsed_ms: input.accounting.elapsed_ms + Math.max(
-        0,
-        (this.dependencies.nowMs ?? Date.now)() - startedAt,
-      ),
+      elapsed_ms: elapsedMs(),
     };
-    if (loop.status === 'blocked') {
+    const terminalBoundary = evaluateBoundary(accounting);
+    const exhausted = terminalBoundary.disposition === 'boundary_exhausted_unresolved';
+    if (loop.status === 'blocked' || exhausted) {
       const blockedPayload = {
         schema_version: 'TopicSelectionEvidenceConvergenceRoundBlocked@v1',
         arena_session_id: session.arena_session_id,
         input_snapshot_id: snapshot.input_snapshot_id,
         request_identity_hash: requestIdentityHash,
         result_accounting: accounting,
-        failed_slot: loop.failed_slot,
-        invocation_status: loop.turn.invocation_result.status,
+        failed_slot: loop.status === 'blocked' ? loop.failed_slot : null,
+        invocation_status: loop.status === 'blocked' ? loop.turn.invocation_result.status : 'succeeded',
+        ...(exhausted ? { boundary_reason_codes: terminalBoundary.reason_codes } : {}),
+        ...(input.execution_mode === 'codex_cli' && loop.status === 'blocked' ? { admission_blocker_codes: loop.turn.blocker_codes ?? [],
+          agent_invocation_audit_ref: loop.turn.invocation_result.audit_artifact_ref } : {}),
         support_only: true,
       };
       const blockedHash = sha256Text(stableStringify(blockedPayload));
@@ -735,6 +767,7 @@ export class TopicSelectionEvidenceConvergenceRoundService {
         arena_session_id: session.arena_session_id,
         blocked_transcript_artifact_ref: this.artifactRef(blockedArtifact, input.title_card_id),
       });
+      if (exhausted) return { status: 'boundary_exhausted_unresolved', reason_codes: terminalBoundary.reason_codes, accounting };
       return {
         status: 'role_blocked_unresolved',
         reason_codes: ['EVIDENCE_CONVERGENCE_ROLE_BLOCKED'],
@@ -971,6 +1004,15 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       || this.requireChecksum(artifact, 'Blocked linked-round transcript') !== session.loop_transcript_hash) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Blocked linked-round transcript identifies a different request.');
     }
+    if (Array.isArray(payload.boundary_reason_codes) && payload.boundary_reason_codes.length) {
+      const boundary = evaluateEvidenceConvergenceBoundary({ policy: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+        ...accounting, execution_completed: false, material_delta: true, strategy_changed: false });
+      if (boundary.disposition !== 'boundary_exhausted_unresolved'
+        || stableStringify(boundary.reason_codes) !== stableStringify(payload.boundary_reason_codes)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Blocked linked-round boundary accounting is invalid.');
+      }
+      return { status: 'boundary_exhausted_unresolved', reason_codes: boundary.reason_codes, accounting };
+    }
     return {
       status: 'role_blocked_unresolved',
       reason_codes: ['EVIDENCE_CONVERGENCE_ROLE_BLOCKED'],
@@ -1054,7 +1096,8 @@ export class TopicSelectionEvidenceConvergenceRoundService {
 
   private assertInput(input: TopicSelectionRunEvidenceConvergenceRoundInput): void {
     const roles = input.role_inputs.map((roleInput) => roleInput.participant_role);
-    if (!input.title_card_id.trim() || !input.predecessor_arena_session_id.trim()
+    if (!['mocked_llm', 'codex_assisted', 'codex_cli'].includes(input.execution_mode)
+      || !input.title_card_id.trim() || !input.predecessor_arena_session_id.trim()
       || !input.successor_evidence_map_id.trim()
       || input.issue_ref.ref_type !== 'coverage_row_intent'
       || input.issue_ref.title_card_id !== input.title_card_id
@@ -1066,6 +1109,8 @@ export class TopicSelectionEvidenceConvergenceRoundService {
         || roleInput.evidence_packet_artifact_ref.title_card_id !== input.title_card_id
         || (input.execution_mode === 'mocked_llm' && !roleInput.fixture_id?.trim())
         || (input.execution_mode === 'codex_assisted' && !roleInput.operator_label?.trim())
+        || (input.execution_mode === 'codex_cli' && (roleInput.structured_output != null || roleInput.fixture_id != null || roleInput.operator_label != null))
+        || (input.execution_mode !== 'codex_cli' && !roleInput.structured_output)
       ))) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Evidence-convergence linked round input is incomplete or out of order.');
     }
@@ -1255,7 +1300,8 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       && 'ref_type' in value && value.ref_type === expected.ref_type
       && 'ref_id' in value && value.ref_id === expected.ref_id
       && 'title_card_id' in value && value.title_card_id === expected.title_card_id
-      && ('version_id' in value ? value.version_id : undefined) === expected.version_id);
+      && (('version_id' in value ? value.version_id : null) ?? null) === (expected.version_id ?? null)
+      && (('legacy_ref' in value ? value.legacy_ref : null) ?? null) === (expected.legacy_ref ?? null));
   }
 
   private refKey(ref: TopicSelectionFunctionalRef): string {

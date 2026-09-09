@@ -23,7 +23,7 @@ N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` con
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
 remain reserved. The default registry admits the 11 profiles used by this slice; no registry override
 is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
-below (20 total). Other selection/promotion roles remain closed.
+below; three evidence-convergence roles bring the total to 23. Other selection/promotion roles remain closed.
 
 N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
 one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact
@@ -131,6 +131,27 @@ or profile and acceptance-mode CLI requests are rejected. Completed or blocked s
 their exact receipts without another model call. Changed input requires a new attempt; an unfinished
 claim first requires inspection of retained model and domain records, including any already written
 Human decision. No automatic recovery of a partial confirmation write is promised.
+
+### Evidence convergence
+
+Use the existing retrieval request and evidence-map successor endpoints to admit exact retrieved
+claims and publish a successor. Then `POST /topic-selection/evidence-convergence/linked-rounds`
+accepts `execution_mode: "codex_cli"` with the existing predecessor Arena, successor EvidenceMap,
+EvidenceDelta, issue and accounting fields. Supply exactly three `role_inputs` in order:
+`opportunity_scout`, `empirical_skeptic`, `synthesis_arbiter`. Each contains `participant_role` and
+`evidence_packet_artifact_ref`; omit model output and fixture/operator labels.
+
+The backend verifies packets against repository originals, runs both independent first passes,
+then gives their actual bodies to the Arbiter. The existing deterministic checkpoint remains the
+Human boundary. `remain_unresolved`/`evidence_expansion_required` is a legitimate conclusion, even
+when the checkpoint is eligible for Human review. Optional candidate-Arena shadow support remains
+outside this enabled slice.
+
+Replay the same input for an exact completed or blocked result. A changed request or partially
+written claimed round cannot silently run again; inspect its retained model, role and transcript
+records first. Existing convergence limits apply between CLI roles and before checkpoint creation;
+`boundary_exhausted_unresolved` cannot advance. These checks do not interrupt an active role before
+its separately configured runner deadline.
 
 ## Regular N6 question candidates
 

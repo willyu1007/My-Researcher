@@ -95,6 +95,16 @@ const publishSuccessorBody = {
 const runLinkedRoundBody = {
   type: 'object',
   additionalProperties: false,
+  allOf: [{
+    if: { properties: { execution_mode: { const: 'codex_cli' } } },
+    then: { properties: { role_inputs: { type: 'array', items: { type: 'object', properties: {
+      structured_output: { type: 'null' }, fixture_id: { type: 'null' }, operator_label: { type: 'null' },
+    } } } } },
+    else: { properties: { role_inputs: { type: 'array', items: { type: 'object',
+      required: ['structured_output', 'fixture_id', 'operator_label'],
+      properties: { structured_output: topicSelectionEvidenceConvergenceRoundRoleOutputSchema },
+    } } } },
+  }],
   required: [
     'title_card_id',
     'predecessor_arena_session_id',
@@ -112,7 +122,7 @@ const runLinkedRoundBody = {
     successor_evidence_map_id: stringId,
     evidence_delta_ref: topicSelectionFunctionalRefSchema,
     issue_ref: topicSelectionFunctionalRefSchema,
-    execution_mode: { enum: ['mocked_llm', 'codex_assisted'] },
+    execution_mode: { enum: ['mocked_llm', 'codex_assisted', 'codex_cli'] },
     role_inputs: {
       type: 'array',
       minItems: 3,
@@ -123,16 +133,13 @@ const runLinkedRoundBody = {
         required: [
           'participant_role',
           'evidence_packet_artifact_ref',
-          'structured_output',
-          'fixture_id',
-          'operator_label',
         ],
         properties: {
           participant_role: {
             enum: ['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'],
           },
           evidence_packet_artifact_ref: topicSelectionFunctionalRefSchema,
-          structured_output: topicSelectionEvidenceConvergenceRoundRoleOutputSchema,
+          structured_output: { anyOf: [topicSelectionEvidenceConvergenceRoundRoleOutputSchema, { type: 'null' }] },
           fixture_id: { anyOf: [stringId, { type: 'null' }] },
           operator_label: { anyOf: [stringId, { type: 'null' }] },
         },

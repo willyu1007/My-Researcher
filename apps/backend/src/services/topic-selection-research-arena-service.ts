@@ -1067,7 +1067,8 @@ export class TopicSelectionResearchArenaService {
       && 'ref_type' in value && value.ref_type === expected.ref_type
       && 'ref_id' in value && value.ref_id === expected.ref_id
       && 'title_card_id' in value && value.title_card_id === expected.title_card_id
-      && ('version_id' in value ? value.version_id : undefined) === expected.version_id);
+      && (('version_id' in value ? value.version_id : null) ?? null) === (expected.version_id ?? null)
+      && (('legacy_ref' in value ? value.legacy_ref : null) ?? null) === (expected.legacy_ref ?? null));
   }
 
   private readInvocationAudit(
@@ -1098,7 +1099,8 @@ export class TopicSelectionResearchArenaService {
       || audit.workflow_run_id !== provenance.workflow_run_id
       || audit.node_attempt_id !== provenance.node_attempt_id
       || audit.provenance.executor_kind !== 'multi_agent_debate'
-      || audit.provenance.run_mode !== 'acceptance'
+      || audit.provenance.run_mode !== (provenance.execution_mode === 'codex_cli' ? 'product' : 'acceptance')
+      || (provenance.execution_mode === 'codex_cli' && provenance.source_kind !== 'codex_cli_response')
       || audit.provenance.structured_output_hash !== outputArtifactHash
       || stableStringify(audit.provenance) !== stableStringify(provenance)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Agent invocation audit does not identify the admitted role output.');

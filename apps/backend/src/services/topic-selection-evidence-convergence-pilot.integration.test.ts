@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
@@ -94,7 +99,7 @@ function literature(): LiteratureRecord {
   };
 }
 
-function fulltext(): LiteratureFulltextExtractionBundle {
+function fulltext(challengeStatement = CHALLENGE_STATEMENT): LiteratureFulltextExtractionBundle {
   return {
     document: {
       id: DOCUMENT_ID,
@@ -102,7 +107,7 @@ function fulltext(): LiteratureFulltextExtractionBundle {
       sourceAssetId: 'asset_pilot',
       normalizedText: [
         'The intervention improves evidence retrieval.',
-        CHALLENGE_STATEMENT,
+        challengeStatement,
         'The nearest baseline omits reviewer-aligned evidence checks.',
       ].join(' '),
       normalizedTextPath: null,
@@ -151,11 +156,11 @@ function fulltext(): LiteratureFulltextExtractionBundle {
       paragraphId: 'paragraph:challenge',
       sectionId: 'section:results',
       orderIndex: 2,
-      text: CHALLENGE_STATEMENT,
+      text: challengeStatement,
       startOffset: 46,
       endOffset: 100,
       pageNumber: 1,
-      checksum: 'pilot-challenge-checksum',
+      checksum: sha256Text(challengeStatement),
       confidence: 0.99,
       createdAt: '2026-09-03T07:00:00.000Z',
       updatedAt: '2026-09-03T07:00:00.000Z',
@@ -197,7 +202,7 @@ function locator(
   };
 }
 
-function retrievalResponse(query: string): LiteratureRetrieveResponse {
+function retrievalResponse(query: string, challengeStatement = CHALLENGE_STATEMENT): LiteratureRetrieveResponse {
   return {
     items: [{
       literature_id: LITERATURE_ID,
@@ -213,9 +218,9 @@ function retrievalResponse(query: string): LiteratureRetrieveResponse {
       evidence_chunks: [{
         chunk_id: `chunk:${query}`,
         chunk_type: 'fulltext_paragraph',
-        text: CHALLENGE_STATEMENT,
+        text: challengeStatement,
         start_offset: 0,
-        end_offset: CHALLENGE_STATEMENT.length,
+        end_offset: challengeStatement.length,
         source_refs: [{ ref_type: 'paragraph', ref_id: CHALLENGE_PARAGRAPH_ID }],
         metadata: { paragraph_id: CHALLENGE_PARAGRAPH_ID },
         hybrid_score: 0.95,
@@ -276,14 +281,33 @@ function roleOutput(
   };
 }
 
-test('bounded local pilot completes retrieval -> admission -> successor -> linked round -> checkpoint', async () => {
+for (const caseId of ['mocked_llm', 'codex_cli', 'invalid_ref', 'invalid_role', 'timeout', 'interrupted_write', 'elapsed_boundary', 'round_boundary', 'codex_live'] as const) {
+const executionMode = caseId === 'mocked_llm' ? 'mocked_llm' : 'codex_cli';
+test(`bounded ${caseId} pilot preserves retrieval -> admission -> successor -> linked round -> checkpoint`, {
+  skip: caseId === 'codex_live' && process.env.TOPIC_SELECTION_CODEX_CONVERGENCE_QUALIFICATION !== 'live',
+}, async t => {
+  const live = caseId === 'codex_live';
+  const runId = live ? process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID : null;
+  let challengeStatement = CHALLENGE_STATEMENT;
+  let sourceUrl = 'file://pilot.pdf';
+  if (live) {
+    const sourceFile = process.env.TOPIC_SELECTION_QUALIFICATION_FULLTEXT;
+    assert.ok(runId && /^[a-zA-Z0-9_-]{1,40}$/.test(runId) && sourceFile);
+    const source = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as { text: string; url: string };
+    assert.equal(source.url, 'https://arxiv.org/html/2307.03172v3#S2.SS3');
+    assert.equal(sha256Text(source.text), '137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21');
+    challengeStatement = source.text;
+    sourceUrl = source.url;
+  }
   let sequence = 0;
   let timeSequence = 0;
-  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  const idFactory = (prefix: string) => `${runId ? `${runId}_` : ''}${prefix}_${++sequence}`;
   const now = () => new Date(BASE_TIME_MS + timeSequence++ * 1_000).toISOString();
   const titleCards = new InMemoryTitleCardManagementRepository();
   const literatureRepository = new InMemoryLiteratureRepository();
   const controlRepository = new InMemoryTopicSelectionControlPlaneRepository();
+  const createArtifact = controlRepository.createArtifactRef.bind(controlRepository);
+  controlRepository.createArtifactRef = record => createArtifact(JSON.parse(JSON.stringify(record)));
   const controlPlane = new TopicSelectionControlPlaneService(controlRepository, { idFactory, now });
   const searchRepository = new InMemoryTopicSelectionSearchResourceRepository();
   const evidenceRepository = new InMemoryTopicSelectionEvidenceMapRepository();
@@ -375,7 +399,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     literatureId: LITERATURE_ID,
     provider: 'manual',
     sourceItemId: 'pilot-source-item',
-    sourceUrl: 'file://pilot.pdf',
+    sourceUrl,
     rawPayload: {},
     fetchedAt: '2026-09-03T07:00:00.000Z',
   });
@@ -388,7 +412,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     dedupStatus: 'unique',
     updatedAt: '2026-09-03T07:00:00.000Z',
   });
-  await literatureRepository.upsertFulltextExtractionBundle(fulltext());
+  await literatureRepository.upsertFulltextExtractionBundle(fulltext(challengeStatement));
 
   const seed = await searchService.createTopicSeedFromTitleCard({
     title_card_id: titleCardId,
@@ -619,7 +643,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     retriever: {
       retrieve: async (request) => {
         retrievalCalls.push(request);
-        return retrievalResponse(request.query);
+        return retrievalResponse(request.query, challengeStatement);
       },
     },
     scopedRetriever: {
@@ -685,7 +709,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
   });
   const execution = retrieval.executions[0]!;
   const hit = execution.retrieval_hits[0]!;
-  assert.equal(hit.source_text, CHALLENGE_STATEMENT);
+  assert.equal(hit.source_text, challengeStatement);
   assert.equal(hit.chunk_ref.ref_id, CHALLENGE_PARAGRAPH_ID);
   assert.notEqual(execution.request_ref.ref_id, execution.search_run_ref.ref_id);
   const persistedRetrievalRun = await searchService.getSearchRunById(execution.search_run_ref.ref_id);
@@ -722,7 +746,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     searchResources: searchService,
     evidenceMapReader: evidenceRepository,
     retriever: {
-      retrieve: async (request) => ({ ...retrievalResponse(request.query), items: [] }),
+      retrieve: async (request) => ({ ...retrievalResponse(request.query, challengeStatement), items: [] }),
     },
     scopedRetriever: {
       retrieve: async () => { throw new Error('unexpected narrowed retrieval'); },
@@ -753,7 +777,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     retriever: {
       retrieve: async (request) => {
         staleRetrievalCalls += 1;
-        const response = retrievalResponse(request.query);
+        const response = retrievalResponse(request.query, challengeStatement);
         return {
           ...response,
           items: response.items.map((item) => ({ ...item, is_stale: true })),
@@ -828,7 +852,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     predecessor_evidence_map_id: initialMap.evidence_map_id,
     search_run_id: execution.search_run_ref.ref_id,
     issue_ref: issueRef,
-    decision_relevance: 'The exact retrieved counter-claim fills the required challenge row.',
+    decision_relevance: live ? 'The original results document position-dependent QA performance. This controlled fixture classifies the section as challenge coverage; it does not establish a repair, independent coverage or sufficient research evidence.' : 'The exact retrieved counter-claim fills the required challenge row.',
     claim_admissions: [{
       schema_version: 'TopicSelectionEvidenceConvergenceClaimAdmission@v1',
       request_ref: execution.request_ref,
@@ -838,7 +862,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
       chunk_ref: hit.chunk_ref,
       chunk_hash: hit.chunk_hash,
       evidence_role: 'challenge',
-      source_statement: CHALLENGE_STATEMENT,
+      source_statement: challengeStatement,
       normalized_statement: 'The intervention is brittle under distribution shift.',
       interpretation_payload: { admission_reason: 'Direct evidence for the required challenge row.' },
       extraction_confidence: 0.95,
@@ -865,7 +889,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
         intent_type: 'challenge',
         query: 'Does the admitted claim resolve the distribution-shift challenge?',
         rationale: 'Recheck the same evidence-landscape gate after exact claim admission.',
-        target_claim: CHALLENGE_STATEMENT,
+        target_claim: challengeStatement,
       },
       evidence_unit_refs: [admittedUnitRef],
     });
@@ -891,58 +915,156 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     titleCardId,
     successorMap.evidence_map_version,
   );
+  let cliCalls = 0;
+  const priorBodies: TopicSelectionEvidenceConvergenceRoundRoleOutput[] = [];
+  const home = await fs.mkdtemp(join(tmpdir(), 'convergence-cli-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  let runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    cliCalls++;
+    if (caseId === 'timeout') return { stdout: '', stderr: '', exit_code: null, timed_out: true };
+    const context = JSON.parse(options.stdin.split('<evidence_convergence_round>\n')[1]!.split('\n</evidence_convergence_round>')[0]!) as {
+      participant_role: TopicSelectionEvidenceConvergenceRoundRole;
+      evidence_packet: { items: Array<{ resolved_excerpt: string }> };
+      prior_role_outputs: Array<{ structured_output: TopicSelectionEvidenceConvergenceRoundRoleOutput }>;
+    };
+    assert.equal(context.evidence_packet.items[0]!.resolved_excerpt, challengeStatement);
+    assert.deepEqual(context.prior_role_outputs.map(item => item.structured_output),
+      context.participant_role === 'synthesis_arbiter' ? priorBodies : []);
+    const output = roleOutput(context.participant_role, issueRef, successorMapRef, successor.evidence_delta_ref, admittedUnitRef);
+    for (const key of ['issue_ref', 'evidence_map_ref', 'evidence_delta_ref'] as const) {
+      output[key] = { ...output[key], version_id: output[key].version_id ?? null, legacy_ref: null };
+    }
+    output.cited_evidence_unit_refs = output.cited_evidence_unit_refs.map(ref => ({ ...ref, legacy_ref: null }));
+    output.semantic_position.summary = `Actual ${context.participant_role} reviewed: ${context.evidence_packet.items[0]!.resolved_excerpt}`;
+    if (caseId === 'invalid_ref') output.cited_evidence_unit_refs[0]!.version_id = 'forged-version';
+    if (caseId === 'invalid_role') output.participant_role = 'synthesis_arbiter';
+    priorBodies.push(output);
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `convergence-${cliCalls}` }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
+      stderr: '', exit_code: 0, timed_out: false };
+  });
+  let liveBudget: import('./test-fixtures/topic-selection-codex-qualification-budget.js').CodexQualificationBudget | null = null;
+  let liveDirectory: string | null = null;
+  if (live) {
+    const { qualificationRunner } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+    const outputRoot = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+    const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+    const codexHome = process.env.TOPIC_SELECTION_CODEX_HOME;
+    assert.ok(outputRoot && model && codexHome && process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED === '1');
+    const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
+    const qualification = qualificationRunner({ codex_home: codexHome, model, reasoning_effort: 'high', transport: 'app_server',
+      binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    runner = qualification.runner;
+    liveBudget = qualification.budget;
+    liveDirectory = qualification.directory;
+    await fs.writeFile(join(liveDirectory, `${runId}-manifest.json`), JSON.stringify({ source: sourceUrl, source_hash: sha256Text(challengeStatement),
+      controlled_retrieval_readiness_initial_map_and_human_loopback: true, actual_human_decision: false,
+      real_repository_excerpt_resolution: true, model, limits }, null, 2), { mode: 0o600, flag: 'wx' });
+    t.after(async () => {
+      await fs.writeFile(join(liveDirectory!, `${runId}-artifacts.json`), JSON.stringify(await controlPlane.listArtifactRefsByWorkflowRunId(successorMap.workflow_run_id!), null, 2), { mode: 0o600 });
+      liveBudget?.close();
+    });
+  }
+  t.after(() => runner.shutdown());
+  const orchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, now, codexCliRunner: runner, codexCliModelId: runner.executionIdentity.model,
+    modelProfileRegistry: new TopicSelectionModelProfileRegistryService() });
   let elapsedClock = 100;
-  const roundService = new TopicSelectionEvidenceConvergenceRoundService({
+  const buildRoundService = () => new TopicSelectionEvidenceConvergenceRoundService({
     controlPlane,
     evidenceMaps: evidenceRepository,
     searchResources: searchService,
     arena: arenaService,
     debateCore: new TopicSelectionBoundedDebateCoreService({
       controlPlane,
-      agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, now }),
+      agentOrchestrator: orchestrator,
     }),
     contextProfiles: new TopicSelectionContextPolicyProfileRegistryService(),
     evidencePacketResolver: packetService,
     checkpoints: checkpointService,
-    nowMs: () => {
+    nowMs: live ? Date.now : () => {
       const current = elapsedClock;
       elapsedClock += 25;
       return current;
     },
   });
+  const roundService = buildRoundService();
   const roundInput = {
     title_card_id: titleCardId,
     predecessor_arena_session_id: parentArena.arena_session_id,
     successor_evidence_map_id: successorMap.evidence_map_id,
     evidence_delta_ref: successor.evidence_delta_ref,
     issue_ref: issueRef,
-    execution_mode: 'mocked_llm',
+    execution_mode: executionMode,
     role_inputs: packetArtifacts.map(({ role, ref: packetRef }) => ({
       participant_role: role,
       evidence_packet_artifact_ref: packetRef,
-      structured_output: roleOutput(
+      structured_output: executionMode === 'codex_cli' ? null : roleOutput(
         role,
         issueRef,
         successorMapRef,
         successor.evidence_delta_ref,
         admittedUnitRef,
       ),
-      fixture_id: `pilot_${role}`,
+      fixture_id: executionMode === 'codex_cli' ? null : `pilot_${role}`,
       operator_label: null,
     })),
-    accounting: retrieval.accounting,
+    accounting: caseId === 'elapsed_boundary' ? { ...retrieval.accounting, elapsed_ms: 299_999 }
+      : caseId === 'round_boundary' ? { ...retrieval.accounting, linked_rounds: 3 } : retrieval.accounting,
   } satisfies TopicSelectionRunEvidenceConvergenceRoundInput;
-  const round = await roundService.runLinkedRound(roundInput);
+  if (executionMode === 'codex_cli') {
+    await assert.rejects(roundService.runLinkedRound({ ...roundInput, role_inputs: roundInput.role_inputs.map(item => ({ ...item, fixture_id: 'forbidden' })) }), /incomplete or out of order/);
+    assert.equal(cliCalls, 0);
+    assert.equal((await arenaRepository.findCurrentSession(titleCardId, 'evidence_landscape'))?.arena_session_id, parentArena.arena_session_id);
+  }
+  if (caseId === 'interrupted_write') {
+    const create = controlRepository.createArtifactRef.bind(controlRepository);
+    controlRepository.createArtifactRef = record => {
+      if (record.stable_key?.startsWith('evidence-convergence-round-transcript:')) throw new Error('Transcript storage unavailable');
+      return create(record);
+    };
+    await assert.rejects(roundService.runLinkedRound(roundInput), /Transcript storage unavailable/);
+    controlRepository.createArtifactRef = create;
+    assert.equal((await buildRoundService().runLinkedRound(roundInput)).status, 'execution_interrupted_unresolved');
+    assert.equal(cliCalls, 3);
+    assert.equal((await checkpointRepository.findCurrentCheckpoint(titleCardId, 'evidence_landscape'))?.research_checkpoint_id, initialCheckpoint.research_checkpoint_id);
+    return;
+  }
+  const submissions = await Promise.allSettled([roundService.runLinkedRound(roundInput), buildRoundService().runLinkedRound(roundInput)]);
+  const completed = submissions.filter(item => item.status === 'fulfilled' && item.value.status !== 'execution_interrupted_unresolved');
+  assert.equal(completed.length, 1, JSON.stringify(submissions));
+  const winner = completed[0]!;
+  assert.ok(winner.status === 'fulfilled');
+  const round = winner.value;
+  if (liveDirectory) await fs.writeFile(join(liveDirectory, `${runId}-result.json`), JSON.stringify(round, null, 2), { mode: 0o600 });
+  const liveAttempts = liveBudget?.snapshot().attempts.length;
+  if (caseId === 'elapsed_boundary' || caseId === 'round_boundary') {
+    assert.equal(round.status, 'boundary_exhausted_unresolved');
+    assert.ok(round.reason_codes.includes(caseId === 'elapsed_boundary' ? 'MAX_ELAPSED_TIME_EXHAUSTED' : 'MAX_LINKED_ROUNDS_EXHAUSTED'));
+    assert.deepEqual(await buildRoundService().runLinkedRound(roundInput), round);
+    assert.equal(cliCalls, caseId === 'elapsed_boundary' ? 1 : 3, 'Respect both inter-role time and terminal round-count boundaries.');
+    assert.equal((await checkpointRepository.findCurrentCheckpoint(titleCardId, 'evidence_landscape'))?.research_checkpoint_id, initialCheckpoint.research_checkpoint_id);
+    return;
+  }
+  if (['invalid_ref', 'invalid_role', 'timeout'].includes(caseId)) {
+    assert.equal(round.status, 'role_blocked_unresolved');
+    assert.deepEqual(await buildRoundService().runLinkedRound(roundInput), round);
+    assert.equal(cliCalls, 1);
+    assert.equal((await arenaRepository.listRoleExecutionsBySessionId(round.arena_session.arena_session_id)).length, 0);
+    assert.equal((await checkpointRepository.findCurrentCheckpoint(titleCardId, 'evidence_landscape'))?.research_checkpoint_id, initialCheckpoint.research_checkpoint_id);
+    return;
+  }
 
   assert.equal(round.status, 'linked_round_completed');
   assert.equal(round.arena_session.status, 'synthesized');
   assert.equal(round.arena_session.supersedes_arena_session_id, parentArena.arena_session_id);
   assert.equal(round.round_link.evidence_delta_ref.ref_id, successor.evidence_delta_ref.ref_id);
   assert.equal(round.round_link.parent_transcript_hash, parentTranscriptHash);
-  assert.deepEqual(round.accounting, {
+  assert.ok(round.accounting.elapsed_ms >= retrieval.accounting.elapsed_ms);
+  assert.deepEqual({ ...round.accounting, elapsed_ms: 0 }, {
     orchestration_steps: 2,
     linked_rounds: 1,
-    elapsed_ms: 50,
+    elapsed_ms: 0,
     accumulated_cost_microusd: 250,
   });
   const finalCheckpointPacket = await checkpointService.getPacket(round.checkpoint.research_checkpoint_id);
@@ -953,7 +1075,9 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
   assert.notEqual(execution.request_ref.ref_id, successor.evidence_delta_ref.ref_id);
   assert.notEqual(successor.evidence_delta_ref.ref_id, round.round_link_ref.ref_id);
   assert.notEqual(round.round_link_ref.ref_id, round.transcript_ref.ref_id);
-  const roundReplay = await roundService.runLinkedRound(roundInput);
+  const roundReplay = await buildRoundService().runLinkedRound(roundInput);
+  assert.equal(cliCalls, live ? 0 : executionMode === 'codex_cli' ? 3 : 0);
+  if (liveBudget) assert.equal(liveBudget.snapshot().attempts.length, liveAttempts);
   assert.deepEqual(roundReplay, round);
   assert.equal(
     (await arenaRepository.listRoleExecutionsBySessionId(round.arena_session.arena_session_id)).length,
@@ -995,3 +1119,5 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
   }), /superseded predecessor permits only an exact materialized retrieval replay/u);
   assert.equal(retrievalCalls.length, 2);
 });
+
+}

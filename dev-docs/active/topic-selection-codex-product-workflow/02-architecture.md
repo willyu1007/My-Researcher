@@ -10,7 +10,7 @@ The T-151 orchestrator has a `codex_cli` branch and a runner outcome with trace 
 
 N6 regular initial question generation already requires two Explorer outputs, one Critic and one Arbiter over frozen input. N8 assessment conditionally routes through its existing bounded Debate and admission. Their gateway-provider branches have dormancy plus incomplete-live-path guards; changing the shared constant cannot supply missing role output/provenance wiring. Refinement-delta and promotion callers have their own execution restrictions. The v1a need-discovery final-synthesis slot now composes the same product CLI runner as its preceding roles; external operator substitution remains separate.
 
-T-150 provides evidence-stage managed-library retrieval, admitted claim delta, successor EvidenceMap and linked frozen rounds. Public granular APIs expose retrieval execution, successor maps and linked rounds; the full pilot composes existing owners. Existing CLI research MCP tools list/read a frozen evidence scope; they do not themselves implement this retrieval loop. Connecting these owners requires explicit product composition without making the model an evidence or checkpoint authority.
+T-150 provides evidence-stage managed-library retrieval, admitted claim delta, successor EvidenceMap and linked frozen rounds. Public granular APIs expose retrieval execution, successor maps and linked rounds; the full pilot composes existing owners. Existing CLI research MCP tools list/read a frozen evidence scope; they do not themselves implement this retrieval loop. T-153 now composes these owners through product CLI roles without making the model an evidence or checkpoint authority.
 
 ## Settled design and boundaries
 
@@ -247,3 +247,28 @@ Submission results use their JSON persistence shape before hashing, writing and 
 assertions omit absent optional fields, so JSON serialization does not invalidate trace or completion
 checksums. Exact service reconstruction replay returns the same wire result without another model
 call; corrupt historical receipts remain blocked rather than rewritten as new qualification evidence.
+
+## Phase 3 evidence-convergence rounds
+
+The canonical linked-round endpoint accepts product `codex_cli` with three ordered role inputs
+containing only participant role and frozen evidence-packet artifact ref. CLI refuses supplied role
+answers or operator/fixture labels. It preflights all three existing profiles against the app-owned
+runner before opening/claiming a new Arena session; completed/blocked historical replay needs no
+runner. The existing retrieval coordinator, claim admission, EvidenceDelta and successor-map owners
+remain the only evidence authorities.
+
+Each independent first pass sees its verified original excerpt packet and admitted delta body.
+The synthesis Arbiter receives both actual first-pass outputs and their hashes. Shared Debate core
+applies the strategy's output-reference/role admission before recording a role artifact or exposing
+it to a later role; a failed worker stops the loop with its audit retained. Full nullable references
+compare consistently with absent optional values. Product CLI audits retain their actual identity;
+legacy mock/external audits continue using acceptance mode.
+
+The existing durable session claim excludes competing writers. Complete and blocked outcomes replay
+from their frozen transcript, request identity and checkpoint input. A partially written round
+remains interrupted and does not rerun model work automatically. Execution policy is rechecked after
+each CLI role and before terminal publication; exhaustion writes a blocked terminal without a new
+checkpoint, and replay validates its accounting. This stops subsequent work after a role returns;
+the runner's own per-call deadline governs interruption of an active model call. Live accounting uses
+wall-clock time. Advisory `remain_unresolved` is preserved separately from the deterministic gate's
+Human-review eligibility; neither records a Human decision.

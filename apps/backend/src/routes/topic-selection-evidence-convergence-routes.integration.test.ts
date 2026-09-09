@@ -246,5 +246,15 @@ test('evidence-convergence linked-round route rejects gate or Human authority fi
   });
   assert.equal(rejected.statusCode, 400);
   assert.equal(calls, 1);
+  const cli = await app.inject({ method: 'POST', url: '/topic-selection/evidence-convergence/linked-rounds',
+    payload: { ...payload, execution_mode: 'codex_cli', role_inputs: payload.role_inputs.map(roleInput => ({
+      participant_role: roleInput.participant_role, evidence_packet_artifact_ref: roleInput.evidence_packet_artifact_ref,
+    })) } });
+  assert.equal(cli.statusCode, 200, cli.body);
+  assert.equal(calls, 2);
+  const mixed = await app.inject({ method: 'POST', url: '/topic-selection/evidence-convergence/linked-rounds',
+    payload: { ...payload, execution_mode: 'codex_cli' } });
+  assert.equal(mixed.statusCode, 400);
+  assert.equal(calls, 2);
   await app.close();
 });
