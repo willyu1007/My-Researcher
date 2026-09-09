@@ -40,6 +40,7 @@ import {
   topicSelectionAgentInvocationAuditSnapshotSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import { AppError } from '../errors/app-error.js';
+import { executeClaimedCodexAttempt } from './topic-selection-codex-attempt-service.js';
 import type {
   TopicSelectionCodexCliMcpServer,
   TopicSelectionCodexCliRunOutcome,
@@ -987,14 +988,28 @@ export class TopicSelectionAgentOrchestratorService {
     // The handle is minted for this attempt and released with it: one that outlived the attempt
     // would be a second, unaudited way into the product's data.
     const scope = this.mintCodexCliScope(input, invocationAttemptId);
+    if (input.mcp_evidence?.length && !scope) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex evidence requires a title-scoped, configured MCP endpoint and scope store.');
+    }
     let outcome: TopicSelectionCodexCliRunOutcome;
     try {
-      outcome = await this.codexCliRunner.run({
+      const runner = this.codexCliRunner;
+      outcome = await executeClaimedCodexAttempt(this.controlPlane, {
+        workspace_id: input.workspace_id ?? null, title_card_id: input.title_card_id ?? null,
+        workflow_run_id: input.workflow_run_id, node_id: input.node_id,
+        invocation_attempt_id: invocationAttemptId,
+        request_hash: this.hash({
+          prompt_packet_hash: promptPacketHash, output_schema: outputSchema,
+          profile_hash: resolvedProfile.profile_hash, runner: runner.executionIdentity,
+          mcp_evidence: input.mcp_evidence ?? [], mcp_read_budget: input.mcp_read_budget ?? null,
+          run_mode: input.run_mode,
+        }),
+      }, () => runner.run({
         prompt: this.codexPromptText(input, scope?.handle ?? null),
         output_schema: outputSchema,
         invocation_attempt_id: invocationAttemptId,
         mcp_servers: this.codexCliMcpServers(scope !== null),
-      });
+      }));
     } finally {
       if (scope) {
         this.mcpScopeStore?.release(scope.handle);

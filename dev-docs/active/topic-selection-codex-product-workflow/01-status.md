@@ -6,7 +6,7 @@ Align the existing topic-selection agent execution policies and make the complet
 ## Progress
 - State: in-progress
 - Current phase: Phase 2 — approved implementation begins with N6/N8 context and provenance
-- Next step: Implement and verify N6 context-body/provenance/attempt handling, then connect the canonical N6/N8 Codex product routes within the authorized Phase 2 boundary.
+- Next step: Complete role artifact recovery and the deterministic Debate-derived draft bridge, then hydrate frozen research bodies and connect canonical N6/N8 Codex routes. Prior-role body resolution and persisted CLI attempt exclusion/replay passed focused checks; product admission remains closed.
 - Blocker: None. Planning and implementation through Phase 2 were approved on 2026-09-09; kickoff is ready. Live qualification inputs and budget will be made concrete before model checks.
 
 ## Done when

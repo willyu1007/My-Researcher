@@ -36,11 +36,12 @@ import {
 } from './topic-selection-v1b-n6-divergent-debate-admission-service.js';
 import { selectN6DebateExecutionPlan } from './topic-selection-debate-execution-plan-registry-service.js';
 
-function makeStrategy(): V1bN6DivergentDebateStrategy {
+function makeStrategy(controlPlane?: TopicSelectionControlPlaneService): V1bN6DivergentDebateStrategy {
   return new V1bN6DivergentDebateStrategy(
     new TopicSelectionContextPolicyProfileRegistryService(),
     new TopicSelectionModelProfileRegistryService(),
     new TopicSelectionPromptPacketRuntimeService(),
+    controlPlane,
   );
 }
 
@@ -60,6 +61,45 @@ const NA = 'na-1';
 const PV = 'pv-1';
 const EM = 'codex_assisted' as const;
 const RM = 'product' as const;
+
+test('CLI Critic receives both persisted Explorer bodies and refuses content drift', async () => {
+  const repository = new InMemoryTopicSelectionControlPlaneRepository();
+  const controlPlane = new TopicSelectionControlPlaneService(repository);
+  const strategy = makeStrategy(controlPlane);
+  const prior: TopicSelectionV1bN6DivergentDebateRoleArtifact[] = [];
+  for (const framing of ['Measure retrieval recall under vocabulary shift.', 'Measure citation precision with missing source passages.']) {
+    const body = { role_slot: 'n6_debate_explorer', candidate_seeds: [{ question_framing: framing }] };
+    const record = await controlPlane.recordArtifactRef({
+      title_card_id: 'tc-1', workflow_run_id: WFR, artifact_kind: 'structured_output',
+      storage_kind: 'inline', payload: body, checksum: canonicalHash(body), created_by: 'system',
+    });
+    prior.push({
+      slot_id: 'n6_debate_explorer', role_artifact_hash: record.checksum,
+      normalized_output_ref: { ref_type: 'artifact_ref', ref_id: record.artifact_ref_id },
+      normalized_output_hash: record.checksum, structured_output_hash: record.checksum,
+    } as TopicSelectionV1bN6DivergentDebateRoleArtifact);
+  }
+  const ctx = {
+    handoff, slotId: 'n6_debate_critic' as const, priorRoleArtifacts: prior,
+    priorRoleArtifactHashes: { n6_debate_explorer: prior[1]!.role_artifact_hash },
+    workflowRunId: WFR, nodeAttemptId: NA, executionMode: 'codex_cli' as const,
+    runMode: RM, policyVersion: PV, modelOptionId: null, createdBy: 'system' as const,
+    invocationInputs: { instance_index: 0, codex_response: null, mocked_output: null },
+  };
+  const packet = await strategy.buildContextPacket({ ctx, sourceHashes: {}, runtimeInvocationContextHash: 'ric' });
+  assert.deepEqual((packet.prior_role_outputs as Array<{ output: unknown }>).map(item => item.output), [
+    { role_slot: 'n6_debate_explorer', candidate_seeds: [{ question_framing: 'Measure retrieval recall under vocabulary shift.' }] },
+    { role_slot: 'n6_debate_explorer', candidate_seeds: [{ question_framing: 'Measure citation precision with missing source passages.' }] },
+  ]);
+  const explorer = await strategy.buildContextPacket({
+    ctx: { ...ctx, slotId: 'n6_debate_explorer' }, sourceHashes: {}, runtimeInvocationContextHash: 'ric',
+  });
+  assert.deepEqual(explorer.prior_role_outputs, [], 'Initial Explorers must not copy each other.');
+  await assert.rejects(strategy.buildContextPacket({
+    ctx: { ...ctx, priorRoleArtifacts: [{ ...prior[0]!, normalized_output_hash: 'changed' }] },
+    sourceHashes: {}, runtimeInvocationContextHash: 'ric',
+  }), /prior role.*(hash|identity)/i);
+});
 
 test('f4 strategy: instanceCountFor returns the scenario defaults and the arbiter is a terminal singleton', () => {
   const strategy = makeStrategy();

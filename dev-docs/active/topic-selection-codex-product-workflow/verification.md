@@ -23,6 +23,13 @@
 | CX-07 / each enabled slice | Scope/budget, source identity, timeout/failure/interruption and exact-recovery checks | not-run | No repeated ambiguous model work or invented hash replay; keep failed traces and distinguish CLI generation from retrieval/cost effects. |
 | CX-09 / closeout | Reconcile inherited obligations and policy/prompt/API/process/task records; focused checks and relevant typechecks | not-run | No blanket disabled→enabled constant change, competing policy source or unresolved provider obligation hidden by archive. |
 
+## Phase 2 foundation checkpoint
+
+- N6 CLI context now resolves both persisted Explorer output bodies with scope/checksum validation; initial Explorers receive no peer draft bodies. N8 uses the same resolver. Existing external/mock packet bytes remain unchanged.
+- The CLI orchestrator claims each logical attempt before runner execution, persists the runner outcome and refuses changed request/configuration or ambiguous unfinished work. A fresh consumer can reuse the completed attempt without another runner call. Required MCP evidence cannot silently run without configured scope/tool access.
+- Focused checks: N6/N8 runtime suites **19 passed**; orchestrator, attempt and runner suites **48 passed**. The two new behavioral tests first failed on absent role bodies and duplicate runner execution, then passed after implementation. Backend `pnpm exec tsc -p tsconfig.json --noEmit` passed.
+- Limits: relational claim proof, per-role artifact recovery, research source hydration, deterministic derived-draft bridge, schemas/prompts, canonical product routes and live qualification remain unfinished. No profile or product path is enabled by this checkpoint.
+
 ## Outstanding verification
 
 - Implement the approved role-appropriate qualification criteria. Inventory and first-slice technical design do not constitute prompt qualification or product readiness.

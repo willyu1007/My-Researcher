@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -1356,6 +1356,34 @@ void test('codex_cli line carries an authoritative runner identity and persists 
   // The trace is the line's evidence of record.
   assert.equal(provenance.trace_artifact_ref?.ref_type, 'artifact_ref');
   assert.match(provenance.trace_artifact_hash ?? '', /^[a-f0-9]{64}$/);
+});
+
+void test('a restarted CLI consumer reuses the persisted attempt and refuses changed input', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-replay-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  let calls = 0;
+  const makeConsumer = () => new TopicSelectionAgentOrchestratorService({
+    controlPlane, modelProfileRegistry: registryOpeningCodexCli(), codexCliModelId: 'gpt-6-astra',
+    codexCliRunner: new TopicSelectionCodexCliRunnerService({
+      codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
+    }, async args => {
+      if (args[0] === '--version') return { stdout: 'codex-cli 0.153.4', stderr: '', exit_code: 0, timed_out: false };
+      calls += 1;
+      return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
+    }),
+  });
+  const request = { ...baseInvocation(), execution_mode: 'codex_cli' as const };
+  const first = await makeConsumer().invokeStructuredOutput<CandidateDraftBatch>(request);
+  const replay = await makeConsumer().invokeStructuredOutput<CandidateDraftBatch>(request);
+  assert.equal(first.status, 'succeeded');
+  assert.equal(replay.status, 'succeeded');
+  assert.equal(calls, 1, 'A persisted attempt must survive consumer reconstruction.');
+  assert.deepEqual(replay.structured_output, first.structured_output);
+  await assert.rejects(makeConsumer().invokeStructuredOutput({
+    ...request, messages: [{ role: 'user', content: 'A different research request.' }],
+  }), /attempt.*(identity|input)/i);
+  assert.equal(calls, 1);
 });
 
 void test('codex_cli line stays inert while no profile admits it', async () => {

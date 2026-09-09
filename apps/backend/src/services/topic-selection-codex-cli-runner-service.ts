@@ -406,6 +406,15 @@ export class TopicSelectionCodexCliRunnerService {
   private cachedRunnerVersion: string | null = null;
   private appServer: AppServerSlot | null = null;
 
+  /** Effective non-secret execution settings bind product attempt replay to this runner. */
+  get executionIdentity() {
+    return {
+      model: this.config.model, reasoning_effort: this.config.reasoning_effort,
+      codex_home: this.config.codex_home, binary: this.config.binary ?? 'codex',
+      transport: this.config.transport, timeout_ms: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    };
+  }
+
   /** One invocation attempt, one fresh Codex thread. There is deliberately no resume or fork. */
   async run(input: TopicSelectionCodexCliRunInput): Promise<TopicSelectionCodexCliRunOutcome> {
     return this.config.transport === 'app_server' ? this.runOverAppServer(input) : this.runOverExec(input);

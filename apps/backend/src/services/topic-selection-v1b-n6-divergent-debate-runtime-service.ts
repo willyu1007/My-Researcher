@@ -44,6 +44,7 @@ import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID } from '@paper-engine
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
 import { defaultLlmConfig } from './llm-config-loader.js';
+import { resolveDebatePriorOutputs } from './topic-selection-debate-role-context.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import type { ResolvedTopicSelectionDecisionMemoryPacket } from './topic-selection-decision-memory-projection-service.js';
 import {
@@ -174,6 +175,7 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
     private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService,
     private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService,
     private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService,
+    private readonly controlPlane?: TopicSelectionControlPlaneService,
   ) {}
 
   // ---------------------------------------------------------------- divergent fan-out arity
@@ -245,11 +247,11 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
     };
   }
 
-  buildContextPacket(args: {
+  async buildContextPacket(args: {
     ctx: V1bN6DebateRoleContext;
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
-  }): Record<string, unknown> {
+  }): Promise<Record<string, unknown>> {
     const { ctx, sourceHashes } = args;
     const runtimeProfile = this.resolveRuntimeProfile(ctx.slotId);
     return {
@@ -276,6 +278,11 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
       decision_memory: ctx.handoff.decisionMemory?.packet ?? null,
       prior_role_artifact_hashes: ctx.priorRoleArtifactHashes,
       prior_role_artifact_hashes_all: ctx.priorRoleArtifactHashesAll ?? {},
+      ...(ctx.executionMode === 'codex_cli' ? {
+        prior_role_outputs: await resolveDebatePriorOutputs(this.controlPlane, {
+          workflow_run_id: ctx.workflowRunId, title_card_id: ctx.handoff.request.title_card_id ?? null,
+        }, ctx.slotId === 'n6_debate_explorer' ? [] : ctx.priorRoleArtifacts),
+      } : {}),
     };
   }
 
@@ -471,7 +478,7 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
     };
     const sourceHashes = this.sourceHashes(ctx);
     const ric = this.hash(this.runtimeInvocationContextObject(ctx, sourceHashes));
-    const contextPacket = this.buildContextPacket({ ctx, runtimeInvocationContextHash: ric, sourceHashes });
+    const contextPacket = await this.buildContextPacket({ ctx, runtimeInvocationContextHash: ric, sourceHashes });
     const runtimeProfile = this.resolveRuntimeProfile(input.slot_id);
     const modelProfile = this.resolveModelProfile(input.slot_id, input.execution_mode, input.run_mode, input.model_option_id);
     const promptPacket = this.promptPacketRuntime.buildPromptPacket({
@@ -692,6 +699,7 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
       this.contextPolicyProfileRegistry,
       this.modelProfileRegistry,
       this.promptPacketRuntime,
+      this.controlPlane,
     );
   }
 
