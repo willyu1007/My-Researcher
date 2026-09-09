@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-153",
+  "slug": "topic-selection-codex-product-workflow",
+  "keywords": [
+    "codex-product-workflow",
+    "agent-execution-admission",
+    "full-topic-selection-flow",
+    "n6-n8-codex-debate",
+    "successor:T-129",
+    "coordinates-with:T-152"
+  ]
+}

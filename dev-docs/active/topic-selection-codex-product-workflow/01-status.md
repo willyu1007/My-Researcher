@@ -1,0 +1,23 @@
+# Status
+
+## Goal
+Align the existing topic-selection agent execution policies and make the complete product workflow executable with product-driven `codex_cli` model roles, starting with N6/N8 Debate and continuing through evidence, need discovery, question/value work, promotion, handoff, and recovery while preserving deterministic and strict-human authority.
+
+## Progress
+- State: planned
+- Current phase: Opening — full-workflow outcome confirmed; N6/N8 are the first delivery milestone
+- Next step: Finish the node-and-role readiness inventory, resolve the inherited T-129 activation conditions for the Codex route, and settle the first N6/N8 implementation design against the runner contract shared with T-152.
+- Blocker: none. Detailed activation criteria and integration design remain open; opening this bundle does not enable a runtime path.
+
+## Done when
+- [ ] CX-01: Every existing topic-selection model/support role across resource sampling, v1a, v1b, v1c and downstream feedback has an explicit Codex execution disposition in the existing policy/matrix authorities, with a product entry point and verification reference. Deterministic steps and human decisions are identified separately; required model roles cannot remain dependent on manually supplied `codex_response` or another generation provider.
+- [ ] CX-02: The product executes the regular N6 four-role Debate, its applicable regeneration/refinement paths, and N8 single-agent/conditional Debate paths through `codex_cli`; output admission, draft bridges, execution identity and downstream checkpoint behavior are verified together.
+- [ ] CX-03: Resource classification, evidence extraction, need discovery including final synthesis, adjudication and human-confirmation semantic support can use Codex through canonical product entry points. Evidence-convergence role execution composes the existing managed-library retrieval and successor/linked-round owners without manufacturing evidence or silently rewriting frozen downstream inputs.
+- [ ] CX-04: Research-constraint/slice support, slice-option generation, readiness/grouping/triage and question-refinement support complete the v1b workflow around N6/N8; the researcher still owns exact constraint, selection and research decisions.
+- [ ] CX-05: Promotion support including required risk-bearing Debate, condition suggestions and feedback normalization can execute through Codex; deterministic package/gate/bridge/intake steps join correctly, and human risk acceptance and promotion decisions cannot be authored by a model.
+- [ ] CX-06: A client can operate each stage and continue between human boundaries using canonical product APIs without manually authoring role outputs, patching the database or changing profile eligibility for a canary. The existing operating guide explains prerequisites, supported inputs, stop reasons and exact recovery.
+- [ ] CX-07: Actual Codex attempts retain runner/model/thread identity, trace and tool provenance, validated output, scoped evidence access and bounded execution; failure, timeout, cancellation where exposed, replay and ambiguous interruption do not create false success, duplicate advancing authorities or unaccounted model work.
+- [ ] CX-08: Representative real-input/model checks cover the enabled semantic roles, including weak/insufficient/conflicting evidence, and a composed product-entry verification covers the whole stage chain plus non-advance, loopback and exact recovery. Fixtures, real model execution, real human decisions and scientific-quality claims are explicitly distinguished.
+- [ ] CX-09: T-129's prompt and activation obligations are individually carried, superseded with rationale or explicitly deferred for other providers; task records, code guards, prompts, policies, scenarios and operating docs agree. Completing N6/N8 alone cannot complete this task.
+
+Full-flow means all stages of topic selection and its PaperProject bridge/intake boundary, not autonomous human decisions or implementation of the downstream paper/experiment lifecycle. Existing optional model support remains optional but must have a truthful Codex disposition; policy-only reserved Debate designs are not silently promoted into new product requirements.
