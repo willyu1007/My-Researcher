@@ -31,7 +31,7 @@ The source-backed profile and operation index is in `execution-inventory.md`. Al
 
 Create one configured runner through the existing environment factory in backend app composition, inject it into the existing orchestrators/consumers, and call `shutdown()` on app close. Reuse the app's MCP scope store. Resolve the MCP endpoint from the actual listening address; do not assume port 3000 in tests or alternate deployments. Tests using injection must explicitly supply a listening MCP endpoint when exercising tools.
 
-Keep fresh runner threads per attempt and the current outcome fields: status, final message, runner version, transport, Codex home identity, thread ID, usage, tool calls and trace events. Product services own cross-role/round context. No runner session becomes research authority. Required evidence/tool configuration must fail visibly if unavailable; a missing scope must not silently turn an evidence-required run into unsupported generation.
+Keep fresh runner threads per attempt and the current outcome fields: status, final message, runner version, transport, Codex home identity, thread ID, usage, tool calls and trace events. Product services own cross-role/round context. No runner session becomes research authority. Both transports disable unscoped native tools and account Apps; explicit product MCP servers retain their grants. The effective native-tool policy is included in runner execution identity, binding request and replay validity to the actual scope restrictions. Required evidence/tool configuration must fail visibly if unavailable; a missing scope must not silently turn an evidence-required run into unsupported generation.
 
 ### Canonical request shape
 
@@ -143,8 +143,8 @@ accepted. Qualification support lives in the harness test's `test-fixtures` help
 product configuration or an alternate workflow authority.
 
 One shared file ledger covers all live cases and staging/shipped passes under the explicitly
-selected numerical budget. It claims directory ownership before reading accounting, persists a
-pending attempt before runner execution, records failures and treats unknown usage conservatively.
+selected accounting policy (aggregate ceilings may be null under uncapped authorization). It claims directory ownership before reading accounting, persists a
+pending attempt before runner execution, records failures and preserves unknown usage as unknown. An uncapped policy amendment preserves historical usage and reservations; the product per-attempt timeout still applies.
 Case manifests refuse evidence overwrite; preview writes stay in a separate child directory.
 The wrapper permits only App Server, checks remaining budget before a turn, and requests interruption
 on observed token exhaustion. Token reporting is asynchronous; this is not a strict billing cap.

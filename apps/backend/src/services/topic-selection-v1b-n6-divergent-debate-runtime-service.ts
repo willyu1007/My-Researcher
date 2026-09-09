@@ -159,8 +159,6 @@ function configuredPrompt(slotId: TopicSelectionV1bN6DivergentDebateRoleSlotId) 
   return defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_ID_BY_SLOT[slotId]);
 }
 
-const PROMPT_TEMPLATE_VERSION = configuredPrompt('n6_debate_explorer').version;
-
 /** Pre-resolved shared N6 context, resolved ONCE per run (f5) and threaded as the core's opaque handoff. */
 export interface V1bN6DebateHandoff {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
@@ -610,7 +608,6 @@ export {
   DEBATE_LOOP_ID,
   DEBATE_POLICY_ID,
   OUTPUT_CONTRACT,
-  PROMPT_TEMPLATE_VERSION,
   PROMPT_TEMPLATE_ID_BY_SLOT,
   CONTEXT_PROFILE_BY_SLOT,
   MODEL_PROFILE_BY_SLOT,

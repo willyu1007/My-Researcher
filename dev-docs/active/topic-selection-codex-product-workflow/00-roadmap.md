@@ -56,7 +56,7 @@ Apply one readiness rule to every enabled model/support role; adapt semantic ass
 4. **Integrity and failure:** verify source/ref/hash checks, prior-output bodies, schema and semantic admission, no invented/erased material evidence, deterministic derived-draft provenance, exact Human stops, budget/tool scope and interruption/replay. Resolve material findings before activation.
 5. **Honest rollout:** open only the proved consumer/profile slice and update its permanent contracts/docs together. A bounded qualification is evidence of supported behavior, not a statistical accuracy estimate, calibrated threshold, multi-provider diversity result or ResearchArena decision-quality activation.
 
-Live checks use an explicit input set and attempt/token/time ceiling agreed for that execution. No arbitrary 100-example or multi-provider requirement carries over to this Codex route. Real research input/operational budget selection belongs to live verification preparation; it does not block local implementation and offline checks.
+Live checks use an explicit input set and recorded execution accounting policy. The user removed aggregate attempt/token/time ceilings on 2026-09-09; retain the product runtime timeout and actual/unknown usage. No arbitrary 100-example or multi-provider requirement carries over to this Codex route. Real research input/operational budget selection belongs to live verification preparation; it does not block local implementation and offline checks.
 
 ## Task relationships
 
@@ -114,14 +114,14 @@ T-129's successor handoff is recorded in e44e862c. Its current main-worktree rec
 
 Remaining execution order within the existing Phase 2 authorization:
 1. Prepare a repeatable qualification entry using the canonical consumers: materialize pinned source bodies through existing evidence owners, inspect exact rendered requests, and account for aggregate attempts/tokens/time. This preparation can proceed without live calls.
-2. After the explicit budget is confirmed, inspect actual role outputs for ordinary, insufficient, apparent-conflict and exact-delta cases. Exercise conditional/regeneration routes from actual producer results, or disclose isolated controlled setup; do not force an advancing verdict.
+2. Under the user-confirmed uncapped accounting policy, inspect actual role outputs for ordinary, insufficient, apparent-conflict and exact-delta cases. Exercise conditional/regeneration routes from actual producer results, or disclose isolated controlled setup; do not force an advancing verdict.
 3. Open only qualified profiles with permanent policy/scenario/operator documentation, then verify canonical progression, Human stops and recovery. Keep ambiguous partial domain commits fail-closed pending authority inspection. The user has authorized Phase 3 after this closeout; Phases 4–5 require the next authorization.
 
 ### Phase 3 — Connect upstream evidence and need discovery (integration detail provisional)
 - Outcome: Resource sampling, extraction, evidence convergence, need discovery/final synthesis, adjudication and human-confirmation support use Codex through product callers.
 - Approach: Reuse canonical evidence/retrieval owners; re-evaluate provider-only final synthesis against the unified admission criteria; preserve human confirmation and successor-map boundaries.
 - Revertible implementation units after Phase 2 closeout:
-  1. Resource sampling and extraction: connect canonical request execution settings through `topic-selection-resource-sampling-service.ts` and `topic-selection-v1a-llm-runtime-binding-service.ts` to the app-owned runner. Sampling currently hardcodes provider execution and provider-specific model resolution; align both with scoped profile admission. Preserve deterministic filtering and stop ambiguous CLI attempts without automatic provider fallback.
+  1. Resource sampling and extraction: connect canonical request execution settings through `topic-selection-resource-sampling-service.ts` and `topic-selection-workflow-harness-service.ts` (using existing `topic-selection-v1a-llm-runtime-binding-service.ts` prompt/context bindings) to the app-owned runner. Sampling currently hardcodes provider execution and provider-specific model resolution; align both with scoped profile admission. Preserve deterministic filtering and stop ambiguous CLI attempts without automatic provider fallback.
   2. Need discovery and decision support: integrate single-agent generation, Explorer/DeepCritic/framing/final synthesis, adjudication and confirmation support. `topic-selection-need-discovery-debate-loop-service.ts` currently rejects CLI in execution validation and retains a provider/mock-only final slot; compile actual evidence and prior-role bodies, align final policy/profile/prompt together, and preserve no-need outcomes and exact Human confirmation.
   3. Evidence convergence and optional Arena support: supply actual Codex outputs to the existing round/coordinator owners. The round input currently accepts mock/external modes; add the product execution branch while preserving managed-library retrieval, EvidenceDelta, successor-map and linked-round authority. Optional Arena remains advisory and does not acquire decision-quality activation.
   4. Qualify each opened upstream role and compose canonical upstream progression into a fresh frozen v1b bundle. Verify material/no-delta/failed retrieval, quote integrity, non-advance, Human stops and recovery before enabling the proved profile slices and updating permanent operating contracts.
@@ -152,7 +152,7 @@ Remaining execution order within the existing Phase 2 authorization:
 - [x] Route: Five phases reach the complete workflow; later integration details are explicitly provisional rather than descoped.
 - [x] Verification: Stage coverage, real-model evidence and composed failure/recovery checks are specified in verification.md.
 
-The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09. Phases 4–5 remain required task work outside the current implementation authorization. Operational live-run ceilings remain separate inputs; this authorization does not claim completed model verification or Human research decisions.
+The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09. Phases 4–5 remain required task work outside the current implementation authorization. Live-run accounting is recorded separately; this authorization does not claim completed model verification or Human research decisions.
 
 ## Risks and recovery
 

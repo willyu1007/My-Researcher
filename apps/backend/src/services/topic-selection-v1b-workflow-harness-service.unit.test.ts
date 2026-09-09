@@ -142,14 +142,18 @@ test('Codex product qualification with pinned research sources', {
   const home = process.env.TOPIC_SELECTION_CODEX_HOME;
   if (!sourceFile || !outputRoot || !model || !home) throw new Error('Qualification needs explicit source/output paths and product CLI model/home.');
   const caseName = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'ordinary';
-  if (!['ordinary', 'insufficient', 'apparent-conflict'].includes(caseName)) throw new Error('Unknown qualification case.');
+  if (!['ordinary', 'insufficient', 'apparent-conflict', 'refinement-bounded', 'refinement-overclaim'].includes(caseName)) throw new Error('Unknown qualification case.');
   const live = process.env.TOPIC_SELECTION_CODEX_QUALIFICATION === 'live';
   const shipped = process.env.TOPIC_SELECTION_QUALIFICATION_SHIPPED === '1';
-  const runKey = `${shipped ? 'shipped' : 'staging'}_${caseName}`;
+  const downstreamFixture = process.env.TOPIC_SELECTION_QUALIFICATION_DOWNSTREAM_FIXTURE === '1';
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  if (runId && !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)) throw new Error('Invalid qualification run ID.');
+  const runKey = `${shipped ? 'shipped' : 'staging'}_${downstreamFixture ? 'fixture_' : ''}${caseName}${runId ? `_${runId}` : ''}`;
+  const uncapped = process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED === '1';
   const limits = live ? {
-    attempts: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPTS),
-    tokens: Number(process.env.TOPIC_SELECTION_QUALIFICATION_TOKENS),
-    duration_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_DURATION_MS),
+    attempts: uncapped ? null : Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPTS),
+    tokens: uncapped ? null : Number(process.env.TOPIC_SELECTION_QUALIFICATION_TOKENS),
+    duration_ms: uncapped ? null : Number(process.env.TOPIC_SELECTION_QUALIFICATION_DURATION_MS),
     attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS),
   } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
@@ -159,7 +163,7 @@ test('Codex product qualification with pinned research sources', {
   t.after(() => budget?.close());
   if (live) {
     writeFileSync(join(directory, `${runKey}-manifest.json`), JSON.stringify({ run_key: runKey, model,
-      limits, source_file: sourceFile, shipped_profiles: shipped, started_at: new Date().toISOString() }, null, 2),
+      limits, source_file: sourceFile, shipped_profiles: shipped, controlled_n6_fixture: downstreamFixture, started_at: new Date().toISOString() }, null, 2),
     { mode: 0o600, flag: 'wx' }); // Refuse re-running a case before it can overwrite its retained evidence.
   }
   const sources = await qualificationSources(sourceFile, TITLE_CARD_ID, caseName === 'insufficient');
@@ -205,15 +209,18 @@ test('Codex product qualification with pinned research sources', {
       || [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate,
         TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
         TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent,
-        TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support].some(id => id === profile.profile_id))) {
+        TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support].some(id => id === profile.profile_id)
+      || (caseName.startsWith('refinement-') && (profile.output_contract === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION
+        || profile.output_contract === 'N6RefinementDeltaDebateAdmission@v1')))) {
       if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
       profile.run_mode_eligibility.codex_cli = ['product'];
     }
   }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry,
+    codexCliRunner: runner, codexCliModelId: model });
   const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, { modelProfileRegistry,
-    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry,
-      codexCliRunner: runner, codexCliModelId: model }), evidencePacketResolver: sources.resolver(ctx.evidenceRepository),
+    agentOrchestrator, evidencePacketResolver: sources.resolver(ctx.evidenceRepository),
     runnerDependencies: { evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
       recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
       researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
@@ -227,12 +234,16 @@ test('Codex product qualification with pinned research sources', {
     source_pins: QUALIFICATION_SOURCE_PINS.filter(pin => sources.units.some(unit => unit.evidence_unit_id === pin.unit)), shipped_profiles: shipped }, null, 2), { mode: 0o600 });
   const results: unknown[] = [];
   try {
-    const n6 = await service.invokeNode(input);
-    results.push({ node: 'n6', result: n6 });
+    const fixtureInput = { ...input, execution_spec: null, run_mode: null };
+    const n6 = downstreamFixture ? await ctx.service.invokeNode({ ...fixtureInput,
+      semantic_artifacts: [await recordN6DraftArtifact(ctx, fixtureInput, await qualificationN6Fixture(ctx, fixtureInput))] })
+      : await service.invokeNode(input);
+    results.push({ node: downstreamFixture ? 'n6_controlled_fixture' : 'n6', result: n6 });
+    if (downstreamFixture) assert.ok(n6.authority_ref && n6.handoff_ref, JSON.stringify(n6));
     if (n6.authority_ref && n6.handoff_ref && ['admitted', 'admitted_with_warnings'].includes(n6.gate_status)) {
-      const calls = budget!.snapshot().attempts.length;
-      assert.equal((await service.invokeNode(input)).replay_provenance?.replayed, true);
-      assert.equal(budget!.snapshot().attempts.length, calls);
+      const calls = budget?.snapshot().attempts.length ?? 0;
+      if (!downstreamFixture) assert.equal((await service.invokeNode(input)).replay_provenance?.replayed, true);
+      assert.equal(budget?.snapshot().attempts.length ?? 0, calls);
       const n7Input = { ...await n7Request(ctx, n6), node_attempt_id: `qualification_${runKey}_n7`, execution_spec: input.execution_spec, run_mode: 'product' as const };
       const n7 = await service.invokeNode(n7Input);
       results.push({ node: 'n7', result: n7 });
@@ -240,7 +251,12 @@ test('Codex product qualification with pinned research sources', {
         const n8Input = await n8Request(ctx, n7, { execution_spec: input.execution_spec, run_mode: 'product', node_attempt_id: `qualification_${runKey}_n8` }, { confirmQuestionCheckpoint: false });
         await assert.rejects(service.invokeNode(n8Input), /checkpoint|advance|decision|confirmed/i);
         await confirmQuestionCheckpoint(ctx); // Isolated test decision, never a real research-project approval.
-        results.push({ node: 'n8', result: await service.invokeNode(n8Input) });
+        if (!caseName.startsWith('refinement-')) results.push({ node: 'n8', result: await service.invokeNode(n8Input) });
+        if (caseName.startsWith('refinement-')) {
+          const deltaRuntime = new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(ctx.controlPlane, { modelProfileRegistry, agentOrchestrator,
+            resolveResearchContext: input => service.resolveCodexResearchContext(input) });
+          results.push(await qualifyExactRefinement(ctx, service, deltaRuntime, n7Input, n8Input, runKey, caseName === 'refinement-overclaim'));
+        }
         if (caseName === 'ordinary') {
           const forced = await service.invokeNode({ ...n8Input, node_attempt_id: `qualification_${runKey}_n8_request_debate`,
             operator_debate_request: { reason: 'Isolated qualification requests the existing conditional review.', requested_by: 'qualification_fixture' } });
@@ -267,11 +283,149 @@ test('Codex product qualification with pinned research sources', {
     throw error;
   } finally {
     writeFileSync(join(directory, `${runKey}-results.json`), JSON.stringify(results, null, 2), { mode: 0o600 });
-    for (const workflow of ['workflow_run_v1b_n6', 'workflow_run_v1b_n7', 'workflow_run_v1b_n8']) {
+    for (const workflow of ['workflow_run_v1b_n6', 'workflow_run_v1b_n7', 'workflow_run_v1b_n8', 'workflow_run_v1b_n9', `qualification_${runKey}_refinement`]) {
       writeFileSync(join(directory, `${runKey}-${workflow}.json`), JSON.stringify(await ctx.controlPlane.listArtifactRefsByWorkflowRunId(workflow), null, 2), { mode: 0o600 });
     }
   }
 });
+
+// An independently controlled predecessor for later-role qualification; never presented as a live N6 verdict.
+async function qualificationN6Fixture(ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>, input: TopicSelectionV1bWorkflowHarnessRunRequest) {
+  const draft = await n6Draft(ctx, input);
+  const candidate = draft.candidates[0]!;
+  const payload = input.frozen_input.payload as unknown as TopicSelectionV1bN6HarnessFrozenInputPayload;
+  const rows = await ctx.researchSliceRepository.listEvidenceRefsByResearchSliceId(payload.research_slice_ref.ref_id);
+  const evidence = rows.map(row => row.evidence_ref);
+  const support = evidence.filter(item => item.ref_id === 'evidence_unit_support_1');
+  const baseline = evidence.filter(item => item.ref_id === 'evidence_unit_baseline_1');
+  const context = evidence.filter(item => item.ref_id === 'evidence_unit_context_1');
+  assert.ok(support.length && baseline.length && context.length, 'Controlled downstream setup requires all three pinned sources.');
+  return {
+    ...draft,
+    question_frame: { target_setting: 'One fixed held-out open-domain QA evaluation', target_community: 'Information retrieval researchers',
+      object_scope: 'One existing dense retriever, BM25 and a fixed reader', task_scope: 'Bounded paired retrieval and QA comparison',
+      intervention_or_approach: 'Compare retrieval on identical questions and corpus with a fixed context policy', comparison_baseline: 'BM25',
+      observable_outcome: 'Paired recall@20 and normalized QA exact match with uncertainty', assumption_refs: [], evidence_refs: evidence,
+      frame_payload: { controlled_predecessor_fixture: true, resources_are_hypothetical: true } },
+    generation_notes: ['Controlled N6 predecessor for independent downstream qualification; not a live Arbiter selection or evidence of research readiness.'],
+    candidates: [{ ...candidate, main_question: 'Does one frozen dense retriever differ from BM25 in paired passage recall@20 on the same held-out QA questions?',
+      sub_questions: ['Do retrieval differences accompany QA exact-match differences under a fixed reader and context policy?'],
+      question_type: 'analysis' as const, contribution_hypothesis: 'analysis' as const,
+      answerability_plan: { datasets_or_resources: ['Controlled operational fixture: a fixed corpus, held-out QA queries, relevance judgments and reference answers.',
+        'One existing dense checkpoint, a reproducible BM25 implementation and one fixed reader are hypothetical resources in this fixture.'],
+        metrics: ['Macro recall@20 over queries with judged relevant passages', 'Binary retrieval hit rate reported separately', 'Paired QA exact match and query-bootstrap uncertainty'],
+        baselines: ['BM25 using the identical corpus and queries'], ablations_or_comparisons: ['Identical context-packing policy for the fixed reader'],
+        evaluation_setting: 'Prespecified held-out comparison with no test-set tuning; it estimates a setting-specific difference, not causal transfer degradation.',
+        dependency_risks: ['Actual data, model and compute access require verification; operational availability is controlled fixture input.'],
+        open_dependencies: ['Verify access and label quality before real implementation.'], known_gaps: ['The three abstracts do not establish novelty or outcomes for this evaluation.'],
+        required_evidence_refs: evidence }, answerability_verdict: 'answerable_with_risk' as const,
+      expected_claim: 'A measured paired difference could characterize only the prespecified held-out evaluation and fixed models.',
+      fallback_claim: 'A negligible or uncertain difference provides no support for superiority.',
+      max_claim_strength: 'Bounded hypothesis; neither measured gains nor universal transfer nor novelty is established.',
+      observable_success_criteria: ['Report denominators, paired differences and uncertainty without treating nonsignificance as equivalence.'],
+      traceability_check: { support_evidence_refs: support, challenge_evidence_refs: baseline, baseline_evidence_refs: baseline,
+        context_evidence_refs: context, mapped_evidence_refs: evidence, unmapped_assumptions: ['Target evaluation and resource access are controlled assumptions.'] },
+      falsification_conditions: [{ ...candidate.falsification_conditions[0]!, condition_type: 'data_unavailable' as const,
+        statement: 'If usable relevance judgments or the shared held-out corpus cannot be obtained, park this comparison before implementation.',
+        trigger_evidence_refs: [], trigger_source_refs: [payload.research_slice_ref], related_contract_fields: ['answerability_plan.datasets_or_resources'],
+        expected_action: 'park' as const }],
+      risk_notes: ['Abstract-only evidence and hypothetical resource availability do not establish research readiness.'],
+      objections: ['DPR and BEIR use different settings; their reported results are not a matched contradiction.'],
+      human_review_triggers: ['A real researcher must verify resources, novelty and the exact protocol.'] }],
+  } satisfies TopicSelectionV1bTopicQuestionCandidateSetDraftPayload;
+}
+
+// Control the refinement disposition and exact Human delta; the predecessor may also be a disclosed N6 fixture.
+// Reuse its scoped question/evidence; the three review roles execute through the actual CLI.
+async function qualifyExactRefinement(
+  ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>,
+  service: TopicSelectionV1bWorkflowHarnessService,
+  runtime: TopicSelectionV1bN6RefinementDeltaDebateRuntimeService,
+  n7Input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  n8Input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  runKey: string,
+  overclaim: boolean,
+) {
+  const fixtureN8Input = { ...n8Input, node_attempt_id: `qualification_${runKey}_refinement_trigger`,
+    execution_spec: undefined, run_mode: 'acceptance' as const };
+  const fixtureDraft = n8ValueDraft(fixtureN8Input, { readiness_status: 'needs_refinement', recommended_disposition: 'refine_question',
+    reasoning_memo: { ...n8ValueDraft(fixtureN8Input).reasoning_memo, recommendation: 'refine_question',
+      disposition_bridge: 'Isolated fixture requests review of an exact claim-ceiling refinement; this is not a live value verdict.' } });
+  const trigger = await ctx.service.invokeNode({ ...fixtureN8Input,
+    semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, fixtureN8Input, fixtureDraft)] });
+  assert.ok(trigger.authority_ref && trigger.handoff_ref, JSON.stringify(trigger));
+  const n9 = await ctx.service.invokeNode(await n9Request(ctx, trigger));
+  assert.ok(n9.handoff_ref, JSON.stringify(n9));
+  const handoff = (await ctx.controlPlane.getArtifactRef(n9.handoff_ref.ref_id))!.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff;
+  const source = handoff.payload as unknown as { previous_topic_question_contract_ref: TopicSelectionFunctionalRef;
+    previous_topic_question_contract_hash: string; value_disposition_ref: TopicSelectionFunctionalRef; value_disposition_hash: string;
+    topic_value_assessment_ref: TopicSelectionFunctionalRef; topic_value_assessment_hash: string };
+  const previous = await ctx.topicQuestionRepository.findTopicQuestionContractById(source.previous_topic_question_contract_ref.ref_id);
+  assert.ok(previous);
+  const plan = await ctx.topicQuestionRepository.findAnswerabilityPlanByContractId(previous.topic_question_contract_id);
+  assert.ok(plan);
+  const refinement: TopicSelectionV1bN9QuestionRefinementPayload = { schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+    refinement_id: `qualification_${runKey}_human_delta`, actor: { actor_type: 'human', actor_id: 'isolated_qualification_fixture' },
+    rationale: 'Controlled qualification of immutable claim-ceiling edits; no real research approval.',
+    updates: { expected_claim: overclaim
+      ? 'The supplied abstracts prove that dense retrieval universally outperforms BM25 across all domains and that context placement cannot affect answer quality.'
+      : 'Any observed comparison applies only to the prespecified held-out evaluation and fixed models; superiority, transfer and novelty remain unestablished until measured.' } };
+  const refinementRequest = request({ workflow_run_id: `qualification_${runKey}_refinement`,
+    node_attempt_id: `qualification_${runKey}_materialize_delta`, node_id: n7Input.node_id, title_card_id: TITLE_CARD_ID, created_by: 'human',
+    frozen_input: { input_contract: 'N9ToN7RefinementHandoff@v1', snapshot_kind: 'topic_question_candidate_set',
+      source_refs: uniqueRefs([...n7Input.frozen_input.source_refs, n9.handoff_ref, ...handoff.required_refs]),
+      payload: { ...n7Input.frozen_input.payload, input_mode: 'refinement_from_n9', n9_handoff_hash: n9.hashes.handoff_hash,
+        previous_topic_question_contract_ref: source.previous_topic_question_contract_ref,
+        previous_topic_question_contract_hash: source.previous_topic_question_contract_hash,
+        value_disposition_ref: source.value_disposition_ref, value_disposition_hash: source.value_disposition_hash,
+        topic_value_assessment_ref: source.topic_value_assessment_ref, topic_value_assessment_hash: source.topic_value_assessment_hash,
+        question_refinement: refinement } } });
+  const refined = await ctx.service.invokeNode(refinementRequest);
+  assert.ok(refined.authority_ref && refined.handoff_ref, JSON.stringify(refined));
+  const checkpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(TITLE_CARD_ID, 'question_contract');
+  assert.ok(checkpoint);
+  const decision = await ctx.researchCheckpointService.recordDecision(checkpoint.research_checkpoint_id, {
+    decision_key: `qualification_${runKey}_review_delta`, decision: 'loopback', actor: { actor_type: 'human', actor_id: 'isolated_qualification_fixture' },
+    confirmed_snapshot_hash: checkpoint.target_snapshot_hash, rationale: 'Isolated Human fixture requests exact-delta review.',
+    review_payload: { review_kind: 'question_contract', mechanism_identifiable: true, proxy_operationalized: true, confounds_reviewed: true,
+      falsification_reviewed: true, claim_ceiling_reviewed: true, objections_reviewed: true, review_notes: ['Qualification fixture, not a real approval.'] },
+    loopback_target: 'question_contract', loopback_refs: [refined.authority_ref],
+  });
+  const currentHandoff = (await ctx.controlPlane.getArtifactRef(refined.handoff_ref.ref_id))!.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff;
+  const active = currentHandoff.payload as unknown as { active_candidate_ref: TopicSelectionFunctionalRef; active_candidate_hash: string;
+    selected_research_slice_ref: TopicSelectionFunctionalRef; selected_research_slice_hash: string };
+  const classification = classifyTopicSelectionV1bRefinementDelta({ main_question: previous.main_question,
+    contribution_hypothesis: previous.contribution_hypothesis, expected_claim: previous.expected_claim, fallback_claim: previous.fallback_claim,
+    evaluation_setting: plan.evaluation_setting, metrics: plan.metrics, baselines: plan.baselines, ablations_or_comparisons: plan.ablations_or_comparisons,
+    dependency_risks: plan.dependency_risks, open_dependencies: plan.open_dependencies, known_gaps: plan.known_gaps, risk_notes: previous.risk_notes }, refinement);
+  const checkpointRef = ref('research_checkpoint', checkpoint.research_checkpoint_id, TITLE_CARD_ID);
+  const decisionRef = ref('research_checkpoint_decision', decision.research_checkpoint_decision_id, TITLE_CARD_ID);
+  const reviewed = request({ ...refinementRequest, node_attempt_id: `qualification_${runKey}_reviewed_delta`, run_mode: 'product',
+    frozen_input: { input_contract: 'N7ReviewedRefinement@v1', snapshot_kind: 'topic_question_candidate_set',
+      source_refs: uniqueRefs([...refinementRequest.frozen_input.source_refs, ...currentHandoff.required_refs,
+        refined.handoff_ref, refined.authority_ref, checkpointRef, decisionRef]),
+      payload: { ...refinementRequest.frozen_input.payload, input_mode: 'reviewed_refinement',
+        current_n7_handoff_ref: refined.handoff_ref, current_n7_handoff_hash: refined.hashes.handoff_hash,
+        current_topic_question_contract_ref: refined.authority_ref, current_topic_question_contract_hash: refined.hashes.authority_hash,
+        source_checkpoint_ref: checkpointRef, source_checkpoint_decision_ref: decisionRef,
+        evidence_ceiling_refs: currentHandoff.required_refs, evidence_ceiling_hash: canonicalHash(currentHandoff.required_refs) } } });
+  const before = await ctx.topicQuestionRepository.findTopicQuestionContractById(refined.authority_ref.ref_id);
+  const debate = await runtime.runDebate({ request: reviewed, execution_mode: 'codex_cli', context: {
+    source_kind: 'question_checkpoint_loopback', source_decision_ref: decisionRef, checkpoint_ref: checkpointRef,
+    previous_topic_question_contract_ref: source.previous_topic_question_contract_ref,
+    previous_topic_question_contract_hash: source.previous_topic_question_contract_hash,
+    current_topic_question_contract_ref: refined.authority_ref, current_topic_question_contract_hash: refined.hashes.authority_hash!,
+    proposed_contract_semantic_hash: refined.hashes.authority_hash!, refinement, refinement_hash: canonicalHash(refinement),
+    delta_hash: classification.delta_hash, changed_fields: classification.changed_fields,
+    selected_candidate_ref: active.active_candidate_ref, selected_candidate_hash: active.active_candidate_hash,
+    selected_research_slice_ref: active.selected_research_slice_ref, selected_research_slice_hash: active.selected_research_slice_hash,
+    evidence_ceiling_refs: currentHandoff.required_refs, evidence_ceiling_hash: canonicalHash(currentHandoff.required_refs), source_refs: reviewed.frozen_input.source_refs,
+  } });
+  const gate = debate.status === 'completed' ? await service.invokeNode({ ...reviewed, semantic_artifacts: [debate.semantic_artifact] }) : null;
+  const after = await ctx.topicQuestionRepository.findTopicQuestionContractById(refined.authority_ref.ref_id);
+  assert.deepEqual(after, before, 'Review must not rewrite the exact Human-authored contract.');
+  return { node: 'exact_refinement', controlled_disposition_and_human_fixture: true, overclaim, refinement, debate, gate };
+}
 
 for (const generationMode of ['initial_from_n5', 'regeneration_after_n6_gate_failure', 'regeneration_after_n7_loopback'] as const) {
 test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stops`, async (t) => {

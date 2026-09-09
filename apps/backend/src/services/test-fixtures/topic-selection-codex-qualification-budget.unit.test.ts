@@ -63,3 +63,26 @@ test('qualification stops launching calls at the overall deadline', t => {
   assert.throws(() => budget.begin({ invocation_attempt_id: 'two', prompt: 'diagnostic', output_schema: {} }), /exhausted/);
   budget.close();
 });
+
+test('operator can remove aggregate ceilings without erasing unknown usage or prior attempts', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'qualification-uncapped-'));
+  let now = 0;
+  const limits = { attempts: 1, tokens: 100, duration_ms: 100, attempt_ms: 50 };
+  const original = new CodexQualificationBudget(dir, limits, () => now);
+  original.begin({ invocation_attempt_id: 'failed', prompt: 'diagnostic', output_schema: {} });
+  original.finish({ status: 'failed', error_code: 'CODEX_CLI_TIMEOUT', message: 'Timeout',
+    runner_version: 'test', transport: 'app_server', codex_home: null, thread_id: 'failed',
+    usage: null, tool_calls: [], trace_events: [], stderr_tail: '' });
+  original.close();
+  now = 200;
+  const uncapped = new CodexQualificationBudget(dir, { attempts: null, tokens: null, duration_ms: null, attempt_ms: 100 }, () => now);
+  t.after(() => { uncapped.close(); rmSync(dir, { recursive: true, force: true }); });
+  assert.equal(uncapped.remainingTokens, Infinity);
+  assert.equal(uncapped.remainingMs, Infinity);
+  assert.equal(uncapped.snapshot().attempts[0]?.tokens, null);
+  assert.equal(uncapped.snapshot().attempts[0]?.charged_tokens, 100);
+  assert.deepEqual(uncapped.snapshot().policy_changes?.[0]?.previous_limits, limits);
+  uncapped.begin({ invocation_attempt_id: 'next', prompt: 'diagnostic', output_schema: {} });
+  assert.equal(uncapped.remainingAttemptMs, 100);
+  assert.equal(uncapped.snapshot().attempts.length, 2);
+});

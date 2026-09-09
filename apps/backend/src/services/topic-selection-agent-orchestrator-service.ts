@@ -1115,12 +1115,12 @@ export class TopicSelectionAgentOrchestratorService {
     if (handle === null) {
       return body;
     }
-    // The product authors the handle into its own prompt; the model cannot reach any tool without it.
+    // The product MCP server requires this handle; the runner separately disables unscoped native capabilities.
     return `${body}\n\n[tools]\nYour handle for this task is "${handle}". Every tool call must include it.`;
   }
 
   /** A handle is minted only when the deployment serves a tool surface and the caller supplied the
-   *  attempt's evidence. Otherwise the line runs without tools, which is a valid configuration. */
+   *  attempt's evidence. Otherwise no product research MCP tools are exposed. */
   private mintCodexCliScope<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
     invocationAttemptId: string,

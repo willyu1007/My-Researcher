@@ -3,10 +3,11 @@ import { join } from 'node:path';
 import type { TopicSelectionCodexCliRunInput, TopicSelectionCodexCliRunOutcome } from '../topic-selection-codex-cli-runner-service.js';
 import { canonicalHash } from '../topic-selection-v1b-harness-authority-hash.js';
 
-export type QualificationLimits = { attempts: number; tokens: number; duration_ms: number; attempt_ms: number };
+export type QualificationLimits = { attempts: number | null; tokens: number | null; duration_ms: number | null; attempt_ms: number };
 type Attempt = { id: string; request_hash: string; started_at: number; finished_at: number | null;
-  status: 'pending' | 'succeeded' | 'failed'; tokens: number | null; charged_tokens: number };
-type Ledger = { limits: QualificationLimits; started_at: number | null; attempts: Attempt[] };
+  status: 'pending' | 'succeeded' | 'failed'; tokens: number | null; charged_tokens: number | null };
+type Ledger = { limits: QualificationLimits; started_at: number | null; attempts: Attempt[];
+  policy_changes?: Array<{ at: number; previous_limits: QualificationLimits; limits: QualificationLimits }> };
 
 /** One serial qualification run. Persist before metered work; refuse uncertain restarts. */
 export class CodexQualificationBudget {
@@ -14,15 +15,23 @@ export class CodexQualificationBudget {
   private readonly ledger: Ledger;
   private lock: number | null;
   constructor(private readonly directory: string, limits: QualificationLimits, private readonly now = Date.now) {
-    if (Object.values(limits).some(value => !Number.isSafeInteger(value) || value <= 0)) throw new Error('Qualification limits must be positive integers.');
+    if (Object.values(limits).some(value => value !== null && (!Number.isSafeInteger(value) || value <= 0))
+      || limits.attempt_ms === null) throw new Error('Qualification limits must be positive integers or explicit aggregate nulls.');
     this.file = join(directory, 'budget.json');
     this.lock = openSync(join(directory, 'qualification.lock'), 'wx', 0o600);
     try {
       writeFileSync(this.lock, String(process.pid));
       this.ledger = existsSync(this.file) ? JSON.parse(readFileSync(this.file, 'utf8')) as Ledger
         : { limits, started_at: null, attempts: [] };
-      if (canonicalHash(this.ledger.limits) !== canonicalHash(limits)) throw new Error('Qualification limits differ from the existing run.');
       if (this.ledger.attempts.some(attempt => attempt.status === 'pending')) throw new Error('Qualification has an interrupted attempt; reconcile its usage before continuing.');
+      if (canonicalHash(this.ledger.limits) !== canonicalHash(limits)) {
+        if (limits.attempts !== null || limits.tokens !== null || limits.duration_ms !== null
+          || limits.attempt_ms < this.ledger.limits.attempt_ms) throw new Error('Qualification limits differ from the existing run.');
+        // An explicit uncapped request records the policy change; historical usage and reservations stay intact.
+        (this.ledger.policy_changes ??= []).push({ at: this.now(), previous_limits: this.ledger.limits, limits });
+        this.ledger.limits = limits;
+        this.write('budget.json', this.ledger);
+      }
     } catch (error) {
       this.close();
       throw error;
@@ -37,10 +46,12 @@ export class CodexQualificationBudget {
   }
 
   get remainingTokens(): number {
-    return Math.max(0, this.ledger.limits.tokens - this.ledger.attempts.reduce((sum, attempt) => sum + attempt.charged_tokens, 0));
+    if (this.ledger.limits.tokens === null) return Infinity;
+    return Math.max(0, this.ledger.limits.tokens - this.ledger.attempts.reduce((sum, attempt) => sum + (attempt.charged_tokens ?? 0), 0));
   }
 
   get remainingMs(): number {
+    if (this.ledger.limits.duration_ms === null) return Infinity;
     return this.ledger.started_at === null ? this.ledger.limits.duration_ms
       : Math.max(0, this.ledger.limits.duration_ms - (this.now() - this.ledger.started_at));
   }
@@ -56,7 +67,8 @@ export class CodexQualificationBudget {
     if (this.lock === null) throw new Error('Qualification budget is closed.');
     if (this.ledger.attempts.some(attempt => attempt.status === 'pending')) throw new Error('Qualification attempts must run serially.');
     if (this.ledger.attempts.some(attempt => attempt.id === input.invocation_attempt_id)) throw new Error('Qualification attempt already recorded; do not rerun it.');
-    if (this.ledger.attempts.length >= this.ledger.limits.attempts || this.remainingTokens === 0 || this.remainingMs === 0) {
+    if ((this.ledger.limits.attempts !== null && this.ledger.attempts.length >= this.ledger.limits.attempts)
+      || this.remainingTokens === 0 || this.remainingMs === 0) {
       throw new Error('Qualification budget exhausted.');
     }
     this.ledger.started_at ??= this.now();
@@ -73,7 +85,7 @@ export class CodexQualificationBudget {
     // Cached and reasoning counts are subsets of input/output, not additional tokens.
     const tokens = outcome.usage ? outcome.usage.input_tokens + outcome.usage.output_tokens : null;
     if (tokens !== null && (!Number.isSafeInteger(tokens) || tokens < 0)) throw new Error('Invalid qualification usage.');
-    attempt.charged_tokens = tokens ?? this.remainingTokens;
+    attempt.charged_tokens = tokens ?? (this.ledger.limits.tokens === null ? null : this.remainingTokens);
     attempt.tokens = tokens;
     attempt.finished_at = this.now();
     attempt.status = outcome.status;

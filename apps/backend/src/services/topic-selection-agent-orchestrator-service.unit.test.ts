@@ -1386,6 +1386,33 @@ void test('a restarted CLI consumer reuses the persisted attempt and refuses cha
   assert.equal(calls, 1);
 });
 
+void test('CLI replay rejects an attempt recorded before native tool restrictions', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-policy-replay-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  let calls = 0;
+  const makeConsumer = (legacy = false) => {
+    const runner = new TopicSelectionCodexCliRunnerService({
+      codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
+    }, async args => {
+      if (args[0] === '--version') return { stdout: 'codex-cli 0.153.4', stderr: '', exit_code: 0, timed_out: false };
+      calls += 1;
+      return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
+    });
+    if (legacy) {
+      const identity = { ...runner.executionIdentity };
+      Reflect.deleteProperty(identity, 'native_tool_policy');
+      Object.defineProperty(runner, 'executionIdentity', { get: () => identity });
+    }
+    return new TopicSelectionAgentOrchestratorService({ controlPlane,
+      modelProfileRegistry: registryOpeningCodexCli(), codexCliModelId: 'gpt-6-astra', codexCliRunner: runner });
+  };
+  const request = { ...baseInvocation(), execution_mode: 'codex_cli' as const };
+  assert.equal((await makeConsumer(true).invokeStructuredOutput(request)).status, 'succeeded');
+  await assert.rejects(makeConsumer().invokeStructuredOutput(request), /attempt.*(identity|input)/i);
+  assert.equal(calls, 1, 'Policy drift must neither replay nor replace the old attempt.');
+});
+
 void test('codex_cli line stays inert while no profile admits it', async () => {
   const { orchestrator } = makeOrchestrator({
     codexCliRunner: codexCliRunner(),

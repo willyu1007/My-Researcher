@@ -99,6 +99,15 @@ void test('codex_cli runner grants only its own MCP servers, as overrides rather
   assert.match(overrides, /mcp_servers\.local\.args=\["\/srv\/local\.mjs"\]/);
   assert.match(overrides, /mcp_servers\.local\.env=\{ATTEMPT="a1"\}/);
   assert.doesNotMatch(overrides, /"auto"/);
+  const isolated = buildCodexThreadConfig([]);
+  assert.equal(isolated.web_search, 'disabled');
+  const features = isolated.features as Record<string, unknown>;
+  for (const capability of ['apps', 'shell_tool', 'browser_use', 'computer_use',
+    'image_generation', 'view_image', 'multi_agent', 'plugins', 'remote_plugin', 'skill_search', 'skill_mcp_dependency_install', 'hooks']) {
+    assert.equal(features?.[capability], false, `${capability} must not bypass product evidence scope`);
+    assert.ok(overrides.includes(`features.${capability}=false`), `${capability} must also be disabled over exec`);
+  }
+  assert.ok(overrides.includes('web_search="disabled"'));
 
   // Names become dotted TOML keys, so anything that is not a bare key is refused up front.
   assert.throws(() => buildCodexConfigOverrides([{ name: 'bad.name]', url: 'http://x' }]), /bare TOML key/);
@@ -359,7 +368,7 @@ void test('codex_cli runner on the App Server transport starts one ephemeral thr
     assert.notEqual(start.cwd, home);
   }
   assert.deepEqual(server.thread_starts[0]!.config, buildCodexThreadConfig([{ name: 'research', url: 'http://127.0.0.1:1/mcp' }]));
-  assert.deepEqual(server.thread_starts[1]!.config, { mcp_servers: {} });
+  assert.deepEqual(server.thread_starts[1]!.config, buildCodexThreadConfig([]));
   assert.deepEqual(server.turns.map((turn) => turn.input), [
     [{ type: 'text', text: 'first', text_elements: [] }],
     [{ type: 'text', text: 'second', text_elements: [] }],

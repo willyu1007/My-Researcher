@@ -122,7 +122,7 @@
       "system": "prompts/v1b/n6-debate-critic/system.md"
     },
     "topic-selection-v1b-n6-debate-arbiter": {
-      "version": "v2",
+      "version": "v3",
       "system": "prompts/v1b/n6-debate-arbiter/system.md"
     },
     "topic-selection.v1b.n6.refinement-delta-debate.runtime-role": {

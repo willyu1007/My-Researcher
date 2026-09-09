@@ -28,9 +28,9 @@ import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli
 import { TopicSelectionBoundedDebateCoreService } from './topic-selection-bounded-debate-core-service.js';
 import { recordDebateDerivedDraft, verifyDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
 import { TopicSelectionPromptPacketRuntimeService } from './topic-selection-prompt-packet-runtime-service.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import {
   PROMPT_TEMPLATE_ID_BY_SLOT,
-  PROMPT_TEMPLATE_VERSION,
   TopicSelectionV1bN6DivergentDebateRuntimeService,
   V1bN6DivergentDebateStrategy,
   type V1bN6DebateHandoff,
@@ -211,7 +211,8 @@ test('f4 strategy: PROMPT_TEMPLATE_ID_BY_SLOT is single-sourced to the scenario 
     assert.ok(stageSlot, `scenario has stage slot ${slot}`);
     assert.equal(PROMPT_TEMPLATE_ID_BY_SLOT[slot], stageSlot!.prompt_template_id);
     // also pin the version so a scenario version bump can't silently drift from the strategy.
-    assert.equal(PROMPT_TEMPLATE_VERSION, stageSlot!.prompt_template_version);
+    assert.equal(defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_ID_BY_SLOT[slot]).version,
+      stageSlot.prompt_template_version);
   }
 });
 

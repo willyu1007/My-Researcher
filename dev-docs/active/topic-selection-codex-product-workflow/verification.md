@@ -72,12 +72,12 @@ controlled supported-domain setup may be used to qualify a later role independen
 boundary. Inspect actual Critic resolutions, evidence support, failure behavior and prior-role
 consumption before accepting a role. Existing deterministic fixtures do not replace this inspection.
 
-Live budget authorized by the user’s instruction to execute directly on 2026-09-09, using the immediately preceding recommended ceiling: **40 model attempts, 1,000,000 aggregate tokens, 180 seconds per attempt,
-90 minutes overall**. Attempts and launch deadlines are enforced locally. Token notifications trigger a best-effort interrupt at the first reported ceiling; the protocol does not provide a strict billing-token cap, so delayed usage reporting may overshoot. Alternative smaller first check: **12 attempts,
-300,000 tokens, 30 minutes overall**, retaining the 180-second per-attempt ceiling. Failed and
-interrupted attempts count; where usage is unavailable, retain a conservative reservation rather
-than treating it as zero. Keep existing runner/model configuration and product limits; no gateway
-fallback. The recommended ceiling now applies to this execution. All cases and staging/shipped passes share the same ledger.
+The user removed aggregate attempt, token and elapsed-time ceilings on 2026-09-09. Continue with
+`gpt-6-astra`, high effort, the isolated product home and App Server. The qualification-only
+180-second timeout truncated legitimate Arbiter output; restore the product runner's existing
+600-second per-attempt timeout. This changes no shipped runtime default. All cases and
+staging/shipped passes share one ledger; retain failed/unknown usage and recorded policy amendments.
+No gateway fallback or automatic replay of ambiguous attempts is permitted.
 
 ## Prepared qualification entry
 
@@ -86,8 +86,7 @@ canonical harness fixtures. `test-fixtures/topic-selection-codex-qualification-{
 provide pinned abstract loading, a shared durable ledger and an App Server-only runner wrapper.
 The ordinary case attempts N6 → N7 → exact Human stop → N8, then uses actual N8 feedback for
 conditional Debate when the producer supports it. Admission may legitimately stop earlier. A passed
-diagnostic process is not a semantic qualification pass. Exact-delta and regeneration live cases
-still need supported producer setup; existing fixture coverage does not substitute for those runs.
+diagnostic process is not a semantic qualification pass. Exact-delta qualification now has an explicitly controlled N8 trigger and exact Human delta setup; live role results remain pending. Regeneration still needs supported producer setup. Existing fixture coverage does not substitute for those runs.
 
 | Source | SHA-256 of whitespace-normalized original abstract |
 |---|---|
@@ -126,13 +125,16 @@ node --import tsx --test --test-name-pattern='Codex product qualification with p
 src/services/topic-selection-v1b-workflow-harness-service.unit.test.ts
 ```
 
-For authorized live execution, change mode to `live` and provide positive integer limits via
-`TOPIC_SELECTION_QUALIFICATION_ATTEMPTS`, `..._TOKENS`, `..._DURATION_MS` and `..._ATTEMPT_MS`.
+For authorized live execution, change mode to `live`, set
+`TOPIC_SELECTION_QUALIFICATION_UNCAPPED=1` and `TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS=600000`.
+For a capped run, omit uncapped and provide positive integer `..._ATTEMPTS`, `..._TOKENS` and
+`..._DURATION_MS`. Use a new `TOPIC_SELECTION_QUALIFICATION_RUN_ID` when repeating a case.
 **Every case and staging/shipped pass must use the same output directory and budget ledger.**
 Use a dedicated shared live directory, not the separate preview directories. A process lock prevents
 concurrent use; a case manifest prevents overwriting prior case evidence. An uncertain pending call
 or a leftover lock requires inspection, not automatic deletion/retry. Failed calls count, cached and
-reasoning tokens are not double-counted, and unknown usage reserves the entire remaining budget.
+reasoning tokens are not double-counted. Unknown usage stays null; a capped run also reserves its
+remaining token budget, while uncapped execution does not turn an unknown amount into zero.
 App Server setup counts toward the attempt deadline; an expired deadline cannot launch a turn.
 Budget arithmetic and preview retention are tested locally; delayed live startup, actual usage
 notifications and server interruption remain verification limits until exercised.
@@ -182,7 +184,7 @@ remaining **915,113 tokens** because invocation 4 has unknown usage, so it refus
 the initial accounting policy. The 4 counted attempts are CLI invocations; a CLI can internally
 retry a sampling request. The proposed continuation keeps the remaining 36 CLI invocations and the
 original 90-minute deadline, retains unknown usage explicitly and removes the token hard-stop;
-this changed accounting policy is awaiting user input. Do not zero the unknown entry, reset the
+the user subsequently removed all aggregate verification ceilings. The original model, high effort and per-attempt runtime timeout are retained. No further budget approval is pending. Do not zero the unknown entry, reset the
 clock, overwrite the ordinary case or repeat an ambiguous domain commit.
 
 No temporary runtime instrumentation was added. Existing private logs were inspected by exact
@@ -191,9 +193,9 @@ evidence, not as production success. Phase 2 and Phase 3 remain incomplete.
 
 ## Outstanding verification
 
-- Resolve the changed accounting policy for unknown usage before further model calls. Retain the
-  completed role evidence, then continue with new explicit attempt identities and supported
-  exact-delta/regeneration scenarios; no automatic repeat of the failed ordinary case.
+- Continue with the user-authorized removal of aggregate ceilings, preserving actual/unknown usage
+  and prior limits in the same ledger. Use explicit new attempt identities and retain every case;
+  complete the remaining semantic scenarios and canonical product progression.
 - Qualify N6 Explorer/Critic/Arbiter, N7 admission, ordinary/conditional N8 and exact-delta roles
   against actual inputs and failure cases. Validate live schema compatibility, evidence scope,
   substantive resolution and non-advance outcomes; record each actual attempt and limitations.
@@ -206,3 +208,97 @@ evidence, not as production success. Phase 2 and Phase 3 remain incomplete.
   exact recovery, distinguish real models from fixtures and preserve Human boundaries.
 - Task completion, phase closeout and T-129 archival have not been claimed. Governance checks and
   reviewed commits provide recoverable local checkpoints, not end-to-end product acceptance.
+
+## Continued live accounting
+
+The user instructed “不再设上限，按原设定继续验证”. Set
+`TOPIC_SELECTION_QUALIFICATION_UNCAPPED=1`: aggregate attempts, tokens and duration are explicit
+nulls. The ledger records the policy amendment before launching, preserves old attempts, timestamps
+and the unknown usage/reservation, and still excludes concurrent or ambiguous pending execution.
+`TOPIC_SELECTION_QUALIFICATION_RUN_ID=retry1` gives the new ordinary attempt distinct IDs and files;
+no prior evidence is overwritten. The same product home, `gpt-6-astra` and high effort are retained.
+The first continuation kept 180 seconds; diagnostic attempt 9 captured 27,385 characters of normal
+Arbiter JSON, still progressing at 179.84 seconds. Attempt 10 restored the existing 600-second
+product timeout with the exact saved role input and a new diagnostic identity. It completed in
+265.787 seconds: 31,768 input + 8,588 output tokens, 44,077 final JSON characters, thread
+`01a08514-7377-7c93-bae6-9c250e730e1b`, final-message SHA-256
+`842fa6f22925611db1fb6ae260068bafaadc6ca3feca3b9d9b26c5daa75784fe`. Inspection confirms
+three bounded candidates, explicit abstract/resource/novelty limitations, different-setting evidence
+not mislabeled as a contradiction, and concrete repairs for all three Critic notes. This is a role
+diagnostic, not domain admission or proof of material-objection resolution. The temporary streaming
+probe and journal were removed; all six budget/runner tests passed afterward. The original network
+reset remains a separate incident; no general transport-reliability claim follows from this pass.
+Unknown usage remains null, never zero. A new canonical ordinary run uses run ID `retry2`.
+
+
+## Canonical N6 contract finding
+
+The `staging_ordinary_retry2` run completed all four CLI roles (attempts 11–14) but correctly stopped
+at `N6_SELECTED_PORTFOLIO_INVALID`; the opt-in process passing is not product progression. The v2
+Arbiter returned three selected/recommended candidates, empty disposition evidence, and a slice ref
+in portfolio evidence. Inspection also found candidate citations carrying evidence-body `v1` in
+place of frozen null versions, slice refs used as boundary refs, and unlinked falsification triggers.
+The downstream guards were preserved. Arbiter v3 now states the actual single-recommendation,
+grounded dispositions, exact frozen-ref identity and candidate-admission/non-advance contracts.
+Config and scenario versions are aligned; the drift guard compares each role's own configured
+version rather than assuming the Explorer version applies to every role. The N6 runtime/admission
+suite (30), config check (5), backend typecheck and matrix consistency passed. The real `staging_ordinary_arbiter_v3` result is the admitted non-advance described below; test exit alone is not qualification.
+The independent review also caught missing none_viable empty-array requirements; these and two
+non-selected outcome names were corrected and re-reviewed. Attempt 18 had already cached the
+pre-review v3 draft; its exact input is retained and cannot qualify the final non-selected wording.
+Subsequent cases must load the final text. No production prompt/profile activation is claimed.
+
+
+## N6 non-advance and independent downstream qualification
+
+Attempt 18 completed (32,404 input + 12,762 output tokens) and its real N6 result was **admitted
+with evidence_expansion_required**, not a selected candidate set. The three directions were parked,
+with exact frozen evidence identities and grounded reopening conditions. Data/reader/configuration
+availability and methods-level evidence remain unverified. This proves an actual bounded N6
+non-advance path; it creates no candidate authority or N7 progression.
+
+`TOPIC_SELECTION_QUALIFICATION_DOWNSTREAM_FIXTURE=1` creates a separate, explicitly controlled N6
+predecessor through existing acceptance machinery. A bounded retrieval-comparison question and
+hypothetical operational resources are labelled in its body; the original three abstracts remain
+real evidence. The run key includes `fixture`, the manifest records `controlled_n6_fixture`, and
+results name `n6_controlled_fixture`. It neither overwrites nor advances attempt 18's lineage.
+The no-model N7 preview passed, all three original abstracts are in its rendered request, old
+harness research prose is absent, and backend typecheck passed. Independent review found no runtime
+issue; an outdated lineage comment was corrected. Refinement cases reuse a controlled N8 trigger,
+so they skip an unrelated live N8 evaluation rather than paying for an output they do not consume.
+
+The first downstream run is `staging_fixture_ordinary`. Attempt 19 (real N7 support) completed with
+26,558 input + 390 output tokens. It selected compact_assessment_debate, cited the actual candidate,
+slice, gate hash and abstract evidence, retained hypothetical-resource/Human-review limitations,
+and did not claim novelty, superiority or a matched DPR/BEIR contradiction. Its exact Human-stop
+check passed before the isolated Human decision enabled the live N8 attempt. No real researcher
+approval or actual N6→N7 full-model progression is implied by this fixture predecessor.
+
+
+## Native tool scope and N8 continuation
+
+Attempt 20, ordinary N8, exceeded the original 600-second attempt timeout with unknown usage.
+Its trace has no warning/error explaining the stall. Saved-input diagnostic 22 completed in about
+211 seconds with 27,287 input + 6,871 output tokens and 30,020 final characters. The output requests
+`recheck_evidence_or_search`, distinguishing local answerability from unverified novelty, resources
+and methods-level evidence. This is a runner diagnostic, not consumer admission; the cause of
+attempt 20's timeout remains unresolved. Unknown usage is retained, and no original evidence is
+replaced. Temporary streaming instrumentation and its journal were removed after inspection.
+
+Inspection found account Apps could start even when a role supplied no product MCP servers.
+Read-only sandboxing and denied approvals did not themselves disable native read tools. Both
+transports now disable web search and the native Apps/shell/browser/computer/image/multi-agent/
+plugin/skill-discovery/hook features, while retaining explicit product MCP grants. The effective
+native policy is part of executionIdentity, so attempts made under the previous scope cannot be
+replayed as current. Existing historical attempts are not overwritten.
+
+A real no-model App Server tool inventory under this policy returned no MCP servers. Real attempt
+21 was asked to read one harmless temporary canary file outside its scratch directory; it returned
+null because no filesystem/command tool was available (8,882 input + 95 output tokens), with no
+native tool item or MCP startup. The canary was removed. This supports this bounded capability
+claim on CLI 0.153.4, not a universal guarantee across future CLI versions. Explicit product MCP
+grants remain covered by runner/orchestrator tests. All 51 orchestrator/runner/client checks passed,
+including a reproduced-then-fixed replay regression; independent re-review found no remaining
+material finding. Canonical downstream qualification continues as
+`staging_fixture_ordinary_tool_scope_v1`, with separately labelled N6/Human fixtures and unchanged
+model/effort/product timeout. All shipped profiles remain closed.

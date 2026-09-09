@@ -164,6 +164,18 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+// Product roles may read only their compiled context and explicitly scoped MCP evidence.
+// Read-only sandboxing alone still permits native reads and account-connected Apps.
+const UNSCOPED_CODEX_FEATURES = [
+  'apps', 'shell_tool', 'browser_use', 'computer_use', 'image_generation',
+  'view_image', 'multi_agent', 'plugins', 'remote_plugin', 'skill_search', 'skill_mcp_dependency_install', 'hooks',
+] as const;
+
+function nativeToolPolicy() {
+  return { web_search: 'disabled',
+    features: Object.fromEntries(UNSCOPED_CODEX_FEATURES.map(feature => [feature, false])) };
+}
+
 /** Everything one invocation needs, as `-c` overrides rather than a config.toml. No file in the
  *  shared product home means no race between concurrent invocations and nothing to clean up.
  *
@@ -173,6 +185,8 @@ function errorMessage(error: unknown): string {
 export function buildCodexConfigOverrides(servers: readonly TopicSelectionCodexCliMcpServer[]): string[] {
   const overrides = [
     'approval_policy={granular={sandbox_approval=false,rules=false,mcp_elicitations=false}}',
+    'web_search="disabled"',
+    ...UNSCOPED_CODEX_FEATURES.map(feature => `features.${feature}=false`),
   ];
   for (const server of servers) {
     assertBareTomlKeys(server);
@@ -207,7 +221,7 @@ export function buildCodexThreadConfig(servers: readonly TopicSelectionCodexCliM
         default_tools_approval_mode: 'approve',
       };
   }
-  return { mcp_servers: mcpServers };
+  return { mcp_servers: mcpServers, ...nativeToolPolicy() };
 }
 
 function assertBareTomlKeys(server: TopicSelectionCodexCliMcpServer): void {
@@ -412,6 +426,7 @@ export class TopicSelectionCodexCliRunnerService {
       model: this.config.model, reasoning_effort: this.config.reasoning_effort,
       codex_home: this.config.codex_home, binary: this.config.binary ?? 'codex',
       transport: this.config.transport, timeout_ms: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+      native_tool_policy: nativeToolPolicy(),
     };
   }
 
