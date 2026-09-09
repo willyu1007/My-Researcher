@@ -613,7 +613,7 @@ export function createTopicSelectionV1bN6DivergentDebateScenarioContract(): Topi
         output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         schema_name: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
         prompt_template_id: 'topic-selection-v1b-n6-debate-arbiter',
-        prompt_template_version: 'v3',
+        prompt_template_version: 'v4',
         instance_policy: {
           min_instances: 1,
           max_instances: 1,

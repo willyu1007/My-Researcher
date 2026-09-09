@@ -47,6 +47,8 @@ Compile source bodies through existing repositories with title, version, checksu
 
 For regular N6, each of two initial Explorers sees the same frozen research input independently. Critic sees both validated outputs; Arbiter sees both plus the Critic's actual findings. N8 and refinement use their existing ordered-role semantics. Load prior outputs from recorded artifacts, verify their identities/hashes and include the relevant bodies alongside their hashes. Do not infer model/provider independence from two role instances using one Codex model.
 
+Role admission requires an explicit, substantive response to every material or blocking Critic finding. A resolution concerns the correctness of the portfolio or assessment, not whether all external research gaps have been solved. N6 can address an infeasible recommendation by excluding every affected candidate from advancement, preserving its blockers and reopening conditions. N8 can correct an overclaim while retaining failed research gates and a non-advancing disposition. A caveat that leaves the defective recommendation in place is not a resolution; unchanged strict admission still rejects unresolved draft defects.
+
 ### Deterministic final-draft bridge
 
 After role admission, project the final role's candidate/value draft into the existing draft admission and recording path. Separate draft recording from model invocation in the draft runtime. The bridge must not launch a fifth model call or label the final Codex output as operator-authored `codex_assisted` work.
