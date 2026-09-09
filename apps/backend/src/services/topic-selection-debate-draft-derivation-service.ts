@@ -1,3 +1,4 @@
+import type { TopicSelectionArtifactRefRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS,
   TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
@@ -65,8 +66,7 @@ export async function recordDebateDerivedDraft(
     throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Final Debate role does not contain the required draft projection.');
   }
   const draftHash = canonicalHash(draft);
-  const previous = await controlPlane.getArtifactRefByStableKey(derivationKey(request));
-  if (previous) {
+  const readPrevious = async (previous: TopicSelectionArtifactRefRecord) => {
     const artifact = previous.payload?.semantic_artifact as DraftArtifact | undefined;
     if (!artifact || artifact.normalized_output_hash !== draftHash
       || artifact.debate_derivation?.loop_transcript_hash !== input.loop_transcript_hash
@@ -75,7 +75,9 @@ export async function recordDebateDerivedDraft(
     }
     await verifyDebateDerivedDraft(controlPlane, request, artifact);
     return { status: 'succeeded' as const, semantic_artifact: artifact, structured_output: payload };
-  }
+  };
+  const previous = await controlPlane.getArtifactRefByStableKey(derivationKey(request));
+  if (previous) return readPrevious(previous);
   const output = await controlPlane.recordArtifactRef({
     stable_key: `debate-draft:${canonicalHash([request.workflow_run_id, request.node_attempt_id, input.slot_id, draftHash])}`,
     workspace_id: request.workspace_id ?? null, title_card_id: request.title_card_id ?? null,
@@ -108,12 +110,18 @@ export async function recordDebateDerivedDraft(
     schema_version: 'TopicSelectionDebateDraftDerivation@v1', source_request_hash: sourceRequestHash(request),
     semantic_artifact: artifact,
   };
-  await controlPlane.recordArtifactRef({
-    stable_key: derivationKey(request), workspace_id: request.workspace_id ?? null,
-    title_card_id: request.title_card_id ?? null, workflow_run_id: request.workflow_run_id,
-    artifact_kind: 'diagnostic', storage_kind: 'inline', created_by: 'system',
-    payload: receipt, checksum: canonicalHash(receipt),
-  });
+  try {
+    await controlPlane.recordArtifactRef({
+      stable_key: derivationKey(request), workspace_id: request.workspace_id ?? null,
+      title_card_id: request.title_card_id ?? null, workflow_run_id: request.workflow_run_id,
+      artifact_kind: 'diagnostic', storage_kind: 'inline', created_by: 'system',
+      payload: receipt, checksum: canonicalHash(receipt),
+    });
+  } catch (error) {
+    const winner = await controlPlane.getArtifactRefByStableKey(derivationKey(request));
+    if (!winner) throw error;
+    return readPrevious(winner);
+  }
   return { status: 'succeeded' as const, semantic_artifact: artifact, structured_output: payload };
 }
 

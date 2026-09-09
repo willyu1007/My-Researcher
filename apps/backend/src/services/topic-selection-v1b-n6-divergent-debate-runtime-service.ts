@@ -979,13 +979,20 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
         role_artifacts: loop.ordered_role_artifacts,
         result,
       };
-      await this.controlPlane.recordArtifactRef({
-        stable_key: debateReceiptKey(input.request),
-        workspace_id: input.request.workspace_id ?? null, title_card_id: input.request.title_card_id ?? null,
-        workflow_run_id: input.request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
-        payload: receipt as unknown as Record<string, unknown>, checksum: canonicalHash(receipt),
-        created_by: input.created_by ?? input.request.created_by ?? 'system',
-      });
+      try {
+        await this.controlPlane.recordArtifactRef({
+          stable_key: debateReceiptKey(input.request),
+          workspace_id: input.request.workspace_id ?? null, title_card_id: input.request.title_card_id ?? null,
+          workflow_run_id: input.request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+          payload: receipt as unknown as Record<string, unknown>, checksum: canonicalHash(receipt),
+          created_by: input.created_by ?? input.request.created_by ?? 'system',
+        });
+      } catch (error) {
+        const winner = await this.readReceipt(input.request);
+        if (!winner) throw error;
+        if (winner.input_hash !== inputHash) throw new AppError(409, 'VERSION_CONFLICT', 'N6 Debate completion belongs to different frozen input or execution settings.');
+        return winner.result;
+      }
     }
     return result;
   }

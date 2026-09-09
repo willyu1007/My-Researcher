@@ -708,6 +708,20 @@ export class TopicSelectionV1bN7SupportRuntimeService {
     return payload as TopicSelectionV1bN7HarnessFrozenInputPayload;
   }
 
+  /** Only an internal generation receipt can authenticate a CLI artifact submitted to a gate. */
+  async hasCliGenerationReceipt(request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef): Promise<boolean> {
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(`n7-cli-support:${this.hash([request.workflow_run_id, request.node_attempt_id, artifact.slot_id])}`);
+    const result = receipt?.payload?.result as TopicSelectionV1bN7RuntimeSupportGenerationResult<TopicSelectionV1bN7RuntimeSupportPayload> | undefined;
+    return Boolean(receipt?.artifact_kind === 'diagnostic' && receipt.payload
+      && receipt.checksum === this.hash(receipt.payload)
+      && receipt.workflow_run_id === request.workflow_run_id
+      && (receipt.title_card_id ?? null) === (request.title_card_id ?? null)
+      && (receipt.workspace_id ?? null) === (request.workspace_id ?? null)
+      && result?.status === 'succeeded'
+      && this.hash(result.semantic_artifact) === this.hash(artifact));
+  }
+
   private readReceiptResult<T extends TopicSelectionV1bN7RuntimeSupportPayload>(record: TopicSelectionArtifactRefRecord, requestHash: string): TopicSelectionV1bN7RuntimeSupportGenerationResult<T> {
     const result = record.payload?.result as TopicSelectionV1bN7RuntimeSupportGenerationResult<T> | undefined;
     if (!result || record.checksum !== this.hash(record.payload) || record.payload?.request_hash !== requestHash) {

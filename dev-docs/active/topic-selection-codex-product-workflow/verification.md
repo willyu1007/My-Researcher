@@ -7,16 +7,35 @@
 | Task scope and authorization | User selected full topic-selection Codex task; approved through Phase 2 on 2026-09-09 | confirmed | Phases 3–5 remain required; N6/N8 alone cannot complete T-153. |
 | CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | Source inventory covers all profiles; all shipped profiles still exclude codex_cli. No activation claim. |
 | Runner prerequisite | T-152 code and evidence through a5263023 | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
-| CX-02 / N6/N8 local composition | N6/N8 runtime/admission and full harness suites after ea29ea83 changes | 184 passed | Includes ordinary N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8, and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; test-local profile admission. |
+| CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process, controlled upstream/Human fixtures and test-local profile admission. |
 | Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
 | CX-07 / persistent attempt exclusion | Attempt/orchestrator/runner suites; opt-in relational attempt integration test | 48 local checks and 1 PostgreSQL integration test passed | Four concurrent relational requests execute once; reconstructed consumer reuses completion; ambiguous unfinished claim refuses another call. Unique test artifacts removed in finally; no migration. |
-| CX-07 / post-model receipt races | N7 concurrent support test; ordinary N8 value runtime suite after 9cb4fe80 | passed; latest N8 suite 6 passed | Two consumers return the same winning receipt after one model attempt. N8 test first reproduced the content conflict; source/config drift remains refused. Joint reviews completed. |
+| CX-07 / post-model receipt races | N7/ordinary N8 runtime tests, N6 derived-draft race and canonical two-service test | passed in the suites above | Derived-draft and N6 loop completion reuse validated winning receipts. CLI domain commit claim excludes a second candidate-set writer; retry after completion replays. All reproduced receipt conflicts and duplicate-write findings were fixed and independently re-reviewed. An interrupted domain commit without completion remains fail-closed pending authority inspection. |
 | Exact Human delta / CX-02 | Coordinator/harness/refinement tests | 196 passed before final timeout fix; coordinator then 68 passed; directed final recovery 3 passed | Three CLI role calls preserve the exact current contract, produce a separately audited deterministic admission, and reopen pending Human confirmation. Interrupted derivation write reuses completed attempts. No real Human decisions. |
 | Timeout and no-op recovery | Delayed refinement runtime test and directed coordinator cases | passed | Whole review plus final N7 gate shares timeout; node_timeout→node_in_flight→settled recovery executes once. Canonical no-op is mechanical. Joint review finding corrected and re-reviewed. |
-| Critic objections / prompt contracts | N6 semantic admission test, refinement admission tests, production Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
+| Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
 | Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; integrated consumer mode remains behind closed shipped profiles. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
 | CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
+
+## Implementation quality review
+
+Reviewed `a5263023..f63c256d` and the resulting fixes against the approved through-Phase-2 route.
+The primary agent and one independent read-only reviewer inspected the implementation. All findings
+below were reproduced before correction and the fixes re-reviewed; no reported finding remains
+unresolved. Backend no-emit typecheck and the public artifact HTTP ingress check also passed.
+
+| Issue / consequence | Severity | Status / correction | Decisive evidence |
+|---|---|---|---|
+| Caller-authored CLI audits or replay traces could claim product execution/completion | Must fix | fixed: N7/ordinary N8 require protected generation receipts; CLI replay requires protected internal completion | Relabeled external audits and public-style forged trace rejected; legitimate admitted and blocked CLI replay preserved; HTTP ingress rejects reserved stable keys |
+| N8 final synthesis could discard a material Critic resolution accepted in the repair stage | Must fix | fixed: both repair and final must resolve each uniquely identified substantive finding | Empty, unresolved, blank and duplicate final actions plus malformed/duplicate Critic findings all block; valid four-role runtime still passes |
+| Concurrent derived-draft and N6 completed-loop receipt writes could throw a content-conflict error after successful model work | Should fix | fixed: validate and reuse the winning receipt, including its audit lineage | Paused receipt writes and independent consumers reproduce the original failures; four model calls remain four across recovery |
+| Concurrent CLI gate consumers could create different N6 candidate sets for the same node attempt | Must fix | fixed: persistent owner claim before admitted domain persistence; uncompleted competing writer gets 409 | Two services share persistence; first domain writer paused, competing caller refused, exactly one candidate-set write; completed retry replays |
+
+The protected-trace change's blocked-replay regression was also reproduced and corrected: an exact
+blocked request adds no artifacts, and changing its frozen input is still rejected. Code and fixtures
+prove these integrity/recovery contracts, not real model reasoning, statistical prompt quality or
+production activation. Automatic repair of an interrupted partial domain commit is not implemented.
 
 ## Live qualification proposal — not executed
 

@@ -112,6 +112,11 @@ T-129's successor handoff is recorded in e44e862c. Its current main-worktree rec
 - Verification: Focused role/admission/replay tests, real-input Codex checks and product-entry runs through the next human checkpoint, including non-advance and failure.
 - Recovery: Disable only the new route while retaining trace/domain history and existing truthful operator paths.
 
+Remaining execution order within the existing Phase 2 authorization:
+1. Prepare a repeatable qualification entry using the canonical consumers: materialize pinned source bodies through existing evidence owners, inspect exact rendered requests, and account for aggregate attempts/tokens/time. This preparation can proceed without live calls.
+2. After the explicit budget is confirmed, inspect actual role outputs for ordinary, insufficient, apparent-conflict and exact-delta cases. Exercise conditional/regeneration routes from actual producer results, or disclose isolated controlled setup; do not force an advancing verdict.
+3. Open only qualified profiles with permanent policy/scenario/operator documentation, then verify canonical progression, Human stops and recovery. Keep ambiguous partial domain commits fail-closed pending authority inspection; Phases 3–5 require the next authorization.
+
 ### Phase 3 — Connect upstream evidence and need discovery (integration detail provisional)
 - Outcome: Resource sampling, extraction, evidence convergence, need discovery/final synthesis, adjudication and human-confirmation support use Codex through product callers.
 - Approach: Reuse canonical evidence/retrieval owners; re-evaluate provider-only final synthesis against the unified admission criteria; preserve human confirmation and successor-map boundaries.

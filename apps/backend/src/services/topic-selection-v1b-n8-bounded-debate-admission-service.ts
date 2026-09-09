@@ -263,9 +263,9 @@ export class TopicSelectionV1bN8BoundedDebateAdmissionService {
       return priorCheck;
     }
 
-    const criticCheck = this.validateCriticResolution(critic.structured_output, repair.structured_output);
-    if (criticCheck) {
-      return criticCheck;
+    for (const output of [repair.structured_output, final.structured_output]) {
+      const criticCheck = this.validateCriticResolution(critic.structured_output, output);
+      if (criticCheck) return criticCheck;
     }
 
     const assessmentDraft = this.asRecord((final.structured_output as TopicSelectionV1bN8BoundedDebateRolePayload).assessment_draft);
@@ -370,35 +370,20 @@ export class TopicSelectionV1bN8BoundedDebateAdmissionService {
     criticOutput: TopicSelectionV1bN8BoundedDebateRoleOutput,
     repairOutput: TopicSelectionV1bN8BoundedDebateRoleOutput,
   ): TopicSelectionV1bN8BoundedDebateAdmissionResult | null {
-    const findings = this.asArray((criticOutput as TopicSelectionV1bN8BoundedDebateRolePayload).critic_findings)
-      .map((item) => this.asRecord(item))
-      .filter((record): record is Record<string, unknown> => Boolean(record));
-    const repairs = this.asArray((repairOutput as TopicSelectionV1bN8BoundedDebateRolePayload).repair_actions)
-      .map((item) => this.asRecord(item))
-      .filter((record): record is Record<string, unknown> => Boolean(record));
-    const resolved = new Set<string>();
-    for (const repair of repairs) {
-      const code = this.stringValue(repair.finding_code);
-      if (code && repair.resolved === true) {
-        resolved.add(code);
-      }
-    }
-    const blockingFindings = findings.filter((finding) => {
-      const severity = this.stringValue(finding.severity);
-      return severity === 'material' || severity === 'blocking';
-    });
-    // A material/blocking finding with no usable finding_code can never be matched to a repair
-    // action; dropping it (rather than blocking) would let an unidentifiable material finding pass
-    // unresolved — defeating the sole purpose of this gate. So treat a missing code as unresolved.
-    if (blockingFindings.some((finding) => this.stringValue(finding.finding_code) === null)) {
-      return this.block('N8_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED', 'N8 bounded debate critic emitted a material/blocking finding without a finding_code, so its repair resolution cannot be verified.');
-    }
-    const unresolved = blockingFindings
-      .map((finding) => this.stringValue(finding.finding_code))
-      .filter((code): code is string => Boolean(code))
-      .filter((code) => !resolved.has(code));
-    if (unresolved.length > 0) {
-      return this.block('N8_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED', 'N8 bounded debate repair did not resolve every material/blocking critic finding.', { unresolved });
+    const findings = criticOutput.critic_findings ?? [];
+    const repairs = repairOutput.repair_actions ?? [];
+    const block = () => this.block('N8_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED',
+      'N8 repair and final synthesis must each explicitly resolve every material/blocking Critic finding.');
+    if (!Array.isArray(findings) || !Array.isArray(repairs)) return block();
+    const codes = new Set<string>();
+    for (const value of findings) {
+      const finding = this.asRecord(value);
+      const code = finding && this.stringValue(finding.finding_code);
+      if (!finding || !code || codes.has(code) || !['note', 'material', 'blocking'].includes(String(finding.severity))) return block();
+      codes.add(code);
+      if (finding.severity === 'note') continue;
+      const matches = repairs.map(value => this.asRecord(value)).filter(repair => repair?.finding_code === code);
+      if (matches.length !== 1 || matches[0]?.resolved !== true || !this.stringValue(matches[0].action)) return block();
     }
     return null;
   }
@@ -501,10 +486,6 @@ export class TopicSelectionV1bN8BoundedDebateAdmissionService {
 
   private asRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  }
-
-  private asArray(value: unknown): unknown[] {
-    return Array.isArray(value) ? value : [];
   }
 
   private stringValue(value: unknown): string | null {

@@ -41,7 +41,7 @@ Update HTTP validation, shared input types, node/slot/scenario admission, profil
 
 ### Role inputs contain actual evidence and prior outputs
 
-Current N6 frozen input contains refs/hashes for constraints, readiness and slice/selection. N6/N8 context builders also carry prior-role artifact hashes without loading their actual output bodies. The core passes those packets directly to the model. Those identities are necessary for integrity but insufficient for a Critic to inspect an Explorer's argument.
+N6 frozen input identifies constraints, readiness and slice/selection with refs/hashes. The CLI consumer resolves the corresponding scoped domain/evidence bodies, and the shared prior-output resolver verifies and loads each earlier role's actual output. These bodies accompany the integrity hashes in the model packet; hashes alone are not research evidence or an argument a Critic can review.
 
 Compile source bodies through existing repositories with title, version, checksum and currentness checks. Reuse `TopicSelectionResearchEvidencePacketService.resolve()` for admissible bounded evidence excerpts and locators. Freeze the exact compiled input with its hashes before launching a role; subsequent retrieval is restricted to the same admitted scope. Missing/stale/oversized required context is a visible preparation failure, not fabricated evidence or silent truncation of decisive material.
 
@@ -55,13 +55,28 @@ Bind the derived draft to the admitted final role artifact, its invocation audit
 
 ### Attempts, duplicate requests and recovery
 
-N6 currently has a completed receipt plus an in-process `WeakMap` single-flight; N8's loop lacks an equivalent completed-loop receipt. The orchestrator records CLI trace after `runner.run()`. None of those facts alone proves restart-safe exclusion before model work.
+N6 has a completed-loop receipt plus an in-process `WeakMap` single-flight. Both N6 and N8 use persisted CLI role claims/outcomes and a protected final-draft derivation receipt; N8 does not need to rerun completed roles to reconstruct its loop. The orchestrator records CLI trace after `runner.run()`, while the persistent attempt claim is acquired before launching it.
 
 Use the control plane's existing immutable artifact/stable-key uniqueness to claim a logical role attempt before launching it. Bind the claim to the semantic request hash, frozen input, role instance, profile/prompt/config identity and a fresh owner token; only the successful claimant may call the runner. The Prisma repository already has a unique stable-key create/read path; preserve equivalent behavior in memory. A typed internal helper must distinguish winning ownership from idempotent reads or conflicting content. No new database table or general job framework is assumed.
 
 Persist completion/failure references separately and reuse validated completed role results and the final loop receipt for exact replay. Concurrent losers observe in-progress/conflict without launching another call. A claim with no trustworthy terminal result after restart is ambiguous: expose an interrupted attempt and require an explicit new product attempt identity before another metered call. Do not auto-expire a claim into rerunning uncertain work. Resume from persisted completed roles where safe; missing/changed evidence or identity requires the existing invalidation/recovery path. Never promise exactly-once execution across an external model and database transaction.
 
 Apply the same attempt boundary to ordinary model/support calls as rollout proceeds. Failed schema/admission results retain trace but create no successful domain draft or human authority.
+
+Concurrent final-draft derivation and N6 loop completion writers validate and reuse the winning
+receipt, including its original audit references. N7 support and ordinary N8 draft admission also
+require their protected internal generation receipts; caller-authored diagnostic payloads cannot
+authenticate CLI execution.
+
+CLI gate finalization separately claims `cli-node-commit` by workspace/title/workflow/node/attempt
+before preparing or writing admitted domain authority. Only its owner writes; a competing caller
+replays a completed result or receives 409 while the commit is unfinished. CLI replay accepts only
+protected internal completion traces, including content-bound blocked results, and checks content
+integrity and existing authority. Publicly submitted traces cannot stand in for completion.
+An interrupted domain writer may have persisted authority before its completion trace: the claim
+does not expire, and recovery must inspect that authority before choosing any new attempt. There
+is no automatic repair of this ambiguous partial commit. Existing external-output replay remains
+separate; no qualified historical CLI product run needs migration while profiles remain closed.
 
 ## Migration and operation
 
@@ -115,3 +130,6 @@ The N6 Arbiter CLI schema requires repair_actions; admission requires unique Cri
 across all instances and exactly one substantive resolution for each material/blocking finding.
 Malformed findings and unresolved or ambiguous repairs block. Resolution text is an auditable claim,
 not a mechanical proof of scientific correctness; live qualification must inspect the final changes.
+N8 requires both assessor repair and final synthesis to retain exactly one nonempty, resolved action
+per material/blocking finding; malformed or duplicate Critic identities and dropped final resolutions
+block admission even if an intermediate repair passed.

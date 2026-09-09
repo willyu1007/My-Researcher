@@ -36,7 +36,7 @@ function structuredOutputFor(slot: string): TopicSelectionV1bN8BoundedDebateRole
   if (slot === DRAFT) return { ...base, assessment_draft: ASSESSMENT_DRAFT };
   if (slot === CRITIC) return { ...base, critic_findings: [{ finding_code: 'CF1', severity: 'material', statement: 'Novelty needs evidence.' }] };
   if (slot === REPAIR) return { ...base, repair_actions: [{ finding_code: 'CF1', action: 'Linked evidence.', resolved: true }] };
-  return { ...base, assessment_draft: ASSESSMENT_DRAFT, debate_summary: 'Synthesis resolves the material finding.' };
+  return { ...base, assessment_draft: ASSESSMENT_DRAFT, repair_actions: [{ finding_code: 'CF1', action: 'Retained linked evidence in the final assessment.', resolved: true }], debate_summary: 'Synthesis resolves the material finding.' };
 }
 
 // Fixed canonical per-role identity values (profile/prompt/ric/source) — both the candidate artifact
@@ -297,3 +297,23 @@ for (const negative of resolutionNegatives) {
     assert.equal(result.blocker.code, negative.code);
   });
 }
+
+for (const repairActions of [[], [{ finding_code: 'CF1', action: 'Still unresolved.', resolved: false }],
+  [{ finding_code: 'CF1', action: ' ', resolved: true }],
+  [{ finding_code: 'CF1', action: 'First.', resolved: true }, { finding_code: 'CF1', action: 'Second.', resolved: true }]]) {
+  test(`N8 final synthesis must preserve a unique substantive resolution: ${JSON.stringify(repairActions)}`, async () => {
+    const candidates = makeCandidates({ [FINAL]: { ...structuredOutputFor(FINAL), repair_actions: repairActions } });
+    const result = await makeAdmission().admit({ role_results: candidates, loop_transcript_hash: loopTranscriptHash(candidates) });
+    assert.equal(result.admitted, false);
+    if (!result.admitted) assert.equal(result.blocker.code, 'N8_BOUNDED_DEBATE_CRITIC_FINDING_UNRESOLVED');
+  });
+}
+
+test('N8 refuses ambiguous or malformed Critic finding identities', async () => {
+  const finding = { finding_code: 'CF1', severity: 'material', statement: 'Needs evidence.' };
+  for (const findings of [[finding, finding], [null], {}, [{ ...finding, severity: 'unknown' }]]) {
+    const candidates = makeCandidates({ [CRITIC]: { ...structuredOutputFor(CRITIC), critic_findings: findings } });
+    const result = await makeAdmission().admit({ role_results: candidates, loop_transcript_hash: loopTranscriptHash(candidates) });
+    assert.equal(result.admitted, false);
+  }
+});

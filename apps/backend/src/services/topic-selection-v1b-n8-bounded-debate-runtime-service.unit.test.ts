@@ -210,7 +210,7 @@ function roleOutput(
       ],
     };
   }
-  return { ...base, assessment_draft: ASSESSMENT_DRAFT, debate_summary: 'Synthesis preserves dimension coverage and resolves the material finding.' };
+  return { ...base, assessment_draft: ASSESSMENT_DRAFT, repair_actions: [{ finding_code: 'CF1', action: 'Retained the evidence link in the final assessment.', resolved: !options.unresolvedFinding }], debate_summary: 'Synthesis preserves dimension coverage and resolves the material finding.' };
 }
 
 function debateInput(

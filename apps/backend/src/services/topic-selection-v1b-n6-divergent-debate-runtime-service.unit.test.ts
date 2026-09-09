@@ -119,13 +119,35 @@ test('CLI role replay keeps prior output refs stable and does not repeat the fou
     first.ordered_role_artifacts.map(role => role.normalized_output_ref));
   assert.equal(first.status, 'completed');
   if (first.status !== 'completed') return;
-  const derived = await recordDebateDerivedDraft(controlPlane, {
+  let releaseReceipt!: () => void;
+  let reachedReceipt!: () => void;
+  const receiptReached = new Promise<void>(resolve => { reachedReceipt = resolve; });
+  const receiptRelease = new Promise<void>(resolve => { releaseReceipt = resolve; });
+  t.after(() => releaseReceipt());
+  const record = controlPlane.recordArtifactRef.bind(controlPlane);
+  let firstReceipt = true;
+  controlPlane.recordArtifactRef = async artifact => {
+    if (artifact.stable_key?.startsWith('debate-draft-derivation:') && firstReceipt) {
+      firstReceipt = false; reachedReceipt(); await receiptRelease;
+    }
+    return record(artifact);
+  };
+  const late = recordDebateDerivedDraft(controlPlane, {
     request, slot_id: 'n6_question_candidate_draft', final_role: first.final_role_artifact,
     loop_transcript_hash: first.loop_transcript_hash,
   });
+  await receiptReached;
+  if (replay.status !== 'completed') throw new Error('Expected completed replay');
+  const winner = await recordDebateDerivedDraft(controlPlane, {
+    request, slot_id: 'n6_question_candidate_draft', final_role: replay.final_role_artifact,
+    loop_transcript_hash: replay.loop_transcript_hash,
+  });
+  releaseReceipt();
+  const derived = await late;
+  assert.deepEqual(derived, winner);
   assert.equal(calls, 4, 'Projecting the final role must not invoke another model.');
   assert.equal(derived.semantic_artifact.runtime_provenance_class, 'debate_derived');
-  assert.equal(derived.semantic_artifact.runtime_audit_ref?.ref_id, first.final_role_artifact.runtime_audit_ref?.ref_id);
+  assert.equal(derived.semantic_artifact.runtime_audit_ref?.ref_id, replay.final_role_artifact.runtime_audit_ref?.ref_id);
   assert.deepEqual(derived.structured_output, first.final_structured_output.synthesized_candidate_set);
   await assert.rejects(verifyDebateDerivedDraft(controlPlane, request, {
     ...derived.semantic_artifact, normalized_output_hash: 'f'.repeat(64),

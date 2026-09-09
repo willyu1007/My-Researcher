@@ -37,6 +37,13 @@ The existing factory also accepts `TOPIC_SELECTION_CODEX_REASONING_EFFORT`,
 Completed attempts reuse persisted results; an interrupted claim without a recorded outcome
 requires an explicit new attempt identity. Never automatically retry ambiguous metered work.
 
+Domain finalization has its own persistent claim. A concurrent CLI request receives 409 until the
+winner finishes, then the same request can replay the protected completion. If interrupted after
+domain writing starts but before completion is recorded, inspect persisted authority before any new
+attempt; the product does not automatically repair or repeat that ambiguous write. Both successful
+and blocked CLI completions support exact replay. Caller-authored audits or traces cannot establish
+CLI execution or completion.
+
 N7 consumes the CLI setting to generate `n7_n8_debate_admission_review` support on initial and
 N8-feedback entry. Its mechanical contract selection and Human boundary remain unchanged;
 completed entry requests reuse their support and gate results.

@@ -1,6 +1,6 @@
 # Execution inventory
 
-Source snapshot: `a5263023`, 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; no row below claims live Codex readiness.
+Inventory established at `a5263023`, reconciled with the current Phase 2 implementation on 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; no row below claims live Codex readiness.
 
 ## Model profiles
 
@@ -23,17 +23,17 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 13 | `topic-selection.need-discovery.arbiter-framing.v1` | Need-discovery loop; frame issues from verified role bodies | Phase 3 / CX-03 |
 | 14 | `topic-selection.need-discovery.arbiter-final.v1` | Provider/mock only; both final-slot policy and profile need deliberate CLI alignment | Phase 3 / CX-03 |
 | 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | N4 draft generation; preserve N5 human selection | Phase 4 / CX-04 |
-| 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 draft runtime and Debate bridge; consume admitted final deterministically without an extra model call | Phase 2 / CX-02 |
-| 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | N8 ordinary assessment and Debate bridge; integrate both paths | Phase 2 / CX-02 |
+| 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; qualification pending | Phase 2 / CX-02 |
+| 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; qualification pending | Phase 2 / CX-02 |
 | 18 | `topic-selection.v1b.constraint-profile-support.codex.v1` | External support today; prepare suggestions, retain Human constraint authority | Phase 4 / CX-04 |
 | 19 | `topic-selection.v1b.intake-readiness-support.codex.v1` | External support today; cannot override deterministic readiness | Phase 4 / CX-04 |
 | 20 | `topic-selection.v1b.slice-selection-support.codex.v1` | External support today; cannot make the researcher's slice choice | Phase 4 / CX-04 |
 | 21 | `topic-selection.v1b.n6-loopback-triage-support.codex.v1` | External support today; preserve existing loopback targets/currentness | Phase 4 / CX-04 |
 | 22 | `topic-selection.v1b.candidate-grouping-support.codex.v1` | External support today; no candidate authority writes | Phase 4 / CX-04 |
 | 23 | `topic-selection.v1b.failed-trial-synthesis-support.codex.v1` | External support today; retain trial history and non-advance outcomes | Phase 4 / CX-04 |
-| 24 | `topic-selection.v1b.n8-debate-admission-support.codex.v1` | External support today; supports existing conditional Debate, not a new trigger authority | Phase 2 / CX-02 |
-| 25 | `topic-selection.v1b.n6-refinement-delta-admission.v1` | External support today; bind exact Human delta before bounded refinement review | Phase 2 / CX-02 |
-| 26 | `topic-selection.v1b.n8-bounded-debate.v1` | One shared profile for four ordered role slots; caller currently requires external outputs | Phase 2 / CX-02 |
+| 24 | `topic-selection.v1b.n8-debate-admission-support.codex.v1` | Canonical N7 CLI support integrated; protected generation receipt required; qualification pending | Phase 2 / CX-02 |
+| 25 | `topic-selection.v1b.n6-refinement-delta-admission.v1` | Exact Human delta CLI review derives admission from three actual roles; no extra model call; qualification pending | Phase 2 / CX-02 |
+| 26 | `topic-selection.v1b.n8-bounded-debate.v1` | Four ordered CLI roles integrated; repair and final must both resolve substantive Critic findings; qualification pending | Phase 2 / CX-02 |
 | 27 | `topic-selection.v1b.n6-debate.explorer.v1` | Two independent initial Explorer instances over the same frozen evidence | Phase 2 / CX-02 |
 | 28 | `topic-selection.v1b.n6-debate.critic.v1` | Review both actual Explorer outputs, not only their artifact hashes | Phase 2 / CX-02 |
 | 29 | `topic-selection.v1b.n6-debate.arbiter.v1` | Synthesize actual drafts/objections; deterministic candidate projection after admission | Phase 2 / CX-02 |
@@ -76,9 +76,9 @@ Historical source: `git show 5cf904fb:dev-docs/active/topic-selection-calibratio
 
 | Historical prompt family | Current `.ai/llm/topic-selection/prompts/` source | Current observation |
 |---|---|---|
-| #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Short role/authority skeletons; qualify research reasoning and usable input bodies |
-| #22 ordinary N8 assessment | `v1b/n8-topic-value-assessment/system.md` | Short authority/schema instruction; was part of the original six |
-| #23 N8 bounded role family | `v1b/n8-bounded-micro-debate/system.md` | Shared short instruction; verify all four role behaviors separately |
+| #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Prompt v2 covers evidence, role outputs and substantive resolution; live research-reasoning qualification pending |
+| #22 ordinary N8 assessment | `v1b/n8-topic-value-assessment/system.md` | Prompt v2 covers scoped value reasoning, insufficiency and non-advance; was part of the original six; live qualification pending |
+| #23 N8 bounded role family | `v1b/n8-bounded-micro-debate/system.md` | Prompt v2 covers four role behaviors and preserved objections; qualify each actual role |
 | #25 promotion N2 bounded family | `v1c/n2-bounded-micro-debate/system.md` | Already expanded for material risks and grouped conditions by later work; preserve that contract |
 | Later refinement-delta family | `v1b/n6-refinement-delta-debate/system.md` | Additional substantive support-only contract; outside the historical six but inside T-153 |
 

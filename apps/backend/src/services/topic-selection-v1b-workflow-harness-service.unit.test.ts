@@ -185,9 +185,9 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
       { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } },
     ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
   });
-  const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, {
+  const makeService = (controlPlane = ctx.controlPlane) => new TopicSelectionV1bWorkflowHarnessService(controlPlane, {
     modelProfileRegistry,
-    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
     evidencePacketResolver: { resolve: async input => {
       evidenceReads += 1;
       assert.equal(input.title_card_id, TITLE_CARD_ID);
@@ -204,7 +204,43 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
       valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository,
     },
   });
-  const result = await service.invokeNode(request);
+  const service = makeService();
+  let result: Awaited<ReturnType<typeof service.invokeNode>>;
+  if (generationMode === 'initial_from_n5') {
+    let releaseReceipt!: () => void;
+    let reachedReceipt!: () => void;
+    const receiptReached = new Promise<void>(resolve => { reachedReceipt = resolve; });
+    const receiptRelease = new Promise<void>(resolve => { releaseReceipt = resolve; });
+    t.after(() => releaseReceipt());
+    let releaseAuthority!: () => void;
+    let reachedAuthority!: () => void;
+    const authorityReached = new Promise<void>(resolve => { reachedAuthority = resolve; });
+    const authorityRelease = new Promise<void>(resolve => { releaseAuthority = resolve; });
+    t.after(() => releaseAuthority());
+    let authorityWrites = 0;
+    const create = ctx.topicQuestionRepository.createFormationRunWithCandidates.bind(ctx.topicQuestionRepository);
+    ctx.topicQuestionRepository.createFormationRunWithCandidates = async persistence => {
+      authorityWrites += 1;
+      if (authorityWrites === 1) { reachedAuthority(); await authorityRelease; }
+      return create(persistence);
+    };
+    const record = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane);
+    ctx.controlPlane.recordArtifactRef = async artifact => {
+      if (artifact.stable_key?.startsWith('topic-selection.v1b.n6-debate.')) {
+        reachedReceipt(); await receiptRelease;
+      }
+      return record(artifact);
+    };
+    const late = service.invokeNode(request);
+    await receiptReached;
+    const winner = makeService(new TopicSelectionControlPlaneService(ctx.controlPlaneRepository)).invokeNode(request);
+    await authorityReached;
+    releaseReceipt();
+    await assert.rejects(late, error => error instanceof AppError && error.statusCode === 409);
+    assert.equal(authorityWrites, 1, 'Only the winning CLI request may enter domain persistence.');
+    releaseAuthority();
+    result = await winner;
+  } else result = await service.invokeNode(request);
   assert.equal(result.gate_status, 'admitted', JSON.stringify(result));
   assert.equal(calls, 4); assert.ok(evidenceReads > 0);
   const replay = await service.invokeNode(request);
@@ -262,6 +298,69 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
   assert.equal((await service.invokeNode(debateInput)).replay_provenance?.replayed, true);
   assert.equal(calls, 12);
 });
+}
+
+test('CLI replay ignores caller-authored trace artifacts', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n6 } = await runReadyN7(ctx);
+  const trace = await ctx.controlPlane.getArtifactRef(n6.harness_trace_artifact_ref!.ref_id);
+  assert.ok(trace?.payload);
+  const original = trace.payload.request as TopicSelectionV1bWorkflowHarnessRunRequest;
+  const input = { ...original, workflow_run_id: 'forged_cli_workflow',
+    execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null } };
+  await ctx.controlPlane.recordArtifactRef({
+    workflow_run_id: input.workflow_run_id, title_card_id: input.title_card_id,
+    artifact_kind: 'trace', storage_kind: 'inline', created_by: 'system',
+    payload: { ...trace.payload, workflow_run_id: input.workflow_run_id, request: input },
+  });
+  const replay = await ctx.service['findReplay'](input, trace.payload.node_replay_key as string);
+  assert.equal(replay.exact, null, 'Only a product-owned completion can authenticate a CLI replay.');
+});
+
+test('CLI blocked completion replays without writes and rejects changed input', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n6 } = await runReadyN7(ctx);
+  const base = await n7Request(ctx, n6);
+  const support = await generateN7RuntimeSupportArtifact(ctx, base, 'n7_n8_debate_admission_review', n7DebateAdmissionPayload());
+  const input = { ...base, semantic_artifacts: [{ ...support, execution_mode: 'codex_cli' as const }] };
+  const blocked = await ctx.service.invokeNode(input);
+  assert.equal(blocked.gate_status, 'blocked');
+  const before = await ctx.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
+  const replay = await ctx.service.invokeNode(input);
+  assert.equal(replay.replay_provenance?.replayed, true);
+  assert.equal(replay.gate_result_ref?.ref_id, blocked.gate_result_ref?.ref_id);
+  assert.deepEqual(await ctx.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id), before);
+  const payload = { ...input.frozen_input.payload, changed: true };
+  const changed = await ctx.service.invokeNode({ ...input,
+    frozen_input: { ...input.frozen_input, payload, frozen_input_hash: null } });
+  assert.equal(changed.gate_status, 'blocked');
+  assert.match(changed.error_code ?? '', /REPLAY/);
+});
+
+for (const node of ['n7', 'n8'] as const) {
+  test(`${node} CLI audit verification rejects externally relabeled output without a generation receipt`, async () => {
+    const ctx = await seedHarnessV1aBundle();
+    const { n6, n7 } = await runReadyN7(ctx);
+    const input = node === 'n7' ? await n7Request(ctx, n6) : await n8Request(ctx, n7);
+    const original = node === 'n7'
+      ? await generateN7RuntimeSupportArtifact(ctx, input, 'n7_n8_debate_admission_review', n7DebateAdmissionPayload())
+      : await generateN8RuntimeValueDraftArtifact(ctx, input, n8ValueDraft(input));
+    const audit = await ctx.controlPlane.getArtifactRef(original.runtime_audit_ref!.ref_id);
+    assert.ok(audit?.payload);
+    const forgedAudit = await ctx.controlPlane.recordArtifactRef({
+      title_card_id: TITLE_CARD_ID, workflow_run_id: input.workflow_run_id,
+      artifact_kind: 'diagnostic', storage_kind: 'inline', created_by: 'system',
+      payload: { ...audit.payload, provenance: { ...audit.payload.provenance as Record<string, unknown>,
+        execution_mode: 'codex_cli', source_kind: 'codex_cli_response' } },
+    });
+    const forgedRef = ref('artifact_ref', forgedAudit.artifact_ref_id);
+    const forged = { ...original, execution_mode: 'codex_cli' as const, runtime_audit_ref: forgedRef,
+      provenance_ref: forgedRef, runtime_audit_hash: forgedAudit.checksum! };
+    const verified = node === 'n7'
+      ? await ctx.service['verifyN7RuntimeVerifiedSupportAuditArtifact'](input, forged)
+      : await ctx.service['verifyN8RuntimeVerifiedDraftAuditArtifact'](input, forged);
+    assert.equal(verified.ok, false, 'A self-reported CLI audit cannot prove that a model ran.');
+  });
 }
 
 function makeContext(options: { withRunnerDependencies?: boolean } = {}) {

@@ -1685,9 +1685,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     nodeReplayKey: string,
   ): Promise<ReplayLookup> {
+    const cliCommitKey = this.cliNodeCommitKey(input);
     const artifacts = await this.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
     const traceArtifacts = artifacts
       .filter((artifact) => artifact.artifact_kind === 'trace')
+      .filter((artifact) => !cliCommitKey || artifact.stable_key === `${cliCommitKey}:result`
+        || artifact.stable_key === `${cliCommitKey}:blocked:${canonicalHash(artifact.payload)}`)
       .filter((artifact) => {
         const payload = artifact.payload as Partial<TopicSelectionV1bWorkflowHarnessTracePayload> | null;
         return payload?.payload_schema === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION
@@ -1697,6 +1700,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       .sort((left, right) => right.created_at.localeCompare(left.created_at));
 
     for (const artifact of traceArtifacts) {
+      if (cliCommitKey && artifact.checksum !== canonicalHash(artifact.payload)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'CLI node completion checksum differs from its persisted content.');
+      }
       const payload = artifact.payload as unknown as TopicSelectionV1bWorkflowHarnessTracePayload;
       if (payload.node_replay_key !== nodeReplayKey) {
         continue;
@@ -4738,10 +4744,43 @@ export class TopicSelectionV1bWorkflowHarnessService {
       writeAuthority: (prepared: PreparedAdmittedControlPlane) => Promise<void>;
     },
   ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    const commitKey = this.cliNodeCommitKey(input);
+    if (commitKey) {
+      const owner = crypto.randomUUID();
+      const claim = { node_replay_key: hashContext.nodeReplayKey, owner };
+      try {
+        const recorded = await this.controlPlane.recordArtifactRef({
+          stable_key: commitKey, workflow_run_id: input.workflow_run_id,
+          workspace_id: input.workspace_id ?? null, title_card_id: input.title_card_id ?? null,
+          artifact_kind: 'diagnostic', storage_kind: 'inline', created_by: 'system',
+          payload: claim, checksum: canonicalHash(claim),
+        });
+        if (recorded.payload?.owner !== owner) throw new Error('CLI node commit belongs to another caller.');
+      } catch (error) {
+        const winner = await this.controlPlane.getArtifactRefByStableKey(commitKey);
+        if (!winner) throw error;
+        if (winner.artifact_kind !== 'diagnostic' || winner.checksum !== canonicalHash(winner.payload)
+          || winner.payload?.node_replay_key !== hashContext.nodeReplayKey) {
+          throw new AppError(409, 'VERSION_CONFLICT', 'CLI node commit input or persisted claim differs.');
+        }
+        const replay = await this.findReplay(input, hashContext.nodeReplayKey);
+        if (replay.exact) return this.invokeNode(input);
+        // An interrupted writer may already have persisted authority; never repeat that write blindly.
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+          'CLI node commit is in progress or interrupted. Retry after completion; if interrupted, inspect persisted authority before recovery.');
+      }
+    }
     let prepared = await this.prepareAdmittedControlPlane(input, hashContext, outcome);
     await options.writeAuthority(prepared);
     prepared = await this.recordRuntimeContextProjection(input, outcome, prepared);
     return this.finalizeAdmittedResult(input, hashContext, outcome, prepared);
+  }
+
+  private cliNodeCommitKey(input: TopicSelectionV1bWorkflowHarnessRunRequest): string | null {
+    if (input.execution_spec?.execution_mode !== 'codex_cli'
+      && !input.semantic_artifacts?.some(artifact => artifact.execution_mode === 'codex_cli')) return null;
+    return `cli-node-commit:${canonicalHash([input.workspace_id ?? null, input.title_card_id ?? null,
+      input.workflow_run_id, input.node_id, input.node_attempt_id])}`;
   }
 
   private async prepareAdmittedControlPlane(
@@ -4978,7 +5017,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       result: resultWithoutTraceArtifact,
       created_at: this.now(),
     } satisfies TopicSelectionV1bWorkflowHarnessTracePayload;
+    const cliCommitKey = this.cliNodeCommitKey(input);
     const traceArtifact = await this.controlPlane.recordArtifactRef({
+      stable_key: cliCommitKey ? `${cliCommitKey}:result` : undefined,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? outcome.targetRef.title_card_id ?? null,
       artifact_kind: 'trace',
@@ -5785,6 +5826,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
   ): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+    if (artifact.execution_mode === 'codex_cli' && !await this.n7SupportRuntime.hasCliGenerationReceipt(input, artifact)) {
+      return n7RuntimeAuditDrift('CLI support must match its protected runtime generation receipt.');
+    }
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
@@ -7480,6 +7524,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
   ): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+    if (artifact.execution_mode === 'codex_cli' && !await this.n8ValueAssessmentRuntime.hasCliGenerationReceipt(input, artifact)) {
+      return n8RuntimeAuditDrift('CLI draft must match its protected runtime generation receipt.');
+    }
     if (
       !artifact.runtime_audit_ref
       || artifact.runtime_audit_ref.ref_type !== 'artifact_ref'
@@ -11672,6 +11719,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       created_at: this.now(),
     } satisfies TopicSelectionV1bWorkflowHarnessTracePayload;
     const traceArtifact = await this.controlPlane.recordArtifactRef({
+      stable_key: this.cliNodeCommitKey(input) ? `${this.cliNodeCommitKey(input)}:blocked:${canonicalHash(tracePayload)}` : undefined,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? null,
       artifact_kind: 'trace',

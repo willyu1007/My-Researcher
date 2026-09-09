@@ -4,10 +4,10 @@
 Align the existing topic-selection agent execution policies and make the complete product workflow executable with product-driven `codex_cli` model roles, starting with N6/N8 Debate and continuing through evidence, need discovery, question/value work, promotion, handoff, and recovery while preserving deterministic and strict-human authority.
 
 ## Progress
-- State: blocked
-- Current phase: Phase 2 — local consumer/recovery integration verified; real-model qualification pending
-- Next step: Confirm the concrete live-input/budget proposal in verification.md, then execute real-role qualification and open only the proved profiles with matching scenarios/docs. Full workflow Phases 3–5 remain required but outside this authorization.
-- Blocker: Live execution awaits the explicit attempt/token/time budget response required by the approved roadmap. Local integration, prompt edits and recovery checks are committed; no live model calls or product profile activation have occurred. T-129 successor handoff is recorded; its separate archive waits on a second worktree occurrence.
+- State: in-progress
+- Current phase: Phase 2 — local implementation quality review and recovery fixes verified; live qualification preparation remains
+- Next step: Prepare the repeatable qualification entry, pinned evidence and rendered requests, with aggregate attempt/token/time accounting. After the budget in verification.md is confirmed, run real-role checks and open only proved profiles with matching scenarios/docs. Phases 3–5 remain required but outside this authorization.
+- Blocker: Budget confirmation blocks live model calls, not offline qualification preparation. No live qualification or product profile activation has occurred. An interrupted CLI domain commit with no completion stays blocked pending inspection of persisted authority; it must not be blindly retried under a new identity. T-129 archival separately waits on its second worktree occurrence.
 
 ## Done when
 - [ ] CX-01: Every existing topic-selection model/support role across resource sampling, v1a, v1b, v1c and downstream feedback has an explicit Codex execution disposition in the existing policy/matrix authorities, with a product entry point and verification reference. Deterministic steps and human decisions are identified separately; required model roles cannot remain dependent on manually supplied `codex_response` or another generation provider.
