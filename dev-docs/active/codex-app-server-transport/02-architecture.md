@@ -36,22 +36,29 @@ default `stdio://`, spawned from the product-owned `CODEX_HOME` with the runner'
 environment (D-1); protocol bindings generated from that binary with `codex app-server
 generate-json-schema` / `generate-ts` and checked for drift by regeneration (D-2).
 
-Settled by the installed binary's schema (2026-09-09), pending live confirmation in the spike:
+Settled by the Phase 1 spike against codex-cli 0.153.4 (2026-09-09):
 
 | Today's `codex exec` invocation | App Server equivalent |
 |---|---|
-| process spawn per attempt | `initialize` (`clientInfo`) once per child; the response's `codexHome` proves which home it runs from |
-| `-c approval_policy={granular=…}` | `thread/start.approvalPolicy` (`AskForApproval`: `untrusted` / `on-request` / `never` / granular) |
-| `-s read-only` | `thread/start.sandbox` (`SandboxMode`: `read-only` / `workspace-write` / `danger-full-access`) |
-| `-c mcp_servers.<name>.url=…` | `thread/start.config` (free object; exact key shape is a spike question) |
-| `--ephemeral`, `-m`, cwd | `thread/start.ephemeral`, `.model`, `.cwd` |
-| prompt on stdin | `turn/start.input` |
-| `--output-schema` | `turn/start.outputSchema` |
+| process spawn per attempt | one `codex app-server` child per runner instance, spawned from the product home with `CODEX_HOME` and `PATH` only and a scratch `cwd` (a repository cwd loads project-local `.codex`); `initialize` with `capabilities.experimentalApi = true` (granular approval is gated on it); the response's `codexHome` is the isolation proof |
+| `-c approval_policy={granular=…}` | `thread/start.approvalPolicy` granular with all five flags false (`sandbox_approval`, `rules`, `skill_approval`, `request_permissions`, `mcp_elicitations`) |
+| `-s read-only` | `thread/start.sandbox: "read-only"` (the server reports `{type: readOnly, networkAccess: false}`; MCP connections are the server's own and unaffected) |
+| `-c mcp_servers.<name>.url=…`, `default_tools_approval_mode="approve"` | `thread/start.config: { mcp_servers: { <name>: { url, default_tools_approval_mode: "approve" } } }` |
+| `--ephemeral`, `-m`, cwd | `thread/start.ephemeral: true`, `.model`, `.cwd` |
+| prompt on stdin | `turn/start.input: [{ type: "text", text, text_elements: [] }]` |
+| `--output-schema` | `turn/start.outputSchema` — enforced: the three requested violations were blocked |
 | `-c model_reasoning_effort=…` | `turn/start.effort` |
-| one process exits | `thread/archive` or `thread/delete` (`threadId`) — which one satisfies D-3 is a spike question |
+| one process exits | `thread/unsubscribe`; an ephemeral thread has no rollout, so `thread/archive` and `thread/delete` both fail with -32600, and the thread stays in `thread/loaded/list` until the child exits — hence a bounded recycle of the child (D-3) |
 
-Not yet settled: whether `outputSchema` is enforced as strictly as the flag, the `config` key shape
-for MCP servers, and archive-versus-delete semantics.
+Wire shape: newline-delimited JSON; responses are `{id, result | error}` without `jsonrpc`;
+notifications `{method, params, emittedAtMs}`; server requests `{id, method, params}`. Ending
+the child's stdin makes it exit 0. Two threads on one child run their turns concurrently.
+
+The client (`apps/backend/src/services/topic-selection-codex-app-server-client.ts`) is the
+transport plus the product's answer policy: approval-shaped server requests are declined with the
+protocol's own decline, everything else gets a JSON-RPC error, and each answer is observable so
+the trace can carry it. `runTurn` subscribes before sending, filters by thread id, and interrupts
+the turn on timeout.
 
 ## Interfaces and contracts
 
@@ -60,14 +67,17 @@ for MCP servers, and archive-versus-delete semantics.
   injection point so the unit tests keep running without a Codex installation.
 - Trace: `topic-selection-codex-cli-trace-v1` keeps its shape; the `events` array carries App Server
   notifications instead of `exec --json` lines, and gains `thread/compacted`, usage updates and any
-  server requests with the policy answer the product gave. Field mapping from the binary's schema:
-  `thread_id` ← `thread/started`; final message ← the last `item/completed` agent message, or
-  `turn/completed.turn.items`; `usage` ← `thread/tokenUsage/updated.tokenUsage.total`
+  server requests with the policy answer the product gave. Field mapping, observed in the spike:
+  `thread_id` ← `thread/start` response (`thread.id`, also in `thread/started`); final message ←
+  the last completed `agentMessage` item (`item/completed`; `item/agentMessage/delta` streams it);
+  `usage` ← the last `thread/tokenUsage/updated.tokenUsage.total`, one update per model round trip
   (`TokenUsageBreakdown`: `inputTokens`, `cachedInputTokens`, `cacheWriteInputTokens`,
-  `outputTokens`, `reasoningOutputTokens`, plus `totalTokens` and `modelContextWindow`); tool calls
-  ← `item/started` / `item/completed` for `mcpToolCall` items and `item/mcpToolCall/progress`;
-  outcome ← `turn/completed.turn.status` (`completed` / `interrupted` / `failed` / `inProgress`)
-  with `turn.error` on failure.
+  `outputTokens`, `reasoningOutputTokens`, `totalTokens`; `modelContextWindow` beside it); tool
+  calls ← completed `mcpToolCall` items (`server`, `tool`, `status`, `arguments`, `result`,
+  `error`, `durationMs`) with `item/mcpToolCall/progress` in between; MCP startup ←
+  `mcpServer/startupStatus/updated`; outcome ← `turn/completed.turn.status` with `turn.error` on
+  failure. Rate limits are a request, not an event: `account/rateLimits/read` returns
+  `rateLimits.primary.{usedPercent, windowDurationMins, resetsAt}`, `credits`, `planType`.
 - Server requests the product must answer: at minimum `item/tool/requestUserInput`,
   `item/commandExecution/requestApproval`, `item/fileChange/requestApproval` and
   `mcpServer/elicitation/request`. This task answers them by policy (refuse, record); a later task
@@ -76,6 +86,14 @@ for MCP servers, and archive-versus-delete semantics.
 ## Migration and operation
 
 - A long-lived child process per backend process needs supervision: start on first use, restart on
-  crash, and never let a crashed server hang an attempt.
+  crash, recycle after a bounded number of attempts because finished ephemeral threads stay loaded,
+  and never let a crashed server hang an attempt (the client fails every pending request and any
+  running turn when the child exits).
+- The server writes its own state under `CODEX_HOME` (sqlite WAL side files for `memories`); it
+  writes no session rollout for an ephemeral thread. The product still never writes there itself.
+- Bindings: `apps/backend/scripts/codex-app-server-bindings-generate.mjs` regenerates
+  `apps/backend/src/generated/codex-app-server/` from the installed binary and records its version
+  in `codex-version.ts`; `--check` fails on drift and belongs in the checks run after a Codex
+  upgrade.
 - The `exec` path stays selectable during the transition (D-6) and must have a recorded exit.
 - Deployment stays environment-based; the product `CODEX_HOME` provisioned for T-151 is reused.

@@ -118,3 +118,7 @@
 docs/context/db/schema.json                                    linguist-generated -diff
 docs/context/api/api-index.json                                linguist-generated -diff
 docs/context/paper-implementation/slot-parameter-manifest.json linguist-generated -diff
+
+# Codex App Server protocol bindings emitted by the installed codex binary
+# (apps/backend/scripts/codex-app-server-bindings-generate.mjs; `--check` gates drift).
+apps/backend/src/generated/codex-app-server/**                 linguist-generated -diff

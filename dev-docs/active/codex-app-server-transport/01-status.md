@@ -8,10 +8,11 @@ provenance shape or MCP tool surface.
 
 ## Progress
 - State: in-progress
-- Current phase: Planned. The installed binary's own schema settled the invocation and trace
-  mappings on paper; Phase 1 is the live spike that turns them into evidence.
-- Next step: Run the Phase 1 spike — generate bindings from the binary, drive one real turn from
-  the product Codex home, and answer the four recorded assumptions.
+- Current phase: Phase 2 — runner swap behind a switch. Phase 1 landed: bindings generated from
+  the installed binary with a drift check, a stdio JSON-RPC client with policy answers, and three
+  live spike cases that answered all four assumptions and closed D-3 through D-6.
+- Next step: Give the runner an App Server path behind `TOPIC_SELECTION_CODEX_TRANSPORT`, with an
+  injectable child so unit tests run without Codex, and rerun the four T-151 live checks on it.
 - Blocker: none
 
 ## Done when
@@ -22,7 +23,7 @@ provenance shape or MCP tool surface.
       thread and that thread is closed with the attempt; a test pins that no attempt reuses another's.
 - [ ] Provenance carries the App Server thread id and the trace carries the App Server event
       stream, with the `codex_cli_response` provenance branch itself unchanged.
-- [ ] Protocol types are generated from the upstream `app-server-protocol` schema, pinned to the
+- [x] Protocol types are generated from the upstream `app-server-protocol` schema, pinned to the
       Codex version the product runs, with a check that regeneration yields no diff.
 - [ ] The two capabilities the swap exists for are each observed end to end: a `thread/compacted`
       event recorded in a trace, and an `item/tool/requestUserInput` request recorded and answered by

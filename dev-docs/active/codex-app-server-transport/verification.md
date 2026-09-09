@@ -4,16 +4,21 @@
 
 | Claim / reference | Check / procedure | Latest result | Evidence / limitation |
 |---|---|---|---|
-| The installed binary emits its own protocol bindings. | `codex app-server generate-json-schema --out DIR` on codex-cli 0.153.4. | observed (2026-09-09) | 41 top-level files plus `v1/` (the `initialize` handshake) and `v2/` (265 files, 622 definitions). No network fetch, no version guessing. |
-| The App Server exposes what the invocation needs. | Read `ThreadStartParams`, `TurnStartParams`, `AskForApproval`, `SandboxMode`, `Turn`, `ThreadTokenUsage` from the generated schema. | observed (2026-09-09) | `turn/start.outputSchema` exists; `thread/start` takes `approvalPolicy` (granular), `sandbox`, `config`, `ephemeral`, `model`, `cwd`; `TokenUsageBreakdown` carries the trace's five fields plus totals; `initialize` returns `codexHome`. Existence, not yet behaviour. |
-| `turn/start.outputSchema` enforces the final message per turn. | Spike turn with the T-151 live-smoke schema demanding three violations. | not-run | Decides whether schema enforcement stays in the transport or moves product-side. |
-| `thread/start.config` reaches the product MCP endpoint. | Spike turn that must call `list_evidence`. | not-run | Decides the config key shape. |
-| A dedicated child serves concurrent threads. | Two concurrent spike turns on one child. | not-run | Bears on D-1 and D-3. |
-| Closing a thread: archive versus delete. | Close one thread each way; read `thread/list` and the home directory. | not-run | Closes D-3. |
-| Generated bindings match the running server. | Drive the handshake and a turn with only generated shapes; regeneration yields no diff. | not-run | Bears on D-2. |
-| `thread/compacted` and `item/tool/requestUserInput` are observable in a trace. | Force a compaction; provoke a user-input request via a tool that asks. | not-run | The two capabilities the swap exists for. |
+| The installed binary emits its own protocol bindings, pinned and drift-checked. | `node apps/backend/scripts/codex-app-server-bindings-generate.mjs --check`. | pass (2026-09-09) | 707 files from `generate-ts` on codex-cli 0.153.4, deterministic across runs; `codex-version.ts` records the binary. Backend typecheck passes with the tree included. |
+| `turn/start.outputSchema` enforces the final message per turn. | Spike case 1: the T-151 violation prompt against the T-151 schema. | pass (2026-09-09) | verdict ∈ enum, confidence within range, no extra key. Enforcement stays in the transport. |
+| `initialize` proves which home the server runs from. | Spike case 1: `initialize.codexHome` equals the product home. | pass (2026-09-09) | `/Users/…/.codex-my-researcher`; `userAgent` carries the client name and the binary version. |
+| `thread/start.config` reaches the product MCP endpoint. | Spike case 2: a turn that must call `list_evidence` over HTTP. | pass (2026-09-09) | Nested `config.mcp_servers.research.{url, default_tools_approval_mode}`; `list_evidence` then `read_evidence`, 3 durable ids cited, zero server requests. |
+| Usage fields per turn. | Spike cases 1–2: `thread/tokenUsage/updated`. | observed (2026-09-09) | One update per model round trip (1 without tools, 4 with); case 1: 14 770 in / 187 out (163 reasoning), `modelContextWindow` 258 400; case 2: 61 001 in of which 30 080 cached. |
+| A dedicated child serves concurrent threads. | Spike case 3: two threads, two turns started together. | pass (2026-09-09) | Both turns started in the same millisecond and completed 2 s apart; each collector saw only its own thread. |
+| Closing a thread: archive versus delete. | Spike case 3: archive one, delete the other, unsubscribe, then `thread/loaded/list`, `thread/list`, home directory. | answered (2026-09-09) | Ephemeral threads: archive → "no rollout found", delete → "thread is not persisted", unsubscribe → `unsubscribed`; both stay loaded; `thread/list` empty either way; the home gained only `memories_1.sqlite-{shm,wal}`. |
+| The child exits cleanly. | Spike: end stdin, wait. | pass (2026-09-09) | Exit code 0 within the grace period in all three cases. |
+| Granular approval needs a capability the schema does not express. | Spike, first run. | observed (2026-09-09) | `thread/start` → -32600 "askForApproval.granular requires experimentalApi capability" until `initialize.capabilities.experimentalApi = true`. |
+| `thread/compacted` and `item/tool/requestUserInput` are observable in a trace. | Force a compaction with `thread/compact/start`; provoke a user-input request. | not-run | Phase 3. No server request of any kind fired in the spike, so provoking one is the open question. |
 
 ## Outstanding verification
 
-- Every `not-run` row above; the Phase 1 spike exists to run them before any production path moves.
-  All of them are live checks under `TOPIC_SELECTION_CODEX_LIVE=1` against the product Codex home.
+- Phase 2: the four T-151 live checks on the App Server path with assertions unchanged; the D-3
+  no-reuse test and the fake-child unit tests in the default suite.
+- Phase 3: the `not-run` row above, under `TOPIC_SELECTION_CODEX_LIVE=1`.
+- Every live row was run once against the product home; the spike test file reruns them all:
+  `TOPIC_SELECTION_CODEX_LIVE=1 … node --test --import tsx src/services/topic-selection-codex-app-server.live.test.ts`.
