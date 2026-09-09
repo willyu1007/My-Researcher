@@ -5,7 +5,7 @@
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 2 closeout then Phase 3 on 2026-09-09 | confirmed through Phase 3 | Phases 4–5 remain required and outside current authorization; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2 and seven upstream profiles admit product CLI (18 total); 18 others remain closed. This does not open adjudication, convergence or promotion roles. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2 and nine upstream profiles admit product CLI (20 total); 16 others remain closed. Convergence and promotion roles remain closed. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
 | Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
@@ -342,9 +342,67 @@ an explicitly local profile override, not a new real-model qualification. Those 
 - Temporary debug journal removed; no runtime instrumentation remains. Default-profile public CLI
   verification and backend typecheck passed after cleanup.
 
+## Phase 3 adjudication and Human-confirmation support
+
+- Canonical v1a N7/N8 product CLI entries share the configured runner and whole-node submission
+  owner. No supplied model answers, fixture Human acceptance or caller adjudication actor are
+  accepted. N7 uses `llm` actor authority, reads the frozen support packet's original source bodies,
+  strength assessments and conflicts, and validates all output references before domain admission.
+  N8 binds the exact supplied Human input; schema/lineage/risk/check gates retain their owners.
+- Compilation preserves source excerpts through compression. CLI token estimation now counts actual
+  message bodies once instead of also charging the duplicate serialized context. The 18,000-token
+  N7 target and provider estimation remain unchanged; the first live helper stopped at this budget
+  gate before a model call. A long-source and forced-compression public test covers this boundary.
+- Original source: Lost in the Middle, arXiv `2307.03172v3`, section 2.3 Results and Discussion,
+  `https://arxiv.org/html/2307.03172v3#S2.SS3`. The normalized 2,882-character section is pinned at
+  SHA-256 `137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21`.
+  Candidate/readiness fixtures reuse this same original section in four evidence-role slots; they
+  do not establish independent support, full prior-art coverage or efficacy of a proposed repair.
+- Actual N7 attempts 127/128 (`validation_v2`) passed: the bounded evaluation need recommends
+  `validate` with residual risks and mandatory Human checks; the fine-tuning-eliminates-position-bias
+  overclaim recommends `return_to_candidate`. Original text, all 18 output refs, audit body/hash and
+  receipt ownership/checksums were independently verified. Replay adds no model calls.
+- N8 uses a separately controlled prior adjudication and fixed Human inputs, not the natural
+  continuation of real N7. Attempt 129 recognizes explicit check/risk acceptance; attempt 130 times
+  out at 600 seconds while generating whitespace inside a reference. It has unknown usage, no
+  semantic review and no HumanDecision/ValidatedNeed; it is not a negative semantic qualification.
+  Prompt v2 requests compact JSON and exact complete references without changing decision authority.
+  This mitigates the observed generation failure; the underlying model/transport cause is unproven.
+- Review found absent `expectations.status` left `expected: undefined` in N8 assertions: hashing
+  included it but JSON storage removed it, invalidating trace/receipt checksums. Public-service
+  tests first reproduced receipt failure, then trace failure through a JSON repository boundary.
+  Assertions now omit absent values; the shared submission owner normalizes results to their JSON
+  shape before hash/write/return. Both failures pass after the fix. Historical 129–132 receipts are
+  retained unchanged and only their valid semantic outputs count; they are not persistence passes.
+- Corrected actual runs: `validation_v4_positive` (133) reaches `ready`; three consecutive
+  `validation_v4_incomplete_1/2/3` (134–136) each produce an actual semantic review, stop without
+  HumanDecision/ValidatedNeed, and preserve missing-check/risk reasons. All four run with JSON
+  artifact persistence, validate every persisted artifact checksum and replay through a reconstructed
+  service without another call. These are repeatability checks, not statistical quality estimates.
+- The two qualified profiles are now enabled by default for `codex_cli/product`; the helper and
+  public tests use the default registry. The 36 topic-selection profiles now have 20 enabled/16
+  closed; all 15 PaperImplementation profiles remain closed. Exact real profile hashes match defaults.
+- Checks: 130 harness/runtime-binding tests passed (two opt-in skips), including 11 focused N7/N8
+  authority/recovery checks. Full-reference forgery/version/scope drift, manual/unreadable sources,
+  risk deletion, high-risk Human gates, concurrent claims, input drift and interrupted receipt
+  storage are exercised. Backend no-emit typecheck, five LLM configuration checks and matrix
+  consistency passed; 22 default-registry/HTTP checks and 12 default-profile public CLI checks
+  passed after activation. Independent review closed the JSON finding and verified all 44 artifacts
+  from 133–136, exact profile hashes and semantic outcomes; no known issue remains unresolved.
+  Attempt 135 returned a model warning, with missing coverage correctly blocked by deterministic gates.
+  The temporary debug journal was removed; no runtime instrumentation remains.
+- Through attempt 136: 2,874,054 reported tokens and unknown usage in 4/8/9/20/63/83/95/102/130;
+  no pending calls. New attempts 127–136 used 116,095 reported tokens plus attempt 130's unknown
+  usage. Each attempt retains 600,000 ms; aggregate attempts/tokens/time remain null, one shared
+  ledger, no provider fallback or hidden retry. Private raw evidence remains under
+  `/tmp/my-researcher-t153-phase2/live/`.
+- These checks do not prove real candidate admission from discovery, actual Human approval, app
+  checkpoint integration or a complete fresh upstream-to-v1b product chain. Convergence/optional
+  Arena and fresh lineage remain Phase 3 work; CX-03 and whole-flow acceptance remain open.
+
 ## Outstanding verification
 
-- Connect adjudication/confirmation support and evidence convergence, then qualify those roles and
+- Connect evidence convergence and optional Arena support, then qualify those roles and
   fresh upstream-to-v1b lineage, including a real candidate admission/persistence case with sufficient
   source evidence. The currently enabled slice does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;

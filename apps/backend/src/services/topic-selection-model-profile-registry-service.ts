@@ -504,7 +504,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_support_packet_authority_boundary',
         'avoid_orchestration_field_leakage',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionNeedAdjudicationRecommendationPacket@v1',
       model_options: providerOptions(TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID).map(
         (option) => ({
@@ -527,7 +528,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'verify_required_check_and_risk_coverage',
         'preserve_validated_need_materialization_boundary',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'HumanConfirmationSemanticReview@v1',
       model_options: providerOptions(TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID).map(
         (option) => ({

@@ -1974,7 +1974,7 @@ test('topic-selection v1a offline evaluation rejects research-arena ownership an
   }
 });
 
-test('native v1a HTTP routes admit CLI extraction and discovery contracts and refuse mixed execution', async t => {
+test('native v1a HTTP routes admit CLI evidence, discovery and validation contracts and refuse mixed execution', async t => {
   const app = buildApp({ topicSelectionCodexCli: null });
   t.after(() => app.close());
   const title = 'cli-http-preflight';
@@ -1988,6 +1988,19 @@ test('native v1a HTTP routes admit CLI extraction and discovery contracts and re
       evidence_strength_ref: ref('evidence_strength_assessment', 'strength', title), search_snapshot_refs: [], resource_snapshot_refs: [],
       profile_id: TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
       exploration_payload: {}, arbiter_payload: {},
+    } },
+    { node: 'topic-selection.v1a.validate-need-adjudication.v1', input: {
+      need_candidate_ref: ref('need_candidate', 'candidate', title), evidence_map_ref: ref('evidence_map', 'map', title),
+      search_run_ref: ref('search_run', 'run', title), search_plan_ref: ref('search_plan', 'plan', title),
+      literature_snapshot_ref: ref('literature_resource_pool_snapshot', 'snapshot', title),
+    } },
+    { node: 'topic-selection.v1a.human-confirm-need.v1', input: {
+      adjudication_result_ref: ref('validate_need_adjudication_result', 'adjudication', title),
+      need_candidate_ref: ref('need_candidate', 'candidate', title),
+      validation_support_packet_ref: ref('validation_decision_support_packet', 'packet', title),
+      reserved_validated_need_ref: ref('validated_need', 'need', title),
+      confirmation_input: { schema_version: 'HumanConfirmationInput@v1', actor_mode: 'human',
+        accountable_human_ref: { actor_type: 'human' }, rationale: 'Controlled ingress fixture.', accepted_risk_refs: [], required_check_results: [] },
     } },
   ];
   for (const { node, input } of nodeInputs) {

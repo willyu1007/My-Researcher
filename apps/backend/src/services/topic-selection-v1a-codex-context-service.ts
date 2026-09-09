@@ -1,4 +1,5 @@
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type { TopicSelectionValidationDecisionSupportPacketRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import type { TopicSelectionEvidenceMapExtractionContextPacket, TopicSelectionEvidenceMapExtractionDraft, TopicSelectionEvidenceSourceLocator } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type { LiteratureRepository } from '../repositories/literature-repository.js';
 import { AppError } from '../errors/app-error.js';
@@ -141,5 +142,68 @@ export class TopicSelectionV1aCodexContextService {
         ...bundle.conflict_set_refs.map(ref => ({ evidence_ref: ref, role: 'conflict', conflict: conflicts.find(record => record.evidence_conflict_set_id === ref.ref_id) })),
       ] },
     };
+  }
+
+  /** Resolve only the frozen packet's evidence selection; never substitute a newer bundle. */
+  async adjudication(packet: TopicSelectionValidationDecisionSupportPacketRecord) {
+    const bundle = await this.options.evidenceMaps.getNeedValidationEvidenceBundle(packet.evidence_map_ref.ref_id);
+    if (!sameRefs([packet.evidence_map_ref, packet.search_run_ref, packet.search_plan_ref, packet.literature_snapshot_ref],
+      [bundle.evidence_map_ref, bundle.search_run_ref, bundle.search_plan_ref, bundle.literature_snapshot_ref])) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'CLI adjudication evidence differs from the frozen support packet lineage.');
+    }
+    const [assessments, conflicts] = await Promise.all([
+      this.options.evidenceMaps.listEvidenceStrengthAssessmentsByEvidenceMapId(packet.evidence_map_ref.ref_id),
+      this.options.evidenceMaps.listConflictSetsByEvidenceMapId(packet.evidence_map_ref.ref_id),
+    ]);
+    const strengthAssessments = packet.strength_assessment_refs.map(ref => {
+      const record = assessments.find(record => refIdentity(ref) === refIdentity({ ref_type: 'evidence_strength_assessment',
+        ref_id: record.evidence_strength_assessment_id, title_card_id: record.title_card_id }));
+      if (!record) throw new AppError(409, 'VERSION_CONFLICT', 'Frozen strength assessment is unavailable.');
+      return record;
+    });
+    const conflictSets = packet.conflict_refs.map(ref => {
+      const record = conflicts.find(record => refIdentity(ref) === refIdentity({ ref_type: 'evidence_conflict_set',
+        ref_id: record.evidence_conflict_set_id, title_card_id: record.title_card_id }));
+      if (!record) throw new AppError(409, 'VERSION_CONFLICT', 'Frozen conflict set is unavailable.');
+      return record;
+    });
+    const refs = [...Object.values(packet.evidence_role_bundle).flat(),
+      ...packet.residual_risk_refs.filter(ref => ref.ref_type === 'evidence_unit')];
+    const evidenceRefs = [...new Map(refs.map(ref => [refIdentity(ref), ref])).values()];
+    if (!evidenceRefs.length) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI adjudication requires readable source evidence.');
+    const packets = [];
+    for (let offset = 0; offset < evidenceRefs.length; offset += 12) {
+      packets.push(await this.options.researchEvidence.resolve({ schema_version: 'TopicSelectionResearchEvidencePacketRequest@v1',
+        title_card_id: packet.title_card_id, participant_role: 'synthesis_arbiter', evidence_unit_refs: evidenceRefs.slice(offset, offset + 12),
+        query_intent: { intent_type: 'support', query: 'Assess the frozen candidate need against its selected original evidence.',
+          rationale: 'Read source claims, counter-evidence and assessment limitations before recommending an adjudication.',
+          target_claim: 'The selected evidence may justify a research need; it does not establish Human acceptance or empirical success.' } }));
+    }
+    for (const item of packets.flatMap(packet => packet.items)) {
+      if (refIdentity(item.evidence_map_ref) !== refIdentity(packet.evidence_map_ref)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'CLI adjudication source belongs to another evidence map.');
+      }
+    }
+    return { evidence_packets: packets, strength_assessments: strengthAssessments, conflict_sets: conflictSets };
+  }
+}
+
+export type TopicSelectionV1aAdjudicationEvidence = Awaited<ReturnType<TopicSelectionV1aCodexContextService['adjudication']>>;
+
+/** Check every nested reference, including scope and version, against the model's supplied context. */
+export function assertV1aCodexReferences(output: unknown, context: unknown): void {
+  const identities = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.flatMap(identities);
+    if (!value || typeof value !== 'object') return [];
+    const record = value as Record<string, unknown>;
+    if (typeof record.ref_type === 'string' && typeof record.ref_id === 'string') {
+      return [canonicalHash({ ref_type: record.ref_type, ref_id: record.ref_id,
+        title_card_id: record.title_card_id ?? null, version_id: record.version_id ?? null, legacy_ref: record.legacy_ref ?? null })];
+    }
+    return Object.values(record).flatMap(identities);
+  };
+  const allowed = new Set(identities(context));
+  if (identities(output).some(identity => !allowed.has(identity))) {
+    throw new AppError(409, 'VERSION_CONFLICT', 'CLI reference is outside the supplied context or has different scope/version.');
   }
 }

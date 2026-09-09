@@ -337,7 +337,7 @@ test('v1a LLM runtime binding builds N8 advisory semantic review binding', () =>
 const V1A_BINDING_PROMPT_SYSTEM_GOLDEN = {
   evidence_map_extraction: '959500e329d186bf1749630898d6980bc52ac74dfdf0fdc05fabafa9b382f6f1',
   need_adjudication: '1fe8bf8bf7dffd34b67e53546b22c262e1e33dffc14825731326cff9232b32be',
-  human_confirmation_semantic_review: 'b01b05fe8fd3b74058427427098ae0dd4d6cbfa01fa468c512179743cf02b747',
+  human_confirmation_semantic_review: '259c0d3ca447a87c5c7fd35a1db9b46a2060e92f49fac30640f63dce24c60da2',
 };
 test('v1a single-agent binding prompt bodies are byte-identity drift-anchored (T-128 W-04)', () => {
   const service = new TopicSelectionV1aLlmRuntimeBindingService();

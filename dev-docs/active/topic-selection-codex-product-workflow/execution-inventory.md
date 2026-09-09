@@ -1,18 +1,18 @@
 # Execution inventory
 
-Inventory established at `a5263023`, reconciled with the current Phase 3 implementation on 2026-09-09. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
+Inventory established at `a5263023`, reconciled with the current Phase 3 implementation on 2026-09-10. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), leaving 18 closed (18 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5), leaving 16 closed (20 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
 | 1 | `topic-selection-resource-sampling-classification` | Product CLI enabled; stable submission ID, prepared-commit recovery and exact batch references verified; real pinned-abstract qualification attempt 93 passed | Phase 3 / CX-03 |
 | 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Product CLI enabled; repository original-abstract extraction and exact recovery qualified on DPR and Lost in the Middle | Phase 3 / CX-03 |
 | 3 | `topic-selection.generate-need-candidate.single-agent.v1` | Product CLI enabled; source/strength/conflict inputs, two real non-advance cases and exact recovery qualified | Phase 3 / CX-03 |
-| 4 | `topic-selection.need-adjudication.single-agent.v1` | v1a adjudication; generated support cannot confirm a need | Phase 3 / CX-03 |
-| 5 | `topic-selection.confirmation-semantic-review.single-agent.v1` | v1a human-confirmation semantic support; retain exact Human decision | Phase 3 / CX-03 |
+| 4 | `topic-selection.need-adjudication.single-agent.v1` | Product CLI enabled; original-fulltext bounded/overclaim qualification and exact JSON receipt replay; model support cannot confirm a need | Phase 3 / CX-03 |
+| 5 | `topic-selection.confirmation-semantic-review.single-agent.v1` | Product CLI enabled; complete/incomplete fixed-Human qualification, exact Human input and JSON persistence replay verified | Phase 3 / CX-03 |
 | 6 | `topic-selection.need-discovery.explorer.v1` | Product CLI enabled; two independent Explorers qualified with scoped original evidence and exact identity | Phase 3 / CX-03 |
 | 7 | `topic-selection.need-discovery.deep-critic.v1` | Product CLI enabled; real source and both Explorer bodies consumed, concrete criticisms retained | Phase 3 / CX-03 |
 | 8 | `topic-selection.research-arena.opportunity-scout.v1` | Optional Arena shadow support; mock/external today; enable CLI support without decision-quality activation | Phase 3 / CX-01, CX-03 |

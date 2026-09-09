@@ -1,3 +1,4 @@
+import type { TopicSelectionV1aAdjudicationEvidence } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactFunctionalRef,
   TopicSelectionAgentExecutionMode,
@@ -200,6 +201,7 @@ export type BuildTopicSelectionV1aNeedAdjudicationRuntimeBindingInput = {
   policy_version: string;
   output_schema_version: string;
   diagnostic_prompt_appendix?: string | null;
+  source_evidence?: TopicSelectionV1aAdjudicationEvidence;
   candidate: TopicSelectionNeedCandidateRecord;
   readiness: TopicSelectionNeedCandidateReadinessAssessmentRecord;
   support_packet: TopicSelectionValidationDecisionSupportPacketRecord;
@@ -338,8 +340,9 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
         TOPIC_SELECTION_V1A_N7_INVOCATION_SLOT_IDS.adjudication_recommendation,
       scenarioId: input.scenario_id,
       scenarioCaseId: input.scenario_case_id ?? null,
-      contextPayloads: [input.compressed_context ?? input.support_packet],
-      extraPayloads: [input.candidate, input.readiness],
+      // CLI receives these bodies in messages; the estimator adds payloads, so do not count them twice.
+      contextPayloads: input.execution_mode === 'codex_cli' ? [] : [input.compressed_context ?? input.support_packet],
+      extraPayloads: input.execution_mode === 'codex_cli' ? [] : [input.candidate, input.readiness],
     });
     return {
       prompt: {
@@ -348,9 +351,11 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
       },
       prompt_variant_key: 'adjudication_recommendation',
       messages: this.needAdjudicationMessages(input),
-      input_refs: this.needAdjudicationInputRefs(input.candidate, input.readiness, input.support_packet),
+      input_refs: this.uniqueRefs([...this.needAdjudicationInputRefs(input.candidate, input.readiness, input.support_packet),
+        ...(input.source_evidence?.evidence_packets.flatMap(packet => packet.source_refs) ?? [])]),
       context_packet_refs: [],
       context_packet_hashes: [
+        ...(input.source_evidence ? [this.hash(input.source_evidence)] : []),
         this.hash({
           candidate_ref: this.ref(
             'need_candidate',
@@ -440,7 +445,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
         TOPIC_SELECTION_V1A_N8_INVOCATION_SLOT_IDS.confirmation_semantic_review,
       scenarioId: input.scenario_id,
       scenarioCaseId: input.scenario_case_id ?? null,
-      contextPayloads: [input.compressed_context ?? input.context_packet],
+      contextPayloads: input.execution_mode === 'codex_cli' ? [] : [input.compressed_context ?? input.context_packet],
     });
     return {
       prompt: {
@@ -583,6 +588,9 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
           input.compressed_context
             ? {
                 node: this.needAdjudicationNodeEnvelope(input),
+                ...(input.source_evidence ? { source_evidence: input.source_evidence, candidate_scope: {
+                  scope_notes: input.candidate.scope_notes, mechanism_summary: input.candidate.mechanism_summary,
+                } } : {}),
                 candidate_ref: this.ref(
                   'need_candidate',
                   input.candidate.need_candidate_id,
@@ -603,6 +611,9 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
               }
             : {
                 node: this.needAdjudicationNodeEnvelope(input),
+                ...(input.source_evidence ? { source_evidence: input.source_evidence, candidate_scope: {
+                  scope_notes: input.candidate.scope_notes, mechanism_summary: input.candidate.mechanism_summary,
+                } } : {}),
                 candidate: {
                   need_candidate_ref: this.ref(
                     'need_candidate',

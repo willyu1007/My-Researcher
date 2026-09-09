@@ -46,7 +46,8 @@ export async function executeV1aCodexSubmission<T>(options: {
     if (winner) return winner.result;
     throw error;
   }
-  const result = await options.execute();
+  // Hash and return the same JSON shape that persistence and HTTP replay retain.
+  const result: T = JSON.parse(JSON.stringify(await options.execute()));
   const terminal = { schema_version: 'V1aCodexSubmissionResult@v1', owner, request_hash: requestHash, result };
   await controlPlane.recordArtifactRef({ ...scope, stable_key: `${key}:result`, payload: terminal, checksum: canonicalHash(terminal) });
   return result;

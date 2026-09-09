@@ -62,7 +62,7 @@
       "system": "prompts/v1a/need-adjudication/system.md"
     },
     "topic-selection-human-confirmation-semantic-review": {
-      "version": "v1",
+      "version": "v2",
       "system": "prompts/v1a/human-confirmation-semantic-review/system.md"
     },
     "topic-selection.v1b.n2.constraint-profile.runtime-support": {

@@ -1102,6 +1102,11 @@ function validationManualLocator(input: {
 }
 
 async function seedValidateNeedAdjudicationRuntime(options: {
+  originalFulltext?: string;
+  candidateNeed?: string;
+  unmetNeed?: string;
+  mechanismSummary?: string;
+  scopeNotes?: string;
   includeContext?: boolean;
   includeChallenge?: boolean;
   gapCodes?: string[];
@@ -1113,7 +1118,23 @@ async function seedValidateNeedAdjudicationRuntime(options: {
   const titleCardId = ctx.titleCard.title_card_id;
   const literatureRef = ctx.literatureSnapshot.literature_refs[0]!;
   const sourceRef = ctx.literatureSnapshot.content_source_refs[0]!;
-  const manualLocatorRef = refForTitleCard('manual_locator', 'manual_validate_need_001', titleCardId);
+  const manualLocatorRef = options.originalFulltext
+    ? refForTitleCard('fulltext_paragraph', 'paragraph_001', titleCardId)
+    : refForTitleCard('manual_locator', 'manual_validate_need_001', titleCardId);
+  if (options.originalFulltext) {
+    const text = options.originalFulltext;
+    const dates = { createdAt: '2026-05-19T00:00:00.000Z', updatedAt: '2026-05-19T00:00:00.000Z' };
+    await ctx.literature.upsertFulltextExtractionBundle({
+      document: { id: 'document_001', literatureId: 'lit_001', sourceAssetId: 'asset_001', normalizedText: text,
+        normalizedTextPath: null, normalizedTextChecksum: sha256Text(text), parserName: 'controlled-test', parserVersion: 'v1',
+        parserArtifactPath: null, parserArtifactMimeType: null, status: 'READY', diagnostics: [], ...dates },
+      sections: [{ id: 'section_001', documentId: 'document_001', sectionId: 'section_001', title: 'Results', level: 1,
+        orderIndex: 1, startOffset: 0, endOffset: text.length, pageStart: 1, pageEnd: 1, checksum: sha256Text(text), ...dates }],
+      paragraphs: [{ id: 'paragraph_001', documentId: 'document_001', paragraphId: 'paragraph_001', sectionId: 'section_001',
+        orderIndex: 1, text, startOffset: 0, endOffset: text.length, pageNumber: 1, checksum: sha256Text(text), confidence: 1, ...dates }],
+      anchors: [],
+    });
+  }
   const bundle = searchRunBundle({
     title_card_id: titleCardId,
     search_plan_ref: ctx.searchPlanRef,
@@ -1137,6 +1158,7 @@ async function seedValidateNeedAdjudicationRuntime(options: {
       downstream_handoff_present: true,
     },
   });
+  assert.equal(searchRunResult.node_result.status, 'succeeded', JSON.stringify(searchRunResult.node_result));
   assertScenarioPassed(searchRunResult);
   assert.ok(searchRunResult.node_result.search_run_ref);
   const supportLocator = validationManualLocator({
@@ -1210,6 +1232,15 @@ async function seedValidateNeedAdjudicationRuntime(options: {
       normalized_statement: 'Retrieval conflict and source verification risks must be carried forward.',
     });
   }
+  if (options.originalFulltext) {
+    for (const unit of evidenceUnits) {
+      unit.source_statement = options.originalFulltext;
+      unit.locator = { locator_type: 'paragraph', literature_ref: literatureRef, source_ref: sourceRef,
+        document_ref: refForTitleCard('fulltext_document', 'document_001', titleCardId),
+        locator_ref: refForTitleCard('fulltext_paragraph', 'paragraph_001', titleCardId),
+        paragraph_ref: refForTitleCard('fulltext_paragraph', 'paragraph_001', titleCardId) };
+    }
+  }
   const evidenceMapRecords = await ctx.evidenceMaps.createEvidenceMapFromSearchRun({
     title_card_id: titleCardId,
     search_run_id: searchRunResult.node_result.search_run_ref.ref_id,
@@ -1228,11 +1259,11 @@ async function seedValidateNeedAdjudicationRuntime(options: {
   const candidate = await ctx.needService.createNeedCandidateFromEvidenceMap({
     title_card_id: titleCardId,
     evidence_map_id: evidenceMapRecords.evidence_map.evidence_map_id,
-    candidate_need: 'Need traceable validation before promoting RAG adaptation topics.',
-    unmet_need_statement: 'Existing workflows do not preserve enough evidence lineage before topic promotion.',
+    candidate_need: options.candidateNeed ?? 'Need traceable validation before promoting RAG adaptation topics.',
+    unmet_need_statement: options.unmetNeed ?? 'Existing workflows do not preserve enough evidence lineage before topic promotion.',
     mechanism_type: 'workflow_gap',
-    mechanism_summary: 'Validation lineage can be lost before v1b handoff.',
-    scope_notes: 'Topic-selection v1a validation only.',
+    mechanism_summary: options.mechanismSummary ?? 'Validation lineage can be lost before v1b handoff.',
+    scope_notes: options.scopeNotes ?? 'Topic-selection v1a validation only.',
     prior_art_status: 'no_strong_solution_found',
     gap_codes: options.gapCodes ?? [],
     created_by: 'system',
@@ -3207,6 +3238,268 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
     for (const id of [`${runId}_extraction`, `${runId}_single_agent`, `${runId}_multi_agent_debate`]) {
       await fs.writeFile(join(directory, `${id}-artifacts.json`), JSON.stringify(await ctx.controlPlane.listArtifactRefsByWorkflowRunId(id), null, 2), { mode: 0o600 });
     }
+  }
+});
+
+function useJsonArtifactStorage(ctx: ValidateNeedAdjudicationSeed) {
+  const create = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
+  ctx.controlPlaneRepository.createArtifactRef = record => create(JSON.parse(JSON.stringify(record)));
+}
+
+test('Codex validation qualification adjudicates original fulltext and reviews fixed Human inputs', {
+  skip: process.env.TOPIC_SELECTION_CODEX_VALIDATION_QUALIFICATION !== 'live',
+}, async t => {
+  const { qualificationRunner } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const sourceFile = process.env.TOPIC_SELECTION_QUALIFICATION_FULLTEXT;
+  const outputRoot = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  const selectedCase = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'all';
+  assert.ok(['all', 'bounded', 'overclaim', 'human-complete', 'human-incomplete'].includes(selectedCase));
+  if (!sourceFile || !outputRoot || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit live validation qualification configuration is required.');
+  const source = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as { url: string; text: string; hash: string };
+  assert.equal(source.url, 'https://arxiv.org/html/2307.03172v3#S2.SS3');
+  assert.equal(sha256Text(source.text), '137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21');
+  const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+  t.after(() => runner.shutdown());
+  t.after(() => budget?.close());
+  await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'need-validation', source: source.url,
+    source_hash: sha256Text(source.text), controlled_candidate_readiness_and_evidence_roles: true,
+    controlled_human_input: true, actual_human_decision: false, app_checkpoint_guard_not_exercised: true, model, limits,
+    selected_case: selectedCase, started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
+  const profiles = new TopicSelectionModelProfileRegistryService();
+  const contexts: ValidateNeedAdjudicationSeed[] = [];
+  const save = async (name: string, value: unknown) => fs.writeFile(join(directory, `${runId}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
+  try {
+    for (const overclaim of [false, true]) {
+      const label = overclaim ? 'overclaim' : 'bounded';
+      if (selectedCase !== 'all' && selectedCase !== label) continue;
+      const ctx = await seedValidateNeedAdjudicationRuntime({ originalFulltext: source.text,
+        candidateNeed: overclaim ? 'Fine-tuning eliminates position bias in all long-context models.' : 'Need to evaluate sensitivity to evidence position before selecting long-context QA configurations.',
+        unmetNeed: overclaim ? 'The supplied study proves our fine-tuning method solves long-context retrieval.' : 'Advertised context length alone does not demonstrate robust use of relevant middle-position evidence.',
+        mechanismSummary: 'The source reports position-dependent QA performance; it does not evaluate a proposed repair.',
+        scopeNotes: 'Controlled candidate/readiness fixture. One original results section is reused in four role slots; role assignment is not independent evidence. Novelty, broader prior-art coverage, data access and efficacy of any proposed repair are unverified.' });
+      contexts.push(ctx);
+      useJsonArtifactStorage(ctx);
+      await ctx.literature.upsertLiteratureSource({ id: 'source_001', literatureId: 'lit_001', provider: 'arxiv', sourceItemId: '2307.03172v3',
+        sourceUrl: source.url, rawPayload: { source_hash: sha256Text(source.text) }, fetchedAt: '2026-09-10T00:00:00.000Z' });
+      const input = validateNeedAdjudicationScenarioInput(ctx, null, { execution_mode: 'codex_cli', run_mode: 'product', mocked_output: null,
+        workflow_run_id: `${runId}_${label}`, node_attempt_id: `${runId}_${label}`, expectations: {} });
+      const result = await ctx.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario(input);
+      await save(label, result);
+      assert.ok(result.node_result.recommendation_packet_ref, JSON.stringify(result.node_result));
+      assert.ok(['ready', 'require_human_review'].includes(result.node_result.status), JSON.stringify(result.node_result));
+      if (overclaim) assert.notEqual(result.node_result.final_decision, 'validate', 'Overclaim must not advance to Human confirmation.');
+      const count = budget!.snapshot().attempts.length;
+      assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario(input), result);
+      assert.equal(budget!.snapshot().attempts.length, count);
+      assert.equal(ctx.llmGateway.calls.length, 0);
+    }
+    for (const complete of [true, false]) {
+      const label = complete ? 'human-complete' : 'human-incomplete';
+      if (selectedCase !== 'all' && selectedCase !== label) continue;
+      const ctx = await seedValidateNeedAdjudicationRuntime();
+      contexts.push(ctx);
+      useJsonArtifactStorage(ctx);
+      const adjudication = await runValidateNeedForHumanConfirm(ctx);
+      const confirmation = humanConfirmationInput(ctx, { rationale: complete
+        ? `Controlled Human fixture: I confirm this candidate only at its stated scope. Checks reviewed: ${ctx.supportPacket!.required_human_checks.join(', ')}. I explicitly accept the listed residual risks; no additional empirical success or novelty is claimed.`
+        : 'Controlled Human fixture: I have not reviewed or accepted the residual risks; do not confirm the candidate.',
+        ...(!complete ? { accepted_risk_refs: [], required_check_results: [] } : {}) });
+      const input = humanConfirmNeedScenarioInput(ctx, adjudication, { execution_mode: 'codex_cli', run_mode: 'product',
+        workflow_run_id: `${runId}_${label}`, node_attempt_id: `${runId}_${label}`, confirmation_input: confirmation, expectations: {} });
+      const result = await ctx.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario(input);
+      await save(label, result);
+      assert.ok(result.node_result.semantic_review_ref, JSON.stringify(result.node_result));
+      if (complete) assert.equal(result.node_result.status, 'ready', JSON.stringify(result.node_result));
+      else {
+        assert.notEqual(result.node_result.status, 'ready');
+        assert.equal(result.node_result.human_decision_ref, null);
+      }
+      const count = budget!.snapshot().attempts.length;
+      assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario(input), result);
+      assert.equal(budget!.snapshot().attempts.length, count);
+      assert.equal(ctx.llmGateway.calls.length, 0);
+    }
+  } finally {
+    for (const [index, ctx] of contexts.entries()) {
+      for (const workflow of [`${runId}_bounded`, `${runId}_overclaim`, `${runId}_human-complete`, `${runId}_human-incomplete`]) {
+        const artifacts = await ctx.controlPlaneRepository.listArtifactRefsByWorkflowRunId(workflow);
+        if (artifacts.length) {
+          await save(`artifacts-${index}`, artifacts);
+          for (const artifact of artifacts) {
+            if (artifact.payload && artifact.checksum) assert.equal(sha256Text(stableStringify(artifact.payload)), artifact.checksum,
+              `Persisted artifact ${artifact.stable_key ?? artifact.artifact_ref_id} must retain its checksum.`);
+          }
+        }
+      }
+    }
+  }
+});
+
+test('product CLI adjudication blocks invented evidence before domain writes', async t => {
+  const ctx = await seedValidateNeedAdjudicationRuntime({ originalFulltext: 'Controlled source fixture: risk review is necessary.' });
+  const home = await fs.mkdtemp(join(tmpdir(), 'v1a-cli-refs-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const packet = needAdjudicationRecommendationPacket(ctx, {}, { execution_mode: 'codex_cli',
+    source_refs: [refForTitleCard('evidence_unit', 'invented', ctx.titleCard.title_card_id)] });
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls++;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'ref-test' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(packet) } })].join('\n'),
+      stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const input = validateNeedAdjudicationScenarioInput(ctx, packet, { execution_mode: 'codex_cli', run_mode: 'product', mocked_output: null, expectations: {} });
+  const result = await ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService()).runValidateNeedAdjudicationScenario(input);
+  assert.equal(result.node_result.status, 'blocked', JSON.stringify(result.node_result));
+  assert.equal(result.node_result.error_code, 'VERSION_CONFLICT', JSON.stringify(result.node_result));
+  assert.equal(result.node_result.adjudication_result_ref, null);
+  assert.deepEqual(await ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService()).runValidateNeedAdjudicationScenario(input), result);
+  assert.equal(calls, 1);
+});
+
+test('product CLI adjudication and Human review replay completed submissions', async t => {
+  const original = 'Controlled source fixture: retrieval conflicts require explicit risk review.';
+  const ctx = await seedValidateNeedAdjudicationRuntime({ originalFulltext: original });
+  useJsonArtifactStorage(ctx);
+  assert.ok(ctx.supportPacket, JSON.stringify(ctx.readiness));
+  const home = await fs.mkdtemp(join(tmpdir(), 'v1a-cli-adjudication-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const packet = needAdjudicationRecommendationPacket(ctx, {}, { execution_mode: 'codex_cli' });
+  let calls = 0;
+  let reviewInput: TopicSelectionWorkflowHarnessHumanConfirmNeedInput | null = null;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls++;
+    let output: unknown = packet;
+    if (reviewInput) {
+      const context = JSON.parse(options.stdin.split('[user]\n')[1]!) as { output_lineage: Partial<HumanConfirmationSemanticReview> };
+      assert.ok(options.stdin.includes(reviewInput.confirmation_input.rationale));
+      output = humanConfirmationSemanticReviewOutput(ctx, reviewInput, context.output_lineage);
+    } else {
+      assert.ok(options.stdin.includes(original), 'Adjudication reads the original evidence, not just its reference.');
+      assert.ok(options.stdin.includes('strength_assessments'));
+    }
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'adjudication-thread' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const profiles = new TopicSelectionModelProfileRegistryService();
+  const input = validateNeedAdjudicationScenarioInput(ctx, packet, { execution_mode: 'codex_cli', run_mode: 'product', mocked_output: null,
+    runtime_token_budget_overrides: { estimated_input_tokens_override: 80_000, estimated_input_tokens_after_compression_override: 4_000 } });
+  const submissions = await Promise.allSettled([ctx.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario(input),
+    ctx.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario(input)]);
+  assert.equal(submissions.filter(result => result.status === 'fulfilled').length, 1);
+  const completed = submissions.find(result => result.status === 'fulfilled');
+  assert.ok(completed?.status === 'fulfilled');
+  const result = completed.value;
+  assert.equal(result.node_result.status, 'ready', JSON.stringify(result.node_result));
+  assert.equal(result.node_result.route_outcome, 'advance_to_human_confirmation');
+  assert.equal(result.node_result.final_decision, 'validate');
+  assert.ok(result.node_result.warning_codes.includes('COMPRESSION_REPORT_RECORDED'));
+  const adjudication = await ctx.needService.getAdjudicationResultById(result.node_result.adjudication_result_ref!.ref_id);
+  assert.equal(adjudication?.adjudicated_by.actor_type, 'llm');
+  assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario(input), result);
+  assert.equal(calls, 1);
+  assert.equal(ctx.llmGateway.calls.length, 0);
+  await assert.rejects(ctx.buildCliHarness(runner, profiles).runValidateNeedAdjudicationScenario({ ...input, policy_version: 'drift' }), /different input/);
+  reviewInput = humanConfirmNeedScenarioInput(ctx, result, { execution_mode: 'codex_cli', run_mode: 'product', expectations: {} });
+  const confirmed = await ctx.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario(reviewInput);
+  assert.equal(confirmed.node_result.status, 'ready', JSON.stringify(confirmed.node_result));
+  assert.deepEqual(confirmed.node_result.required_check_results_snapshot, reviewInput.confirmation_input.required_check_results);
+  assert.equal(confirmed.node_result.confirmation_input_hash, sha256Text(stableStringify(reviewInput.confirmation_input)));
+  const decision = await ctx.controlPlane.getHumanDecision(confirmed.node_result.human_decision_ref!.ref_id);
+  assert.equal(decision?.rationale, reviewInput.confirmation_input.rationale);
+  assert.deepEqual(decision?.actor, reviewInput.confirmation_input.accountable_human_ref);
+  assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario(reviewInput), confirmed);
+  assert.equal(calls, 2);
+  for (const artifact of await ctx.controlPlaneRepository.listArtifactRefsByWorkflowRunId(reviewInput.workflow_run_id)) {
+    if (artifact.payload && artifact.checksum) assert.equal(sha256Text(stableStringify(artifact.payload)), artifact.checksum,
+      `Persisted artifact ${artifact.stable_key ?? artifact.artifact_ref_id} must retain its checksum.`);
+  }
+  await assert.rejects(ctx.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario({ ...reviewInput,
+    confirmation_input: { ...reviewInput.confirmation_input, rationale: 'A different Human decision.' } }), /different input/);
+});
+
+test('product CLI validation preserves risk and Human gates and blocks unsafe retries', async t => {
+  const home = await fs.mkdtemp(join(tmpdir(), 'v1a-cli-gates-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  for (const failure of ['risk_drop', 'high_risk', 'reference_version', 'unreadable_source'] as const) {
+    await t.test(`adjudication ${failure}`, async () => {
+      const ctx = await seedValidateNeedAdjudicationRuntime(failure === 'unreadable_source' ? {} : {
+        originalFulltext: 'Controlled section fixture: unresolved risk. '.repeat(failure === 'risk_drop' ? 65 : 1) });
+      const packet = needAdjudicationRecommendationPacket(ctx, { final_decision: failure === 'high_risk' ? 'reject' : 'validate' }, { execution_mode: 'codex_cli' });
+      if (failure === 'risk_drop') packet.residual_risk_refs = [];
+      if (failure === 'reference_version') packet.source_refs[0]!.version_id = 'invented-version';
+      let calls = 0;
+      const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
+        if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+        calls++;
+        return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'gates-thread' }),
+          JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(packet) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+      });
+      t.after(() => runner.shutdown());
+      const harness = ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService());
+      const input = validateNeedAdjudicationScenarioInput(ctx, packet, { execution_mode: 'codex_cli', run_mode: 'product', mocked_output: null, expectations: {} });
+      for (const override of [{ fixture_human_decision: true }, { adjudication_actor: { actor_type: 'human' as const } },
+        { mocked_output: { fixture_id: 'forbidden-cli', output: packet } }, { executor_kind: 'multi_agent_debate' as const }]) {
+        await assert.rejects(harness.runValidateNeedAdjudicationScenario({ ...input, ...override }), /without caller outputs or Human authority/);
+      }
+      assert.equal(calls, 0);
+      const result = await harness.runValidateNeedAdjudicationScenario(input);
+      assert.equal(result.node_result.status, failure === 'high_risk' ? 'require_human_review' : 'blocked', JSON.stringify(result.node_result));
+      assert.equal(result.node_result.adjudication_result_ref, null);
+      if (failure === 'risk_drop') assert.ok(result.node_result.blocker_codes.includes('RESIDUAL_RISK_DROPPED'));
+      if (failure === 'reference_version') assert.equal(result.node_result.error_code, 'VERSION_CONFLICT');
+      assert.equal(calls, failure === 'unreadable_source' ? 0 : 1);
+      assert.deepEqual(await ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService()).runValidateNeedAdjudicationScenario(input), result);
+    });
+  }
+  for (const failure of ['incomplete_human', 'review_lineage', 'input_scope', 'receipt_interruption'] as const) {
+    await t.test(`confirmation ${failure}`, async () => {
+      const ctx = await seedValidateNeedAdjudicationRuntime();
+      const adjudicated = await runValidateNeedForHumanConfirm(ctx);
+      const input = humanConfirmNeedScenarioInput(ctx, adjudicated, { execution_mode: 'codex_cli', run_mode: 'product', expectations: {} });
+      if (failure === 'incomplete_human') input.confirmation_input.accepted_risk_refs = [];
+      if (failure === 'input_scope') input.adjudication_result_ref = { ...input.adjudication_result_ref, title_card_id: 'another-title' };
+      let calls = 0;
+      const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+        if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+        calls++;
+        const context = JSON.parse(options.stdin.split('[user]\n')[1]!) as { output_lineage: Partial<HumanConfirmationSemanticReview> };
+        const review = humanConfirmationSemanticReviewOutput(ctx, input, context.output_lineage);
+        if (failure === 'review_lineage') review.context_packet_ref = { ...review.context_packet_ref, version_id: 'invented' };
+        return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'review-thread' }),
+          JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(review) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+      });
+      t.after(() => runner.shutdown());
+      const harness = ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService());
+      if (failure === 'receipt_interruption') {
+        const create = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
+        ctx.controlPlaneRepository.createArtifactRef = async record => {
+          if (record.stable_key?.startsWith('v1a-codex-submission:') && record.stable_key.endsWith(':result')) throw new Error('Receipt storage unavailable');
+          return create(record);
+        };
+        await assert.rejects(harness.runHumanConfirmNeedScenario(input), /Receipt storage unavailable/);
+        ctx.controlPlaneRepository.createArtifactRef = create;
+        assert.ok(await ctx.needService.getValidatedNeedById(input.reserved_validated_need_ref.ref_id));
+        await assert.rejects(ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService()).runHumanConfirmNeedScenario(input), /running or interrupted/);
+      } else {
+        const result = await harness.runHumanConfirmNeedScenario(input);
+        assert.notEqual(result.node_result.status, 'ready', JSON.stringify(result.node_result));
+        assert.equal(result.node_result.human_decision_ref, null);
+        assert.equal(await ctx.needService.getValidatedNeedById(input.reserved_validated_need_ref.ref_id), null);
+        assert.deepEqual(await ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService()).runHumanConfirmNeedScenario(input), result);
+      }
+      assert.equal(calls, failure === 'input_scope' ? 0 : 1);
+    });
   }
 });
 

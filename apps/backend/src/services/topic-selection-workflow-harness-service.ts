@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences, type TopicSelectionV1aAdjudicationEvidence } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionActorRef,
@@ -2586,11 +2587,28 @@ export class TopicSelectionWorkflowHarnessService {
     input: TopicSelectionWorkflowHarnessValidateNeedAdjudicationInput,
   ): Promise<TopicSelectionWorkflowHarnessValidateNeedAdjudicationResult> {
     this.assertValidateNeedAdjudicationScenarioInput(input);
+    if (input.execution_mode === 'codex_cli') {
+      if (input.run_mode !== 'product' || input.mocked_output || input.codex_response || input.diagnostic_prompt_appendix
+        || input.fixture_human_decision || input.adjudication_actor
+        || (input.executor_kind != null && input.executor_kind !== 'single_agent')
+        || (input.profile_id && input.profile_id !== TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Product CLI adjudication uses the registered model role without caller outputs or Human authority.');
+      }
+      return executeV1aCodexSubmission({ controlPlane: this.requiredControlPlane(), nodeId: VALIDATE_NEED_ADJUDICATION_NODE_ID, input,
+        preflight: () => this.requiredNeedAdjudicationAgent().assertProductCodexProfile(TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID),
+        execute: () => this.executeValidateNeedAdjudicationScenario(input) });
+    }
+    return this.executeValidateNeedAdjudicationScenario(input);
+  }
+
+  private async executeValidateNeedAdjudicationScenario(
+    input: TopicSelectionWorkflowHarnessValidateNeedAdjudicationInput,
+  ): Promise<TopicSelectionWorkflowHarnessValidateNeedAdjudicationResult> {
     const controlPlane = this.requiredControlPlane();
     const needValidation = this.requiredNeedValidation();
     const nodeInput = this.validateNeedAdjudicationNodeInput(input);
     const inputHash = this.hash(this.validateNeedAdjudicationInputHashPayload(input, nodeInput));
-    const replay = await this.findValidateNeedAdjudicationReplay(input, nodeInput, inputHash);
+    const replay = input.execution_mode === 'codex_cli' ? null : await this.findValidateNeedAdjudicationReplay(input, nodeInput, inputHash);
     if (replay) {
       return replay;
     }
@@ -2839,11 +2857,27 @@ export class TopicSelectionWorkflowHarnessService {
     input: TopicSelectionWorkflowHarnessHumanConfirmNeedInput,
   ): Promise<TopicSelectionWorkflowHarnessHumanConfirmNeedResult> {
     this.assertHumanConfirmNeedScenarioInput(input);
+    if (input.execution_mode === 'codex_cli') {
+      if (input.run_mode !== 'product' || input.mocked_output || input.codex_response
+        || (input.executor_kind != null && input.executor_kind !== 'single_agent')
+        || (input.profile_id && input.profile_id !== TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Product CLI confirmation reviews the supplied Human input through the registered semantic role.');
+      }
+      return executeV1aCodexSubmission({ controlPlane: this.requiredControlPlane(), nodeId: HUMAN_CONFIRM_NEED_NODE_ID, input,
+        preflight: () => this.requiredHumanConfirmationSemanticReviewAgent().assertProductCodexProfile(TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID),
+        execute: () => this.executeHumanConfirmNeedScenario(input) });
+    }
+    return this.executeHumanConfirmNeedScenario(input);
+  }
+
+  private async executeHumanConfirmNeedScenario(
+    input: TopicSelectionWorkflowHarnessHumanConfirmNeedInput,
+  ): Promise<TopicSelectionWorkflowHarnessHumanConfirmNeedResult> {
     const controlPlane = this.requiredControlPlane();
     const needValidation = this.requiredNeedValidation();
     const nodeInput = this.humanConfirmNeedNodeInput(input);
     const inputHash = this.hash(this.humanConfirmNeedInputHashPayload(input, nodeInput));
-    const replay = await this.findHumanConfirmNeedReplay(input, nodeInput, inputHash);
+    const replay = input.execution_mode === 'codex_cli' ? null : await this.findHumanConfirmNeedReplay(input, nodeInput, inputHash);
     if (replay) {
       return replay;
     }
@@ -4569,7 +4603,19 @@ export class TopicSelectionWorkflowHarnessService {
         ]);
       }
     }
-    this.assertHumanConfirmationSemanticReviewLineage(input, contextPacketRef, review, executionMode);
+    try {
+      this.assertHumanConfirmationSemanticReviewLineage(input, contextPacketRef, review, executionMode);
+      if (executionMode === 'codex_cli') {
+        assertV1aCodexReferences(review, [contextPacketRef]);
+        if (review.review_id !== `${input.node_attempt_id}_semantic_review`) {
+          throw new AppError(409, 'VERSION_CONFLICT', 'CLI semantic review identity differs from the supplied output lineage.');
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      throw new AppError(error.statusCode, error.errorCode, error.message, { ...error.details,
+        agent_invocation_audit_ref: agentInvocationAuditRef, context_compression_report_ref: contextCompressionReportRef });
+    }
     const artifact = await this.requiredControlPlane().recordArtifactRef({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
@@ -5003,6 +5049,14 @@ export class TopicSelectionWorkflowHarnessService {
     candidate: TopicSelectionNeedCandidateRecord,
     supportPacket: TopicSelectionValidationDecisionSupportPacketRecord,
   ): void {
+    if (input.execution_mode === 'codex_cli') {
+      assertV1aCodexReferences([input.adjudication_result_ref, input.need_candidate_ref,
+        input.validation_support_packet_ref, input.reserved_validated_need_ref], [
+        this.ref('validate_need_adjudication_result', adjudication.adjudication_result_id, adjudication.title_card_id),
+        this.ref('need_candidate', candidate.need_candidate_id, candidate.title_card_id, candidate.candidate_version),
+        this.ref('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id),
+        this.ref('validated_need', adjudication.output_validated_need_id!, adjudication.title_card_id)]);
+    }
     if (adjudication.title_card_id !== input.title_card_id || candidate.title_card_id !== input.title_card_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'N8 inputs belong to a different title card.');
     }
@@ -5719,6 +5773,11 @@ export class TopicSelectionWorkflowHarnessService {
     warning_codes: string[];
   }> {
     const agent = this.requiredNeedAdjudicationAgent();
+    if (input.execution_mode === 'codex_cli' && !this.dependencies.codexContext) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI source compiler is not configured.');
+    }
+    const sourceEvidence = input.execution_mode === 'codex_cli'
+      ? await this.dependencies.codexContext!.adjudication(supportPacket) : undefined;
     const runtimeBinding = this.v1aLlmRuntimeBindings.buildNeedAdjudicationBinding({
       title_card_id: input.title_card_id,
       workflow_run_id: input.workflow_run_id,
@@ -5733,6 +5792,7 @@ export class TopicSelectionWorkflowHarnessService {
       candidate,
       readiness,
       support_packet: supportPacket,
+      source_evidence: sourceEvidence,
       runtime_token_budget_overrides: input.runtime_token_budget_overrides ?? null,
     });
     const compressionPrepared = await this.prepareNeedAdjudicationRuntimeBinding({
@@ -5741,6 +5801,7 @@ export class TopicSelectionWorkflowHarnessService {
       candidate,
       readiness,
       supportPacket,
+      sourceEvidence,
       runtimeBinding,
     });
     if (compressionPrepared.errorCode) {
@@ -5795,7 +5856,18 @@ export class TopicSelectionWorkflowHarnessService {
       });
     }
     const packet = result.structured_output;
-    this.assertRecommendationPacketLineage(input, candidate, readiness, supportPacket, packet);
+    try {
+      this.assertRecommendationPacketLineage(input, candidate, readiness, supportPacket, packet);
+      if (input.execution_mode === 'codex_cli') {
+        assertV1aCodexReferences(packet, compressionPrepared.runtimeBinding.messages
+          .filter(message => message.role === 'user').map(message => JSON.parse(message.content)));
+      }
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      throw new AppError(error.statusCode, error.errorCode, error.message, { ...error.details,
+        agent_invocation_audit_ref: result.audit_artifact_ref ?? null,
+        context_compression_report_ref: compressionPrepared.contextCompressionReportRef });
+    }
     const artifact = await this.requiredControlPlane().recordArtifactRef({
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
@@ -5826,6 +5898,7 @@ export class TopicSelectionWorkflowHarnessService {
     candidate: TopicSelectionNeedCandidateRecord;
     readiness: TopicSelectionNeedCandidateReadinessAssessmentRecord;
     supportPacket: TopicSelectionValidationDecisionSupportPacketRecord;
+    sourceEvidence?: TopicSelectionV1aAdjudicationEvidence;
     runtimeBinding: TopicSelectionV1aLlmRuntimeInvocationBinding;
   }): Promise<{
     runtimeBinding: TopicSelectionV1aLlmRuntimeInvocationBinding;
@@ -5872,6 +5945,7 @@ export class TopicSelectionWorkflowHarnessService {
       candidate: input.candidate,
       readiness: input.readiness,
       support_packet: input.supportPacket,
+      source_evidence: input.sourceEvidence,
       runtime_token_budget_overrides: overrides,
     });
     const compression = await this.recordNeedAdjudicationCompressionReport({
@@ -5906,6 +5980,7 @@ export class TopicSelectionWorkflowHarnessService {
       candidate: input.candidate,
       readiness: input.readiness,
       support_packet: input.supportPacket,
+      source_evidence: input.sourceEvidence,
     };
     if (compression.result.quality_gate_result === 'blocked') {
       return {
@@ -6446,7 +6521,7 @@ export class TopicSelectionWorkflowHarnessService {
     if (input.validation_support_packet_ref) {
       this.assertFunctionalRef(input.validation_support_packet_ref, 'validation_support_packet_ref');
     }
-    if (!['mocked_llm', 'codex_assisted', 'provider_llm'].includes(input.execution_mode)) {
+    if (!['mocked_llm', 'codex_assisted', 'provider_llm', 'codex_cli'].includes(input.execution_mode)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'execution_mode is invalid.');
     }
     this.assertSingleAgentExecutionSpec({
@@ -6471,6 +6546,12 @@ export class TopicSelectionWorkflowHarnessService {
     input: TopicSelectionWorkflowHarnessValidateNeedAdjudicationInput,
     candidate: TopicSelectionNeedCandidateRecord,
   ): void {
+    if (input.execution_mode === 'codex_cli') {
+      assertV1aCodexReferences([input.need_candidate_ref, input.evidence_map_ref, input.search_run_ref,
+        input.search_plan_ref, input.literature_snapshot_ref], [
+        this.ref('need_candidate', candidate.need_candidate_id, candidate.title_card_id, candidate.candidate_version),
+        candidate.evidence_map_ref, candidate.search_run_ref, candidate.search_plan_ref, candidate.literature_snapshot_ref]);
+    }
     this.assertSameRefForValidateNeed(input.evidence_map_ref, candidate.evidence_map_ref, 'evidence_map_ref');
     this.assertSameRefForValidateNeed(input.search_run_ref, candidate.search_run_ref, 'search_run_ref');
     this.assertSameRefForValidateNeed(input.search_plan_ref, candidate.search_plan_ref, 'search_plan_ref');
@@ -6497,6 +6578,11 @@ export class TopicSelectionWorkflowHarnessService {
     readiness: TopicSelectionNeedCandidateReadinessAssessmentRecord,
     supportPacket: TopicSelectionValidationDecisionSupportPacketRecord,
   ): void {
+    if (input.execution_mode === 'codex_cli') {
+      assertV1aCodexReferences([input.readiness_assessment_ref, input.validation_support_packet_ref], [
+        this.ref('need_candidate_readiness', readiness.readiness_assessment_id, readiness.title_card_id),
+        this.ref('validation_decision_support_packet', supportPacket.validation_support_packet_id, supportPacket.title_card_id)]);
+    }
     if (
       supportPacket.need_candidate_id !== candidate.need_candidate_id
       || supportPacket.title_card_id !== input.title_card_id
@@ -6602,7 +6688,7 @@ export class TopicSelectionWorkflowHarnessService {
     if (NEED_ADJUDICATION_HIGH_RISK_DECISIONS.has(decision)) {
       return input.adjudication_actor ?? { actor_type: 'human' };
     }
-    return input.adjudication_actor ?? { actor_type: input.execution_mode === 'provider_llm' ? 'llm' : 'system' };
+    return input.adjudication_actor ?? { actor_type: ['provider_llm', 'codex_cli'].includes(input.execution_mode) ? 'llm' : 'system' };
   }
 
   private routeOutcomeForAdjudicationDecision(
@@ -8883,8 +8969,8 @@ export class TopicSelectionWorkflowHarnessService {
       assertion_id: assertionId,
       passed,
       message,
-      expected,
-      actual,
+      ...(expected === undefined ? {} : { expected }),
+      ...(actual === undefined ? {} : { actual }),
     };
   }
 
@@ -9267,7 +9353,7 @@ export class TopicSelectionWorkflowHarnessService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'delegated_executor is only allowed for human_delegated confirmation.');
     }
     const executionMode = input.execution_mode ?? 'codex_assisted';
-    if (!['deterministic_parser', 'mocked_llm', 'codex_assisted', 'provider_llm'].includes(executionMode)) {
+    if (!['deterministic_parser', 'mocked_llm', 'codex_assisted', 'provider_llm', 'codex_cli'].includes(executionMode)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'execution_mode is invalid.');
     }
     if (executionMode === 'deterministic_parser') {

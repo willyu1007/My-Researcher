@@ -95,8 +95,9 @@ test('only qualified upstream and N6/N8 profiles admit product CLI execution wit
     TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
     TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID, TOPIC_SELECTION_NEED_DISCOVERY_DEEP_CRITIC_PROFILE_ID,
     TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID, TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID,
+    TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID, TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID,
   ]);
-  assert.equal(qualified.size, 18);
+  assert.equal(qualified.size, 20);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
     .map(profile => profile.profile_id)), qualified);

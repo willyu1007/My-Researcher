@@ -216,3 +216,34 @@ completion receipts replay the exact result after a lost response or service rec
 input drift and concurrent pending requests return 409. An unfinished claim does not rerun the model
 or guess which domain writes completed: inspect retained artifacts/authority before using a new node
 attempt. This upstream wrapper deliberately does not promise sampling's prepared-transaction recovery.
+
+## Phase 3 need adjudication and confirmation support
+
+The v1a N7 and N8 canonical harness invocations use the same whole-node submission claim/receipt.
+Both require explicit product CLI, their registered single-agent profile, and no caller model output.
+N7 rejects fixture Human acceptance or caller adjudication actors; its model actor is `llm` and
+high-risk recommendations still stop for Human review. N8 requires the existing exact
+`HumanConfirmationInput`; the model reviews its alignment without changing or authoring it.
+
+N7 compiles the frozen support packet's selected units, strength assessments and conflict records.
+The existing evidence-packet resolver reads their original excerpts and locators. Missing, unreviewed,
+stale, manual-only or changed-map sources fail before model work; the compiler never swaps in a
+newer evidence selection. Existing abstract-only readiness blockers remain. Source bodies survive
+structural compression, their hashes and refs enter invocation provenance, and every nested output
+reference must match a supplied full reference before recommendation/domain admission.
+
+N8 resolves its frozen adjudication/candidate/support packet and supplied Human input through the
+existing context compiler. CLI preserves exact review identity, context and provenance references;
+it does not apply the provider path's lineage normalization. The existing semantic gate, required
+checks/risk acceptance and app checkpoint guards still own confirmation. A passing model review
+cannot bypass missing Human acceptance. Only the original Human input reaches `confirmValidatedNeed`.
+
+For these CLI bindings, context already serialized into messages is counted there once; the additive
+token estimator does not receive a duplicate context/extra payload. Existing profile limits, schema
+overhead, compression checks and provider estimation remain unchanged. Completed and blocked results
+replay exactly; interrupted domain/receipt commits remain fail-closed without another model call.
+
+Submission results use their JSON persistence shape before hashing, writing and returning. Harness
+assertions omit absent optional fields, so JSON serialization does not invalidate trace or completion
+checksums. Exact service reconstruction replay returns the same wire result without another model
+call; corrupt historical receipts remain blocked rather than rewritten as new qualification evidence.

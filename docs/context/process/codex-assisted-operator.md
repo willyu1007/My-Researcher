@@ -22,8 +22,8 @@ N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` con
 `product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
 remain reserved. The default registry admits the 11 profiles used by this slice; no registry override
-is needed. Sampling and evidence/need discovery add seven enabled profiles through their v1a entries
-below (18 total). Other selection/promotion roles remain closed.
+is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
+below (20 total). Other selection/promotion roles remain closed.
 
 N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
 one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact
@@ -105,6 +105,32 @@ replay without another model invocation. Changed input or an unfinished claim re
 retained model/domain artifacts before creating a new attempt after an interrupted commit; unlike
 sampling, this node does not automatically resume partial domain writes. An `expand_evidence` or
 `stop_without_candidate` result is a valid non-advancing conclusion, not a confirmed research need.
+
+### Need adjudication and Human confirmation
+
+The same v1a native endpoint accepts `execution_mode: "codex_cli"`, `run_mode: "product"`
+and stable workflow/node-attempt IDs for these single-agent consumers:
+
+- `topic-selection.v1a.validate-need-adjudication.v1`: supply the selected `need_candidate_ref`
+  and exact evidence-map/search-plan/search-run/literature-snapshot refs. Existing fresh readiness
+  and support-packet creation remain the default; use `readiness_packet_mode` and
+  `support_packet_mode` set to `consume_explicit_ref` with their corresponding refs to consume
+  an existing frozen packet. The model receives the selected original excerpts and the frozen
+  strength/conflict records. Abstract-only readiness blockers still apply; unreadable, stale or
+  manual-only sources cannot be replaced silently. Do not supply `adjudication_actor`,
+  `fixture_human_decision` or a model answer. High-risk recommendations stop for Human review.
+- `topic-selection.v1a.human-confirm-need.v1`: supply the exact adjudication, candidate,
+  support-packet and reserved-ValidatedNeed refs plus the user's `confirmation_input`. Codex checks
+  that input's alignment, required checks and risk coverage. Existing gap-checkpoint and advisory
+  review bindings remain required where the app's checkpoint policy applies. Model review cannot
+  author the confirmation, accept omitted risks or bypass a checkpoint. Only a confirmed result
+  can proceed to the deterministic `publish-v1b-input-bundle` node.
+
+Use the registered default profiles; external `mocked_output`/`codex_response`, a different executor
+or profile and acceptance-mode CLI requests are rejected. Completed or blocked submissions replay
+their exact receipts without another model call. Changed input requires a new attempt; an unfinished
+claim first requires inspection of retained model and domain records, including any already written
+Human decision. No automatic recovery of a partial confirmation write is promised.
 
 ## Regular N6 question candidates
 
