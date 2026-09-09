@@ -1,6 +1,7 @@
 import type { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
 import type { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
 import { verifyDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
+import { TopicSelectionV1bN8BoundedDebateRuntimeService } from './topic-selection-v1b-n8-bounded-debate-runtime-service.js';
 import crypto from 'node:crypto';
 import {
   type TopicSelectionAgentRunMode,
@@ -388,7 +389,6 @@ import {
 } from './topic-selection-v1b-harness-n8.js';
 import {
   earlyRuntimeAuditDrift,
-  isHarnessExecutionMode,
   isRegistryExecutionMode,
   legacyValueVerdict,
   n10CarryForwardCodes,
@@ -788,6 +788,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private readonly n7SupportRuntime: TopicSelectionV1bN7SupportRuntimeService;
   private readonly n8ValueAssessmentAdmission = new TopicSelectionV1bN8ValueAssessmentAdmissionService();
   private readonly n8ValueAssessmentRuntime: TopicSelectionV1bN8ValueAssessmentRuntimeService;
+  private readonly n8DebateRuntime: TopicSelectionV1bN8BoundedDebateRuntimeService;
   private readonly runnerDependencies: HarnessRunnerDependencies;
   private readonly evidencePacketResolver: Pick<TopicSelectionResearchEvidencePacketService, 'resolve'> | undefined;
 
@@ -831,8 +832,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.n8ValueAssessmentRuntime = new TopicSelectionV1bN8ValueAssessmentRuntimeService(controlPlane, {
+      resolveResearchContext: request => this.resolveCodexResearchContext(request),
       agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
+    });
+    this.n8DebateRuntime = new TopicSelectionV1bN8BoundedDebateRuntimeService(controlPlane, {
+      agentOrchestrator: options.agentOrchestrator, modelProfileRegistry: this.modelProfileRegistry,
+      singleAgentRuntime: this.n8ValueAssessmentRuntime,
+      resolveResearchContext: request => this.resolveCodexResearchContext(request),
     });
     this.runnerDependencies = options.runnerDependencies ?? {};
     this.evidencePacketResolver = options.evidencePacketResolver;
@@ -1092,6 +1099,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       if (!loaded.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', loaded.message);
       const blocker = this.n8LineageBlocker(payload.value, loaded.value);
       if (blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', blocker.message);
+      await this.runnerDependencies.researchCheckpointService!.assertTransitionAllowed({
+        title_card_id: loaded.value.contract.title_card_id, checkpoint_kind: 'question_contract',
+        target_ref: buildRef('topic_question_contract', loaded.value.contract.topic_question_contract_id,
+          loaded.value.contract.title_card_id, loaded.value.contract.version),
+      });
       bodies = loaded.value;
     } else {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N6/N8.');
@@ -1210,6 +1222,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
   ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
     this.assertRequest(input);
+    if (input.execution_spec?.execution_mode === 'codex_cli' && !input.semantic_artifacts?.length) {
+      return this.invokeCliNode(input);
+    }
     const policy = this.getNodePolicy(input.node_id);
     const runtimeAdmission = this.runtimeAdmission(policy, input);
     const hashContext = this.hashContext(input, runtimeAdmission.runtimeAdmissionHash);
@@ -1247,6 +1262,57 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
 
     return this.invokeImplementedRunner(policy, input, hashContext);
+  }
+
+  private async invokeCliNode(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    if (input.execution_spec?.model_option_id != null || ![
+      'topic-selection.v1b.generate-topic-question-candidates.v1', 'topic-selection.v1b.assess-topic-value.v1',
+    ].includes(input.node_id)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex CLI execution is supported only for the integrated N6/N8 route, without gateway model options.');
+    }
+    const request = { ...input, run_mode: input.run_mode ?? 'product' as const };
+    const policy = this.getNodePolicy(request.node_id);
+    const admission = this.runtimeAdmission(policy, request);
+    if (admission.blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', admission.blocker.message);
+    // Verify frozen identity before any model work, including requests without a declared hash.
+    const hashContext = this.hashContext(request, admission.runtimeAdmissionHash);
+    const policyBlocker = this.policyBlocker(policy, request, hashContext);
+    if (policyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', policyBlocker.message);
+    let artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    if (request.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
+      const n7 = await this.n6InputCarriesN7LoopbackProjection(request);
+      const n6 = await this.n6InputCarriesN6GateFailureProjection(request);
+      if (!n7.ok || !n6.ok || (n7.value && n6.value)) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N6 CLI requires one unambiguous frozen generation context.');
+      }
+      const generated = await this.n6DebateRuntime.runDivergentDebate({
+        request, execution_mode: 'codex_cli', run_mode: request.run_mode,
+        generation_mode: n7.value ? 'regeneration_after_n7_loopback' : n6.value ? 'regeneration_after_n6_gate_failure' : 'initial_from_n5',
+      });
+      if (generated.status !== 'completed' || generated.gate_draft.status !== 'succeeded') {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N6 CLI Debate did not produce an admitted draft.', { debate_status: generated.status });
+      }
+      artifact = generated.gate_draft.semantic_artifact;
+    } else {
+      const payload = parseN8Payload(request.frozen_input.payload);
+      if (!payload.ok) throw new AppError(400, 'INVALID_PAYLOAD', payload.message);
+      const debate = await this.resolveN8DebateAdmission(payload.value);
+      if (!debate.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', debate.message);
+      if (debate.value.input_mode === 'feedback_from_n8') {
+        const generated = await this.n8DebateRuntime.runDebate({ request, execution_mode: 'codex_cli', run_mode: request.run_mode });
+        if (generated.status !== 'completed' || generated.gate_draft.status !== 'succeeded') {
+          throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N8 CLI Debate did not produce an admitted draft.', { debate_status: generated.status });
+        }
+        artifact = generated.gate_draft.semantic_artifact;
+      } else {
+        const generated = await this.n8ValueAssessmentRuntime.generateDraftArtifact({ request, execution_mode: 'codex_cli', run_mode: request.run_mode });
+        if (generated.status !== 'succeeded') {
+          throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N8 CLI did not produce an admitted draft.', { blocker_codes: generated.invocation_result.blocker_codes });
+        }
+        artifact = generated.semantic_artifact;
+      }
+    }
+    return this.invokeNode({ ...request, semantic_artifacts: [artifact] });
   }
 
   private assertRequest(input: TopicSelectionV1bWorkflowHarnessRunRequest): void {
@@ -1332,7 +1398,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
           unsupported_fields: unknownSpecKeys,
         });
       }
-      if (!['mocked_llm', 'codex_assisted', 'provider_llm'].includes(input.execution_spec.execution_mode)) {
+      if (!['codex_cli', 'mocked_llm', 'codex_assisted', 'provider_llm'].includes(input.execution_spec.execution_mode)) {
         throw new AppError(400, 'INVALID_PAYLOAD', 'execution_spec.execution_mode is invalid.');
       }
       assertOptionalStringId(input.execution_spec.model_option_id, 'execution_spec.model_option_id');
@@ -1889,10 +1955,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
 
     const executionMode = input.execution_spec.execution_mode;
-    if (!isHarnessExecutionMode(executionMode)) {
-      // Rejected upstream by the node policy's allowed_execution_modes check.
-      return null;
-    }
     const runMode = effectiveRunMode(input.run_mode ?? null, executionMode);
     const profileId = input.profile_id ?? requiredSlot.default_profile_id;
     return this.resolveSlotProfileAdmission(requiredSlot, {
@@ -2170,8 +2232,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     if (
       input.execution_spec
-      && (!isHarnessExecutionMode(input.execution_spec.execution_mode)
-        || !policy.allowed_execution_modes.includes(input.execution_spec.execution_mode))
+      && !policy.allowed_execution_modes.includes(input.execution_spec.execution_mode)
     ) {
       return {
         code: 'INVALID_NODE_EXECUTION_MODE',
@@ -7364,7 +7425,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return n8RuntimeAuditDrift('N8 runtime value draft audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
-    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
+    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : artifact.execution_mode === 'codex_cli' ? 'codex_cli_response' : 'codex_response';
     if (
       auditPayload.node_id !== input.node_id
       || auditPayload.workflow_run_id !== input.workflow_run_id
@@ -7396,7 +7457,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     payload: TopicSelectionV1bN8HarnessFrozenInputPayload;
     draftHash: string;
     semanticArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
-    admissionExecutionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    admissionExecutionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
   }): Promise<{
     ok: true;
     value: TopicSelectionV1bN8ValueAssessmentAdmissionExpectedIdentity;
@@ -7493,6 +7554,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       semanticArtifact.runtime_provenance_class === 'runtime_verified'
       && semanticArtifact.execution_mode !== 'codex_assisted'
       && semanticArtifact.execution_mode !== 'mocked_llm'
+      && semanticArtifact.execution_mode !== 'codex_cli'
     ) {
       return {
         ok: false,
@@ -7508,7 +7570,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const admissionExecutionMode = semanticArtifact.execution_mode === 'mocked_llm'
       ? 'mocked_llm'
-      : 'codex_assisted';
+      : semanticArtifact.execution_mode === 'codex_cli' ? 'codex_cli' : 'codex_assisted';
     const expectedIdentity = await this.resolveN8ValueAssessmentAdmissionExpectedIdentity({
       input,
       payload,

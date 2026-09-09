@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import {
   TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
@@ -122,6 +128,78 @@ import {
 
 const NOW = '2026-05-26T00:00:00.000Z';
 const TITLE_CARD_ID = 'title_card_v1b_harness';
+
+test('canonical N6/N8 CLI invokes real consumers, replays results and stops before an unconfirmed question', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'harness-n6-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const request = { ...await n6Request(ctx, n5), execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null }, run_mode: 'product' as const };
+  const draft = await n6Draft(ctx, request);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.')
+    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent
+    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent)) {
+    profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  let evidenceReads = 0;
+  let valueDraft: TopicSelectionV1bTopicValueAssessmentDraftPayload | null = null;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls += 1;
+    const packet: { role_slot: string; context_packet: { research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+    assert.ok(packet.context_packet.research_context.frozen_domain.researchSlice);
+    if (packet.role_slot) assert.equal(packet.context_packet.prior_role_outputs.length, calls < 3 ? 0 : calls - 1);
+    const output = valueDraft ?? { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: packet.role_slot,
+      ...(packet.role_slot === 'n6_debate_explorer' ? { candidate_seeds: [{ seed_id: `seed-${calls}`, question_framing: 'Measure retrieval errors.', evidence_refs: [] }] }
+        : packet.role_slot === 'n6_debate_critic' ? { critic_findings: [] } : { synthesized_candidate_set: draft }),
+    };
+    return { stdout: [
+      { type: 'thread.started', thread_id: `n6-thread-${calls}` },
+      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } },
+    ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, {
+    modelProfileRegistry,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+    evidencePacketResolver: { resolve: async input => {
+      evidenceReads += 1;
+      assert.equal(input.title_card_id, TITLE_CARD_ID);
+      assert.ok(input.evidence_unit_refs.length > 0 && input.evidence_unit_refs.every(ref => ref.ref_type === 'evidence_unit'));
+      return { schema_version: 'TopicSelectionResearchEvidencePacket@v1', title_card_id: TITLE_CARD_ID,
+        participant_role: input.participant_role, query_intent: input.query_intent, items: [], source_refs: input.evidence_unit_refs,
+        total_excerpt_chars: 0, packet_hash: canonicalHash(input), };
+    } },
+    runnerDependencies: {
+      evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
+      recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
+      researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
+      topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository,
+    },
+  });
+  const result = await service.invokeNode(request);
+  assert.equal(result.gate_status, 'admitted', JSON.stringify(result));
+  assert.equal(calls, 4); assert.ok(evidenceReads > 0);
+  const replay = await service.invokeNode(request);
+  assert.equal(replay.replay_provenance?.replayed, true);
+  assert.equal(calls, 4);
+  assert.equal(replay.authority_ref?.ref_id, result.authority_ref?.ref_id);
+  const n7 = await service.invokeNode(await n7Request(ctx, result));
+  const n8Input = await n8Request(ctx, n7, { execution_spec: request.execution_spec, run_mode: 'product' }, { confirmQuestionCheckpoint: false });
+  valueDraft = n8ValueDraft(n8Input);
+  await assert.rejects(service.invokeNode(n8Input), /checkpoint|advance|decision|confirmed/i);
+  assert.equal(calls, 4, 'An unconfirmed Human checkpoint must stop before model work.');
+  await confirmQuestionCheckpoint(ctx);
+  const n8 = await service.invokeNode(n8Input);
+  assert.equal(n8.gate_status, 'admitted_with_warnings', JSON.stringify(n8));
+  assert.equal(calls, 5);
+  const n8Replay = await service.invokeNode(n8Input);
+  assert.equal(n8Replay.replay_provenance?.replayed, true);
+  assert.equal(calls, 5);
+});
 
 function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
   let sequence = 0;

@@ -389,7 +389,8 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
       context_policy_profile: runtimeProfile.profile,
       context_policy_profile_hash: runtimeProfile.profile_hash,
       runtime_invocation_context_hash: args.runtimeInvocationContextHash,
-      context_payloads: [args.contextPacket],
+      // The CLI message already contains the complete context packet.
+      context_payloads: args.ctx.executionMode === 'codex_cli' ? [] : [args.contextPacket],
       // No compression on the debate path yet (matches the N6 single-agent default); deferred.
       compression_attempt: null,
     };
@@ -774,7 +775,23 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
       }
     }
     const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : input.execution_mode === 'codex_cli' ? 'product' : 'acceptance');
+    if (input.execution_mode === 'codex_cli' && !this.resolveResearchContext) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex Debate requires the product frozen-research context resolver.');
+    }
+    const researchContext = input.execution_mode === 'codex_cli' ? await this.resolveResearchContext!(input.request) : undefined;
     const inputHash = canonicalHash({
+      ...(input.execution_mode === 'codex_cli' ? {
+        research_context_hash: canonicalHash(researchContext), runner: this.agentOrchestrator.codexCliExecutionIdentity,
+        roles: TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER.map(slot => ({
+          prompt: configuredPrompt(slot), schema: cliRoleSchema(slot),
+          model_profile_hash: this.modelProfileRegistry.resolveProfile({
+            profile_id: MODEL_PROFILE_BY_SLOT[slot], execution_mode: 'codex_cli', run_mode: runMode, model_option_id: null,
+          }).profile_hash,
+          context_profile_hash: this.contextPolicyProfileRegistry.resolveProfile({
+            context_policy_profile_id: CONTEXT_PROFILE_BY_SLOT[slot], invocation_slot_id: slot,
+          }).profile_hash,
+        })),
+      } : {}),
       request_hash: debateRequestHash(input.request),
       generation_mode: input.generation_mode, execution_mode: input.execution_mode, run_mode: runMode,
       profile_id: input.request.profile_id ?? null,
@@ -793,7 +810,7 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
       if (pending.inputHash !== inputHash) throw new AppError(409, 'VERSION_CONFLICT', 'N6 Debate attempt is executing different frozen input or role outputs.');
       return pending.result;
     }
-    const result = this.resumeOrRun({ ...input, execution_mode: input.execution_mode }, inputHash);
+    const result = this.resumeOrRun({ ...input, execution_mode: input.execution_mode }, inputHash, researchContext);
     active.set(key, { inputHash, result });
     try { return await result; } finally { active.delete(key); }
   }
@@ -826,18 +843,20 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
   private async resumeOrRun(
     input: NonProviderN6DebateInput,
     inputHash: string,
+    researchContext?: Record<string, unknown>,
   ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
     const receipt = await this.readReceipt(input.request);
     if (receipt) {
       if (receipt.input_hash !== inputHash) throw new AppError(409, 'VERSION_CONFLICT', 'N6 Debate replay requires the original frozen input, execution settings and role outputs.');
       return receipt.result;
     }
-    return this.executeDebate(input, inputHash);
+    return this.executeDebate(input, inputHash, researchContext);
   }
 
   private async executeDebate(
     input: NonProviderN6DebateInput,
     inputHash: string,
+    researchContext?: Record<string, unknown>,
   ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
     const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : input.execution_mode === 'codex_cli' ? 'product' : 'acceptance');
     // Shared N6 context resolved via the SAME public resolver the single-agent draft path uses
@@ -846,11 +865,6 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
     // deterministic (pure reads + canonicalHash, no control-plane writes within a run), so the bridged
     // draft's sourceHashes lineage matches the debate roles'. (Threading `shared` into the bridge to
     // skip the second resolve is a possible optimization, not a correctness requirement.)
-    if (input.execution_mode === 'codex_cli' && !this.resolveResearchContext) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex Debate requires the product frozen-research context resolver.');
-    }
-    const researchContext = input.execution_mode === 'codex_cli'
-      ? await this.resolveResearchContext!(input.request) : undefined;
     const shared = await this.singleAgent.resolveSharedN6RuntimeContext(input.request, input.generation_mode);
     const handoff: V1bN6DebateHandoff = {
       request: input.request,

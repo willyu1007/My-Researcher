@@ -27,21 +27,11 @@ import { blocker, refsEqual, warning } from './topic-selection-v1b-harness-gate-
 
 export function isRegistryExecutionMode(
   executionMode: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef['execution_mode'],
-): executionMode is HarnessExecutionMode {
-  return executionMode === 'mocked_llm'
+): executionMode is TopicSelectionAgentExecutionMode {
+  return executionMode === 'codex_cli'
+    || executionMode === 'mocked_llm'
     || executionMode === 'codex_assisted'
     || executionMode === 'provider_llm';
-}
-
-/** The v1b harness carries its own narrower set of semantic execution modes. The T-151 `codex_cli`
- *  line is not wired into the harness, so a request naming it is rejected by the node policy's
- *  allowed_execution_modes check; this guard keeps that narrowing explicit at the type level. */
-export type HarnessExecutionMode = Exclude<TopicSelectionAgentExecutionMode, 'codex_cli'>;
-
-export function isHarnessExecutionMode(
-  executionMode: TopicSelectionAgentExecutionMode,
-): executionMode is HarnessExecutionMode {
-  return executionMode !== 'codex_cli';
 }
 
 export function earlyRuntimeAuditDrift(message: string): { ok: false; code: string; message: string } {

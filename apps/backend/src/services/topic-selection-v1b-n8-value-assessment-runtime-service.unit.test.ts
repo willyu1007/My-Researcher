@@ -18,6 +18,12 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import {
   TOPIC_SELECTION_V1B_N7_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
@@ -344,6 +350,43 @@ test('v1b N8 value-assessment system prompt is byte-stable for both decision-mem
     withMemory.slice(withoutMemory.length),
     ' ' + N8_VALUE_ASSESSMENT_DECISION_MEMORY_CLAUSE,
   );
+});
+
+test('N8 CLI uses resolved research bodies, replays one attempt and refuses source drift', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'n8-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const controlPlane = makeControlPlane();
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(profile => profile.output_contract === 'TopicValueAssessmentDraft@v1')!;
+  profile.allowed_execution_modes.push('codex_cli');
+  profile.run_mode_eligibility.codex_cli = ['acceptance'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  let researchContext = { evidence: 'The source reports retrieval failures under vocabulary shift.' };
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
+    async (args, options) => {
+      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      calls += 1;
+      assert.ok(options.stdin.includes(researchContext.evidence));
+      return { stdout: [
+        { type: 'thread.started', thread_id: 'n8-thread' },
+        { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(valueDraft()) } },
+      ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    });
+  const makeRuntime = () => new TopicSelectionV1bN8ValueAssessmentRuntimeService(controlPlane, {
+    modelProfileRegistry, resolveResearchContext: async () => researchContext,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+  });
+  const projectionRef = await recordProjectionRef(controlPlane, makeRequest());
+  const request = makeRequest({ projectionRef });
+  const input = { request, execution_mode: 'codex_cli' as const };
+  const result = await makeRuntime().generateDraftArtifact(input);
+  assert.equal(result.status, 'succeeded');
+  assert.deepEqual(await makeRuntime().generateDraftArtifact(input), result);
+  assert.equal(calls, 1);
+  researchContext = { evidence: 'changed source' };
+  await assert.rejects(makeRuntime().generateDraftArtifact(input), /drift|differs/);
+  assert.equal(calls, 1);
 });
 
 test('v1b N8 value runtime generates a non-authority model_draft_for_gate from a codex_assisted draft', async () => {

@@ -584,7 +584,8 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
       context_policy_profile: runtimeProfile.profile,
       context_policy_profile_hash: runtimeProfile.profile_hash,
       runtime_invocation_context_hash: args.runtimeInvocationContextHash,
-      context_payloads: [args.contextPacket],
+      // The CLI message already contains the complete context packet.
+      context_payloads: args.ctx.executionMode === 'codex_cli' ? [] : [args.contextPacket],
       // No compression on the debate path yet (matches the single-agent default: it also emits a
       // null compression_attempt unless one is requested). The base+critic required-compression-fact
       // builder is the deferred STEP-7 obligation; it would only populate this when a compression

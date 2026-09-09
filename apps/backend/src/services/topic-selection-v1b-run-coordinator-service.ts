@@ -395,11 +395,8 @@ const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<
 
 export type TopicSelectionV1bRunCoordinatorNodeInput = {
   /**
-   * RESERVED (T-128 W-14): rejected up front — no wired consumer exists. The harness requires a
-   * pre-recorded runtime draft artifact regardless of any spec, and the single-agent draft runtimes
-   * have no provider_llm path yet; the field stays typed so the W-19 provider turn-on can wire it
-   * without a contract change. Current product-legal caller shape: generate through the node's
-   * runtime service (codex_assisted) and invoke the harness directly (see the run_mode docblock).
+   * N6/N8 consume codex_cli through the canonical harness. Other nodes/modes remain reserved.
+   * The CLI branch generates its own role outputs and defaults to product run mode.
    */
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
   /**
@@ -933,18 +930,10 @@ export class TopicSelectionV1bRunCoordinatorService {
           `${nextNodeId}: support_payloads can only accompany draft_payload, not ${nodeInput.debate ? 'debate' : 'execution_spec'} — supply the support alongside a caller draft or the regular initial N6 Debate.`,
         );
       }
-      if (nodeInput?.execution_spec) {
-        // T-128 W-14 (after the co-supply checks above so their messages stay authoritative for those
-        // shapes): a STANDALONE execution_spec is RESERVED — nothing consumes it today. The harness
-        // requires a pre-recorded runtime draft artifact regardless (the W-15 S4 probe run ended in
-        // N4_FROZEN_DRAFT_ARTIFACT_REQUIRED deep in the gate), and the single-agent draft runtimes have
-        // no provider_llm path yet (W-19 tail). Reject up front with the honest contract instead of
-        // letting callers discover the dead parameter via that deep blocker.
-        throw new AppError(
-          400,
-          'INVALID_PAYLOAD',
-          `${nextNodeId}: node_inputs.execution_spec is reserved (T-128 W-14) — no wired consumer exists yet; provider single-agent generation lands with the W-19 turn-on. Supply draft_payload (acceptance) or generate the draft through the node's runtime service codex_assisted channel and invoke the harness directly (the current product-legal caller shape; see the run_mode docblock).`,
-        );
+      if (nodeInput?.execution_spec && (nodeInput.execution_spec.execution_mode !== 'codex_cli'
+        || nodeInput.execution_spec.model_option_id != null || ![N6_NODE_ID, N8_NODE_ID].includes(nextNodeId))) {
+        throw new AppError(400, 'INVALID_PAYLOAD',
+          `${nextNodeId}: execution_spec is reserved outside the integrated N6/N8 codex_cli route; gateway model options are not accepted.`);
       }
 
       // A fresh N5 handoff gets one regular bounded Debate. Existing regeneration and
@@ -958,7 +947,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         (regularN6 || n6Escalation) ? 'n6_divergent'
           : (nextNodeId === N8_NODE_ID && this.pendingN8BoundedDebate(projection)) ? 'n8_bounded'
             : null;
-      if (regularN6 && !nodeInput?.debate) {
+      if (regularN6 && !nodeInput?.debate && !nodeInput?.execution_spec) {
         return halt('model_input_required', nextNodeId,
           `${nextNodeId} requires one bounded Debate before candidate admission; supply node_inputs[...].debate with kind=n6_divergent, generation_mode=initial_from_n5 and two Explorer, one Critic and one Arbiter outputs.`,
           [], projection);
@@ -1050,8 +1039,8 @@ export class TopicSelectionV1bRunCoordinatorService {
       // so it needs caller input exactly like a model-like node.
       const feedbackSupportSlotId = this.feedbackReentrySupportSlotId(projection, nextNodeId);
       const isModelLike = policy.execution_kind === 'model_like';
-      // (execution_spec cannot reach here — the reserved-reject above throws on it.)
-      if ((isModelLike || feedbackSupportSlotId != null) && !nodeInput?.draft_payload) {
+      // Integrated CLI nodes compile their own draft through the harness.
+      if ((isModelLike || feedbackSupportSlotId != null) && !nodeInput?.draft_payload && !nodeInput?.execution_spec) {
         return halt(
           'model_input_required',
           nextNodeId,
@@ -1074,7 +1063,9 @@ export class TopicSelectionV1bRunCoordinatorService {
         // attach iff the regenerate-route projection is already recorded on this run — a first N6
         // entry has none, so its request assembly stays byte-identical.
         request = await this.buildNextRequest(input, projection, nextNodeId,
-          await this.n6RegenerateProjectionOpts(input, projection, nextNodeId));
+          n6Escalation && nodeInput?.execution_spec ? { extraProjectionKind: N6_GATE_FAILURE_PROJECTION_KIND,
+            extraProjectionDiscriminator: { key: 'loopback_target_code', value: 'n6_debate_escalation' } }
+            : await this.n6RegenerateProjectionOpts(input, projection, nextNodeId));
       } catch (error) {
         // W-04: a missing upstream/feedback precondition surfaces as a structured halt (named
         // artifact) the operator can resolve, instead of a raw 500 from deep in request assembly.
@@ -1114,7 +1105,10 @@ export class TopicSelectionV1bRunCoordinatorService {
         // (fail-closed 400), and on a first pass arms the n8_feedback_to_n7 loopback (T-OP).
         request.operator_debate_request = nodeInput.operator_debate_request;
       }
-      // (No execution_spec forwarding: the field is reserved-rejected above — T-128 W-14.)
+      if (nodeInput?.execution_spec) {
+        request.execution_spec = nodeInput.execution_spec;
+        request.run_mode = input.run_mode ?? 'product';
+      }
 
       const result = await this.invokeWithTimeout(request, nodeTimeoutMs);
       if (result.kind === 'timeout') {

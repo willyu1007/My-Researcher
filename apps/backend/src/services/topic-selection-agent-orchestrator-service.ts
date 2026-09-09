@@ -295,6 +295,10 @@ export class TopicSelectionAgentOrchestratorService {
 
   private readonly mcpEndpointUrl: string | (() => string | null) | null;
 
+  get codexCliExecutionIdentity() {
+    return this.codexCliRunner?.executionIdentity ?? null;
+  }
+
   async invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
   ): Promise<TopicSelectionAgentInvocationResult<T>> {

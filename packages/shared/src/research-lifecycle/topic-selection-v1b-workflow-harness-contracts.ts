@@ -446,7 +446,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N6TopicQuestionCandidateGate',
     required_for_progress: true,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -530,7 +530,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N8TopicValueAssessmentGate',
     required_for_progress: true,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -1211,7 +1211,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     model_option_id_allowed: true,
     codex_support_allowed: true,
     delegated_payload_allowed: false,
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     semantic_support_slots: slotsFor('topic-selection.v1b.generate-topic-question-candidates.v1'),
     route_edges: [
       {
@@ -1382,7 +1382,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     model_option_id_allowed: true,
     codex_support_allowed: true,
     delegated_payload_allowed: false,
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     semantic_support_slots: slotsFor('topic-selection.v1b.assess-topic-value.v1'),
     route_edges: [
       {
@@ -3734,7 +3734,7 @@ export const topicSelectionV1bWorkflowHarnessSemanticSupportArtifactRefSchema = 
       if: {
         required: ['execution_mode'],
         properties: {
-          execution_mode: { enum: ['mocked_llm', 'codex_assisted', 'human_delegated'] },
+          execution_mode: { enum: ['codex_cli', 'mocked_llm', 'codex_assisted', 'human_delegated'] },
         },
       },
       then: {

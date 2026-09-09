@@ -8,12 +8,37 @@ separates the immediate rehearsal from a later product integration.
 - `codex_assisted` is a product execution mode, not a requirement to run inside the Codex desktop
   app. The backend accepts an externally produced, contract-shaped `codex_response` and records its
   workflow, attempt, hash, approval, and reuse provenance.
-- The backend does not currently launch `codex exec`, resume a Codex session, or persist a Codex
-  thread/session identifier. The active Codex client owns conversation history; persisted product
-  owner state and artifacts remain the recovery authority.
+- The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
+  execution traces. Shipped topic-selection profiles still exclude it pending T-153 qualification.
+  This does not change the external-output meaning of `codex_assisted`.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
   path.
+
+## Product-driven CLI integration (qualification pending)
+
+N6/N8 canonical harness `invocations` and coordinator `advance` consume
+`execution_spec: { execution_mode: "codex_cli", model_option_id: null }`. This branch defaults to
+`product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
+It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
+remain reserved. Profiles remain closed until real-input qualification; this is an implemented
+consumer contract, not an instruction to bypass eligibility.
+
+N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
+one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact
+question Human checkpoint before model work. The CLI Debate draft is a deterministic projection
+with `debate_derived` provenance pointing to the actual final-role audit; it is not an additional
+single-agent invocation. The existing gates remain responsible for advancement.
+
+Configuration uses `TOPIC_SELECTION_CODEX_HOME` (product-owned) and `TOPIC_SELECTION_CODEX_MODEL`.
+The existing factory also accepts `TOPIC_SELECTION_CODEX_REASONING_EFFORT`,
+`TOPIC_SELECTION_CODEX_TIMEOUT_MS`, `TOPIC_SELECTION_CODEX_BINARY`, and
+`TOPIC_SELECTION_CODEX_TRANSPORT` (default `app_server`). Runner shutdown follows backend shutdown.
+Completed attempts reuse persisted results; an interrupted claim without a recorded outcome
+requires an explicit new attempt identity. Never automatically retry ambiguous metered work.
+
+N7 admission support, exact-delta refinement, and live qualification remain unfinished in this
+integration checkpoint. The external operator paths below remain the usable shipped route.
 
 ## Regular N6 question candidates
 

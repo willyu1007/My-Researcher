@@ -896,7 +896,7 @@ test('a standalone execution_spec is reserved-rejected before any harness call (
       workflow_run_id: RUN,
       node_inputs: { [N4]: { execution_spec: { execution_mode: 'provider_llm', model_option_id: 'm1' } } },
     }),
-    /execution_spec is reserved \(T-128 W-14\)/,
+    /execution_spec is reserved outside the integrated N6\/N8 codex_cli route/,
   );
   assert.equal(harness.invocations.filter((request) => request.node_id === N4).length, 0);
 });
@@ -1542,6 +1542,19 @@ test('FIND-018 normal N6 requires a bounded Debate and admits its draft through 
   assert.equal(call.request.frozen_input.source_refs.some((r) => r.ref_id.includes('retry')), false);
   assert.equal(harness.invocations.filter((r) => r.node_id === N6).length, 1);
   assert.equal(harness.invocations.at(-1)!.semantic_artifacts?.[0]?.runtime_provenance_class, 'runtime_verified');
+});
+
+test('coordinator forwards an N6 CLI spec to the canonical harness without caller role outputs', async () => {
+  const { harness, coordinator } = await driveToN6Initial();
+  harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, max_steps: 1,
+    node_inputs: { [N6]: { execution_spec: { execution_mode: 'codex_cli', model_option_id: null } } },
+  });
+  assert.equal(report.steps[0]?.node_id, N6);
+  const request = harness.invocations.find(request => request.node_id === N6)!;
+  assert.equal(request.execution_spec?.execution_mode, 'codex_cli');
+  assert.equal(request.run_mode, 'product');
+  assert.equal(request.semantic_artifacts?.length ?? 0, 0);
 });
 
 async function driveToN6Escalation(): Promise<ReturnType<typeof makeSubject>> {

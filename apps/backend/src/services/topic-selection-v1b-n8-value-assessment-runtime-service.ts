@@ -105,6 +105,7 @@ export type TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket = {
   context_policy_profile_hash: string;
   redaction_policy: typeof TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY;
   non_authority: true;
+  research_context?: Record<string, unknown>;
   source_refs: TopicSelectionFunctionalRef[];
   source_hashes: Record<string, string>;
   frozen_input_payload: TopicSelectionV1bN8HarnessFrozenInputPayload;
@@ -134,7 +135,7 @@ export type TopicSelectionV1bN8RuntimeCompressionAttempt = {
 
 export type GenerateTopicSelectionV1bN8RuntimeDraftInput = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
   runtime_token_budget_overrides?: TopicSelectionV1bN8RuntimeTokenBudgetOverrides | null;
   compression_attempt?: TopicSelectionV1bN8RuntimeCompressionAttempt | null;
@@ -177,16 +178,19 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly resolveResearchContext: ((request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>) | undefined;
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
     options: {
       agentOrchestrator?: TopicSelectionAgentOrchestratorService;
+      resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
       promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
     } = {},
   ) {
+    this.resolveResearchContext = options.resolveResearchContext;
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -236,10 +240,16 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
   async generateDraftArtifact(
     input: GenerateTopicSelectionV1bN8RuntimeDraftInput,
   ): Promise<TopicSelectionV1bN8RuntimeDraftGenerationResult> {
+    if (input.execution_mode === 'codex_cli' && (input.codex_response != null || input.mocked_output != null
+      || input.compression_attempt != null || input.runtime_token_budget_overrides != null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex N8 generates its own output from the complete frozen context; external outputs and budget/compression overrides are not accepted.');
+    }
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
     const { frozenPayload, projection, decisionMemory, sourceHashes, requiredStructureManifest } =
       await this.resolveSharedN8RuntimeContext(input.request);
+    const researchContext = await this.resolveCliResearchContext(input.request, input.execution_mode);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
       binding,
@@ -256,10 +266,28 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       projection,
       requiredStructureManifest,
       decisionMemory,
+      researchContext,
     });
     this.assertRequiredStructureManifest(contextPacket);
     const contextPacketHash = this.hash(contextPacket);
+    const receiptKey = `n8-cli-draft:${this.hash([input.request.workflow_run_id, input.request.node_attempt_id])}`;
+    const receiptHash = input.execution_mode === 'codex_cli' ? this.hash({
+      request: input.request, contextPacketHash, binding, runMode,
+      runner: this.agentOrchestrator.codexCliExecutionIdentity,
+      prompt: this.messages(binding, contextPacket), profile: this.resolveModelProfile(binding, input.execution_mode, runMode).profile_hash,
+    }) : null;
+    if (receiptHash) {
+      const previous = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+      if (previous) {
+        const result = previous.payload?.result as TopicSelectionV1bN8RuntimeDraftGenerationResult | undefined;
+        if (!result || previous.checksum !== this.hash(previous.payload) || previous.payload?.request_hash !== receiptHash) {
+          throw new AppError(409, 'VERSION_CONFLICT', 'N8 CLI draft replay input or runtime identity drifted.');
+        }
+        return result;
+      }
+    }
     const contextArtifact = await this.controlPlane.recordArtifactRef({
+      ...(receiptHash ? { stable_key: `${receiptKey}:context:${contextPacketHash}` } : {}),
       workspace_id: input.request.workspace_id ?? null,
       title_card_id: input.request.title_card_id ?? null,
       artifact_kind: 'diagnostic',
@@ -295,6 +323,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       context_packet_refs: [contextPacketRef],
       context_packet_hashes: [contextPacketHash],
       runtime_token_budget: this.runtimeTokenBudget({
+        executionMode: input.execution_mode,
         runtimeProfile,
         runtimeInvocationContextHash,
         contextPacket,
@@ -327,7 +356,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       sourceHashes,
       createdBy: input.created_by ?? input.request.created_by ?? 'system',
     });
-    return {
+    const result: TopicSelectionV1bN8RuntimeDraftGenerationResult = {
       status: 'succeeded',
       semantic_artifact: semanticArtifact,
       structured_output: invocation.structured_output,
@@ -335,13 +364,22 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       context_packet_ref: contextPacketRef,
       context_packet_hash: contextPacketHash,
     };
+    if (receiptHash) {
+      const payload = { request_hash: receiptHash, result };
+      await this.controlPlane.recordArtifactRef({
+        stable_key: receiptKey, workspace_id: input.request.workspace_id ?? null,
+        title_card_id: input.request.title_card_id ?? null, workflow_run_id: input.request.workflow_run_id,
+        artifact_kind: 'diagnostic', storage_kind: 'inline', payload, checksum: this.hash(payload), created_by: 'system',
+      });
+    }
+    return result;
   }
 
   async buildAdmissionExpectedIdentity(input: {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
     frozenPayload: TopicSelectionV1bN8HarnessFrozenInputPayload;
     normalizedPayloadHash: string;
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
     runMode: TopicSelectionAgentRunMode;
     profileId: string;
     modelOptionId: string | null;
@@ -355,6 +393,8 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     }
     const { projection, decisionMemory, sourceHashes, requiredStructureManifest } =
       await this.resolveSharedN8RuntimeContext(input.request, input.frozenPayload);
+    const researchContext = await this.resolveCliResearchContext(input.request, input.executionMode);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
       binding,
@@ -371,6 +411,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       projection,
       requiredStructureManifest,
       decisionMemory,
+      researchContext,
     });
     this.assertRequiredStructureManifest(contextPacket);
     const modelProfile = this.resolveModelProfile(binding, input.executionMode, input.runMode);
@@ -420,7 +461,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
     binding: N8RuntimeSlotBinding;
     runMode: TopicSelectionAgentRunMode;
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
     structuredOutput: TopicSelectionV1bTopicValueAssessmentDraftPayload;
     invocation: TopicSelectionAgentInvocationResult<TopicSelectionV1bTopicValueAssessmentDraftPayload>;
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
@@ -497,6 +538,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     };
     requiredStructureManifest: TopicSelectionV1bN8RequiredStructureManifest;
     decisionMemory: ResolvedTopicSelectionDecisionMemoryPacket | null;
+    researchContext?: Record<string, unknown>;
   }): TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket {
     return {
       schema_version: 'TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket@v1',
@@ -515,6 +557,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       non_authority: true,
       source_refs: this.sourceRefs(input.request, input.frozenPayload, input.projection.payload, input.projection.ref),
       source_hashes: input.sourceHashes,
+      ...(input.researchContext ? { research_context: input.researchContext } : {}),
       frozen_input_payload: input.frozenPayload,
       n7_to_n8_projection_ref: input.projection.ref,
       n7_to_n8_projection_hash: input.projection.hash,
@@ -549,6 +592,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
   }
 
   private runtimeTokenBudget(input: {
+    executionMode: TopicSelectionAgentExecutionMode;
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
     runtimeInvocationContextHash: string;
     contextPacket: TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket;
@@ -565,7 +609,8 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       context_policy_profile: input.runtimeProfile.profile,
       context_policy_profile_hash: input.runtimeProfile.profile_hash,
       runtime_invocation_context_hash: input.runtimeInvocationContextHash,
-      context_payloads: [input.contextPacket],
+      // CLI sends this complete context in messages; estimate those bytes once.
+      context_payloads: input.executionMode === 'codex_cli' ? [] : [input.contextPacket],
       compression_attempt: compressionAttempt,
       estimated_input_tokens_override: input.overrides?.estimated_input_tokens_override,
       schema_overhead_tokens_override: input.overrides?.schema_overhead_tokens_override,
@@ -1165,13 +1210,21 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
   }
 
   private defaultRunMode(
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>,
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>,
   ): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'mocked_llm' ? 'test' : executionMode === 'codex_cli' ? 'product' : 'acceptance';
+  }
+
+  private async resolveCliResearchContext(request: TopicSelectionV1bWorkflowHarnessRunRequest, mode: TopicSelectionAgentExecutionMode) {
+    if (mode !== 'codex_cli') return undefined;
+    if (!this.resolveResearchContext) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex N8 requires the product frozen-research context resolver.');
+    }
+    return this.resolveResearchContext(request);
   }
 
   private executorKind(
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>,
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>,
   ): TopicSelectionExecutorKind {
     return executionMode === 'codex_assisted' ? 'codex_assisted' : 'single_agent';
   }
