@@ -122,7 +122,12 @@ function cliRoleSchema(slot: TopicSelectionV1bN6DivergentDebateRoleSlotId): Reco
         type: 'object', additionalProperties: false, required: ['finding_code', 'severity', 'statement'],
         properties: { finding_code: { type: 'string' }, severity: { enum: ['note', 'material', 'blocking'] }, statement: { type: 'string' } },
       } } }
-      : { synthesized_candidate_set: topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema };
+      : { synthesized_candidate_set: topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
+        repair_actions: { type: 'array', items: { type: 'object', additionalProperties: false,
+          required: ['finding_code', 'action', 'resolved'], properties: {
+            finding_code: { type: 'string', minLength: 1 }, action: { type: 'string', minLength: 1 }, resolved: { type: 'boolean' },
+          } } },
+      };
   return {
     type: 'object', additionalProperties: false,
     required: ['schema_version', 'role_slot', ...Object.keys(fields)],

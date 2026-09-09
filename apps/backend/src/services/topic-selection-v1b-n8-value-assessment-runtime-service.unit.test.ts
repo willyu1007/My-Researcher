@@ -327,8 +327,8 @@ async function recordProjectionRef(
 }
 
 const N8_VALUE_ASSESSMENT_SYSTEM_BODY_GOLDEN = {
-  without_decision_memory: 'a64b22f2f0dac6e0724ab38ff67612e4961ea5ce68e1f748f4ad221c0e408eda',
-  with_decision_memory: '00babb8cfb2bed6c2ddaa5f65fec44c48fa27837a430d95aaebbd53f8ed8e72f',
+  without_decision_memory: '23a748f73c6ce765cb91b3b721cf8490078e3643dd0e27bf02f058f954ecd158',
+  with_decision_memory: '051acae7a833d8ca4db5589c43e67ddad8ec39a758f37f1a27490cf3bd8591b3',
 } as const;
 
 const N8_VALUE_ASSESSMENT_DECISION_MEMORY_CLAUSE =

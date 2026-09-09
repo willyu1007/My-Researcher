@@ -104,3 +104,14 @@ The whole review plus final N7 gate shares node/run timeout and existing in-flig
 successful substantive review reuses the current contract and reopens a pending Human checkpoint;
 material findings block the unchanged delta. Canonical no-op recovery runs mechanically without
 model settings or support. Shipped profiles remain closed until qualification.
+
+
+### N6/N8 evidence and Critic handling
+
+N6 Explorer, Critic and Arbiter and N8 ordinary/conditional Prompt v2 distinguish visible source
+content from refs/hashes and model assertions, preserve insufficient/conflicting evidence, and
+allow legitimate non-advance outcomes. Production prompt and persisted N6 scenario versions match.
+The N6 Arbiter CLI schema requires repair_actions; admission requires unique Critic finding codes
+across all instances and exactly one substantive resolution for each material/blocking finding.
+Malformed findings and unresolved or ambiguous repairs block. Resolution text is an auditable claim,
+not a mechanical proof of scientific correctness; live qualification must inspect the final changes.

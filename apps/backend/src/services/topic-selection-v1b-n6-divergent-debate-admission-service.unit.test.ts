@@ -351,3 +351,36 @@ test('N6 divergent debate admission: blocks loop transcript drift', async () => 
   if (result.admitted) return;
   assert.equal(result.blocker.code, 'N6_DIVERGENT_DEBATE_TRANSCRIPT_DRIFT');
 });
+test('N6 Debate cannot silently drop a material Critic finding from the synthesized draft', async () => {
+  const results = buildChain();
+  results[2]!.structured_output = { ...results[2]!.structured_output, critic_findings: [
+    { finding_code: 'unsupported_generalization', severity: 'material', statement: 'The source covers one corpus, not every domain.' },
+  ] };
+  const bind = () => {
+    const prior: TopicSelectionV1bN6DivergentDebateRoleArtifact[] = [];
+    for (const result of results) {
+      const hash = canonicalHash(result.structured_output);
+      Object.assign(result.artifact, { role_artifact_hash: hash, normalized_output_hash: hash, structured_output_hash: hash,
+        prior_role_artifact_hashes: lastWins(prior) });
+      prior.push(result.artifact);
+    }
+    return { role_results: results, loop_transcript_hash: transcriptFor(results) };
+  };
+  const missing = await service().admit(bind());
+  assert.equal(missing.admitted, false);
+  if (!missing.admitted) assert.equal(missing.blocker.code, 'N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING');
+  results[3]!.structured_output = { ...results[3]!.structured_output, repair_actions: [
+    { finding_code: 'unsupported_generalization', resolved: true, action: 'The final portfolio admits no candidate until cross-domain evidence is supplied.' },
+  ] };
+  assert.equal((await service().admit(bind())).admitted, true);
+  const finding = (results[2]!.structured_output.critic_findings as unknown[])[0];
+  for (const findings of [[finding, finding], [null], {}, [{ finding_code: '', severity: 'material' }]]) {
+    results[2]!.structured_output.critic_findings = findings;
+    assert.equal((await service().admit(bind())).admitted, false);
+  }
+  results[2]!.structured_output.critic_findings = [finding];
+  for (const repairs of [{}, [null], [{ finding_code: 'unsupported_generalization', resolved: false, action: 'Not addressed.' }]]) {
+    results[3]!.structured_output.repair_actions = repairs;
+    assert.equal((await service().admit(bind())).admitted, false);
+  }
+});

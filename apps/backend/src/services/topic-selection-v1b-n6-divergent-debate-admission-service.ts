@@ -325,6 +325,35 @@ export class TopicSelectionV1bN6DivergentDebateAdmissionService {
     // 3. Arbiter output carries a synthesized_candidate_set DRAFT (the gate bridge unwraps + validates
     //    it fully in f5; here we only require it to be present and object-shaped).
     const finalCandidate = input.role_results[input.role_results.length - 1]!;
+    const repairs = finalCandidate.structured_output.repair_actions ?? [];
+    if (!Array.isArray(repairs)) {
+      return this.block('N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING', 'Arbiter repair_actions must be an array.');
+    }
+    const findingCodes = new Set<string>();
+    for (const critic of input.role_results.filter(role => role.artifact.slot_id === 'n6_debate_critic')) {
+      const findings = critic.structured_output.critic_findings ?? [];
+      if (!Array.isArray(findings)) {
+        return this.block('N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING', 'Critic findings must be an array.');
+      }
+      for (const value of findings) {
+        const finding = this.asRecord(value);
+        if (!finding || typeof finding.finding_code !== 'string' || !finding.finding_code.trim()
+          || !['note', 'material', 'blocking'].includes(String(finding.severity))) {
+          return this.block('N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING', 'Critic findings require a non-empty code and a valid severity.');
+        }
+        if (findingCodes.has(finding.finding_code)) {
+          return this.block('N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING', 'Critic finding codes must be unique across the debate.');
+        }
+        findingCodes.add(finding.finding_code);
+        if (finding.severity === 'note') continue;
+        const matches = repairs.map(repair => this.asRecord(repair)).filter(repair => repair?.finding_code === finding.finding_code);
+        const resolution = matches[0];
+        if (matches.length !== 1 || resolution?.resolved !== true || typeof resolution.action !== 'string' || !resolution.action.trim()) {
+          return this.block('N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING',
+            'The final candidate draft must explicitly address every material Critic finding.', { finding_code: finding.finding_code });
+        }
+      }
+    }
     const synthesized = this.asRecord(
       (finalCandidate.structured_output as TopicSelectionV1bN6DivergentDebateRolePayload).synthesized_candidate_set,
     );

@@ -129,15 +129,33 @@ import {
 const NOW = '2026-05-26T00:00:00.000Z';
 const TITLE_CARD_ID = 'title_card_v1b_harness';
 
-test('canonical N6/N7/N8 CLI invokes real consumers, replays results and stops before an unconfirmed question', async (t) => {
+for (const generationMode of ['initial_from_n5', 'regeneration_after_n6_gate_failure', 'regeneration_after_n7_loopback'] as const) {
+test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stops`, async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'harness-n6-cli-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const ctx = await seedHarnessV1aBundle();
-  const { n5 } = await runReadyN5(ctx);
-  const request = { ...await n6Request(ctx, n5), execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null }, run_mode: 'product' as const };
+  const setup = generationMode === 'regeneration_after_n7_loopback'
+    ? await runN7ExhaustionLoopbackFixture(ctx, 'cli_regeneration') : await runReadyN5(ctx);
+  let baseRequest = await n6Request(ctx, setup.n5, { node_attempt_id: `n6_cli_${generationMode}` });
+  if ('projectionRef' in setup) baseRequest = n6InputWithN7LoopbackProjection(baseRequest, setup.projectionRef);
+  if (generationMode === 'regeneration_after_n6_gate_failure') {
+    const failedInput = await n6Request(ctx, setup.n5, { node_attempt_id: 'n6_fixture_gate_failure' });
+    const failedDraft = await n6Draft(ctx, failedInput);
+    failedDraft.candidates[0] = { ...failedDraft.candidates[0]!, answerability_verdict: 'not_answerable', main_question: 'How can AI improve research?' };
+    const failed = await ctx.service.invokeNode({ ...failedInput,
+      semantic_artifacts: [await generateN6RegularDebateDraftArtifact(ctx, failedInput, failedDraft)] });
+    assert.equal(failed.error_code, 'N6_NO_ADMISSIBLE_TOPIC_QUESTION_CANDIDATE');
+    baseRequest = n6InputWithN6GateFailureProjection(baseRequest, await n6GateFailureRetryProjectionRef(ctx, failed));
+  }
+  const request = { ...baseRequest, execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null }, run_mode: 'product' as const };
   const draft = await n6Draft(ctx, request);
+  if (generationMode !== 'initial_from_n5') {
+    draft.candidates[0] = { ...draft.candidates[0]!, candidate_key: 'cli_regenerated_candidate' };
+    draft.recommended_candidate_keys = ['cli_regenerated_candidate'];
+  }
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   for (const profile of registry.profiles.filter(profile => profile.profile_id.startsWith('topic-selection.v1b.n6-debate.')
+    || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate
     || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent
     || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent
     || profile.profile_id === TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support)) {
@@ -150,13 +168,17 @@ test('canonical N6/N7/N8 CLI invokes real consumers, replays results and stops b
   const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
     if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
     calls += 1;
-    const packet: { slot_id?: string; role_slot: string; context_packet: { research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+    const packet: { slot_id?: string; role_slot: string; context_packet: { generation_mode?: string; research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
     assert.ok(packet.context_packet.research_context.frozen_domain.researchSlice);
-    if (packet.role_slot) assert.equal(packet.context_packet.prior_role_outputs.length, calls < 3 ? 0 : calls - 1);
+    if (packet.role_slot?.startsWith('n6_debate_')) assert.equal(packet.context_packet.generation_mode, generationMode);
+    if (packet.role_slot) assert.equal(packet.context_packet.prior_role_outputs.length, calls <= 4 ? (calls < 3 ? 0 : calls - 1) : calls - 9);
     const output = packet.slot_id === 'n7_n8_debate_admission_review' ? { debate_level: 'compact_assessment_debate',
-      recommended_profile_id: 'topic-selection.v1b.assess-topic-value.compact.v1', high_value_signal_codes: [], risk_signal_codes: [], rationale: 'The frozen slice permits a bounded assessment.' } : valueDraft ?? { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: packet.role_slot,
+      recommended_profile_id: 'topic-selection.v1b.assess-topic-value.compact.v1', high_value_signal_codes: [], risk_signal_codes: [], rationale: 'The frozen slice permits a bounded assessment.' } : packet.role_slot?.startsWith('n8_debate_') ? { schema_version: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1', role_slot: packet.role_slot,
+      ...(packet.role_slot === 'n8_debate_value_critic' ? { critic_findings: [] } : { assessment_draft: valueDraft,
+        ...(packet.role_slot === 'n8_debate_assessor_draft' ? {} : { repair_actions: [] }) }),
+    } : valueDraft ?? { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: packet.role_slot,
       ...(packet.role_slot === 'n6_debate_explorer' ? { candidate_seeds: [{ seed_id: `seed-${calls}`, question_framing: 'Measure retrieval errors.', evidence_refs: [] }] }
-        : packet.role_slot === 'n6_debate_critic' ? { critic_findings: [] } : { synthesized_candidate_set: draft }),
+        : packet.role_slot === 'n6_debate_critic' ? { critic_findings: [] } : { synthesized_candidate_set: draft, repair_actions: [] }),
     };
     return { stdout: [
       { type: 'thread.started', thread_id: `n6-thread-${calls}` },
@@ -189,6 +211,7 @@ test('canonical N6/N7/N8 CLI invokes real consumers, replays results and stops b
   assert.equal(replay.replay_provenance?.replayed, true);
   assert.equal(calls, 4);
   assert.equal(replay.authority_ref?.ref_id, result.authority_ref?.ref_id);
+  if (generationMode !== 'initial_from_n5') return;
   const n7Input = { ...await n7Request(ctx, result), execution_spec: request.execution_spec, run_mode: 'product' as const };
   const missingEvidenceRepository = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, {
     runnerDependencies: { topicQuestionRepository: ctx.topicQuestionRepository, researchCheckpointService: ctx.researchCheckpointService },
@@ -211,7 +234,35 @@ test('canonical N6/N7/N8 CLI invokes real consumers, replays results and stops b
   const n8Replay = await service.invokeNode(n8Input);
   assert.equal(n8Replay.replay_provenance?.replayed, true);
   assert.equal(calls, 6);
+
+  // Trigger the actual N8 producer, then consume its feedback and run the four-role CLI re-entry.
+  const forcedInput = { ...n8Input, node_attempt_id: 'n8_cli_operator_debate',
+    operator_debate_request: { reason: 'Fixture requests review of the value argument.', requested_by: 'fixture_researcher' } };
+  const forced = await service.invokeNode(forcedInput);
+  assert.equal(forced.route_decision, 'loopback', JSON.stringify(forced));
+  assert.equal(forced.error_code, 'N8_OPERATOR_FORCED_DEBATE_TRIGGER');
+  assert.equal(calls, 7);
+  const feedbackArtifact = await ctx.controlPlane.getArtifactRef(forced.authority_ref!.ref_id);
+  assert.ok(feedbackArtifact?.payload);
+  const feedbackInput = { ...await n7FeedbackRequest(ctx, n7Input, n7, 'gate_rejected', {
+    artifact_ref: forced.authority_ref!, artifact_hash: canonicalHash(feedbackArtifact), payload_hash: canonicalHash(feedbackArtifact.payload),
+  }), execution_spec: request.execution_spec, run_mode: 'product' as const };
+  const readmitted = await service.invokeNode(feedbackInput);
+  assert.equal(readmitted.gate_status, 'admitted_with_warnings', JSON.stringify(readmitted));
+  assert.equal(readmitted.authority_ref?.ref_id, n7.authority_ref?.ref_id);
+  assert.equal(calls, 8);
+  assert.equal((await service.invokeNode(feedbackInput)).replay_provenance?.replayed, true);
+  assert.equal(calls, 8);
+  const debateInput = await n8Request(ctx, readmitted, { execution_spec: request.execution_spec, run_mode: 'product',
+    node_attempt_id: 'n8_cli_bounded_debate' });
+  valueDraft = n8ValueDraft(debateInput);
+  const debated = await service.invokeNode(debateInput);
+  assert.equal(debated.gate_status, 'admitted_with_warnings', JSON.stringify(debated));
+  assert.equal(calls, 12, 'The conditional Debate executes four roles and projects its final draft without a fifth call.');
+  assert.equal((await service.invokeNode(debateInput)).replay_provenance?.replayed, true);
+  assert.equal(calls, 12);
 });
+}
 
 function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
   let sequence = 0;
@@ -1526,6 +1577,7 @@ async function n7FeedbackRequest(
     hashes: { authority_hash: string | null; handoff_hash: string | null };
   },
   feedbackClass: TopicSelectionV1bN8ToN7FeedbackPayload['feedback_class'] = 'semantic_candidate_failure',
+  producedFeedback?: { artifact_ref: TopicSelectionFunctionalRef; artifact_hash: string; payload_hash: string },
 ): Promise<TopicSelectionV1bWorkflowHarnessRunRequest> {
   if (!n7Result.authority_ref || !n7Result.handoff_ref || !n7Result.hashes.handoff_hash || !n7Result.hashes.authority_hash) {
     throw new Error('N7 feedback fixture requires admitted N7 result.');
@@ -1560,7 +1612,7 @@ async function n7FeedbackRequest(
     value_assessment_ref: null,
     value_assessment_hash: null,
   };
-  const feedbackArtifact = await recordN8FeedbackArtifact(ctx, initialInput, feedback);
+  const feedbackArtifact = producedFeedback ?? await recordN8FeedbackArtifact(ctx, initialInput, feedback);
   const payload: TopicSelectionV1bN7HarnessFrozenInputPayload = {
     ...initialPayload,
     input_mode: 'feedback_from_n8',

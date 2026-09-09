@@ -2220,6 +2220,7 @@ export interface TopicSelectionV1bN6DivergentDebateRolePayload {
   }> | null;
   synthesized_candidate_set?: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload | null;
   debate_summary?: string | null;
+  repair_actions?: Array<{ finding_code: string; action: string; resolved: boolean }> | null;
 }
 
 /**
@@ -2245,6 +2246,7 @@ export type TopicSelectionV1bN6DivergentDebateBlockerCode =
   | 'N6_DIVERGENT_DEBATE_PRIOR_ROLE_HASH_DRIFT'
   | 'N6_DIVERGENT_DEBATE_ARTIFACT_PAYLOAD_HASH_MISMATCH'
   // arbiter output + whole-loop transcript
+  | 'N6_DIVERGENT_DEBATE_UNRESOLVED_CRITIC_FINDING'
   | 'N6_DIVERGENT_DEBATE_ARBITER_OUTPUT_NOT_N6_DRAFT'
   | 'N6_DIVERGENT_DEBATE_TRANSCRIPT_DRIFT';
 

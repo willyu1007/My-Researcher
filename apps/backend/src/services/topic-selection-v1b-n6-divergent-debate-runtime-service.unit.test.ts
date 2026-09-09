@@ -95,7 +95,7 @@ test('CLI role replay keeps prior output refs stable and does not repeat the fou
         const stdout = [
           { type: 'thread.started', thread_id: `thread-${calls}` },
           { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify({
-            ...outputFor(slot, calls), ...(slot === 'n6_debate_arbiter' ? { synthesized_candidate_set: e2eCandidateSetDraft() } : {}),
+            ...outputFor(slot, calls), ...(slot === 'n6_debate_arbiter' ? { repair_actions: [], synthesized_candidate_set: e2eCandidateSetDraft() } : {}),
           }) } },
         ].map(event => JSON.stringify(event)).join('\n');
         return { stdout, stderr: '', exit_code: 0, timed_out: false };
@@ -242,7 +242,7 @@ function outputFor(slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, idx: numb
   if (slot === 'n6_debate_critic') return { ...base, critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin' }] };
   return {
     ...base,
-    synthesized_candidate_set: {
+    repair_actions: [], synthesized_candidate_set: {
       candidates: [],
       generation_notes: [],
       human_review_triggers: [],
@@ -513,7 +513,7 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
         mockedRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
       ],
       n6_debate_arbiter: [
-        mockedRole('n6_debate_arbiter', 0, { synthesized_candidate_set: e2eCandidateSetDraft() }),
+        mockedRole('n6_debate_arbiter', 0, { repair_actions: [], synthesized_candidate_set: e2eCandidateSetDraft() }),
       ],
     },
     created_by: 'system',
@@ -592,7 +592,7 @@ test('f5 runtime: a W-09 execution_plan with no per-role override is byte-identi
         mockedRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
       ],
       n6_debate_arbiter: [
-        mockedRole('n6_debate_arbiter', 0, { synthesized_candidate_set: e2eCandidateSetDraft() }),
+        mockedRole('n6_debate_arbiter', 0, { repair_actions: [], synthesized_candidate_set: e2eCandidateSetDraft() }),
       ],
     } as Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>,
     created_by: 'system' as const,
@@ -666,7 +666,7 @@ test('f5 runtime: a concrete provider_diverse plan is DORMANT (replay-safe) for 
         mockedRole('n6_debate_critic', 0, { critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin set' }] }),
       ],
       n6_debate_arbiter: [
-        mockedRole('n6_debate_arbiter', 0, { synthesized_candidate_set: e2eCandidateSetDraft() }),
+        mockedRole('n6_debate_arbiter', 0, { repair_actions: [], synthesized_candidate_set: e2eCandidateSetDraft() }),
       ],
     } as Partial<Record<TopicSelectionV1bN6DivergentDebateRoleSlotId, V1bN6DebateInputs[]>>,
     created_by: 'system' as const,
