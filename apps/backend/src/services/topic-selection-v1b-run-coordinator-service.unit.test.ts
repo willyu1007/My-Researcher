@@ -828,7 +828,7 @@ test('advance bootstraps N1 then halts at the N2 human node', async () => {
   assert.equal(report.run_state.next_node_id, N2);
 });
 
-test('advance resumes after human N2, builds N3 from the N2 handoff, and halts at model-like N4', async () => {
+for (const cliSupport of [false, true]) test(`advance builds N3 from the Human N2 handoff with optional CLI support=${cliSupport} and halts at N4`, async () => {
   const { harness, coordinator } = makeSubject();
   harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
   harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
@@ -838,12 +838,14 @@ test('advance resumes after human N2, builds N3 from the N2 handoff, and halts a
   // human acts through the human route — simulated by invoking N2 via the harness directly:
   await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
 
-  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN });
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN,
+    node_inputs: cliSupport ? { [N3]: { execution_spec: { execution_mode: 'codex_cli', model_option_id: null } } } : undefined });
   assert.deepEqual(report.steps.map((step) => step.node_id), [N3]);
   assert.equal(report.halt.reason, 'model_input_required');
   assert.equal(report.halt.node_id, N4);
 
   const n3Request = harness.invocations.find((request) => request.node_id === N3)!;
+  assert.equal(n3Request.execution_spec?.execution_mode, cliSupport ? 'codex_cli' : undefined);
   assert.equal(n3Request.frozen_input.input_contract, 'N2ToN3Handoff@v1');
   assert.equal(n3Request.frozen_input.snapshot_kind, 'research_constraint_profile');
   assert.equal((n3Request.frozen_input.payload as Record<string, unknown>).n2_handoff_hash, `handoff_hash_${N2}`);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
@@ -132,10 +132,10 @@ import {
 const NOW = '2026-05-26T00:00:00.000Z';
 const TITLE_CARD_ID = 'title_card_v1b_harness';
 
-async function n4CliFixture(t: TestContext) {
+async function n4CliFixture(t: TestContext, earlySupport = false, withRisks = false) {
   const home = mkdtempSync(join(tmpdir(), 't153-n4-cli-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
-  const ctx = await seedHarnessV1aBundle();
+  const ctx = await seedHarnessV1aBundle(withRisks ? { openRecheck: true, acceptedRiskCoversRecheck: true } : {});
   const create = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
   ctx.controlPlaneRepository.createArtifactRef = record => create(JSON.parse(JSON.stringify(record)));
   const { n1, n2, n3 } = await runReadyN3(ctx, undefined, 'workflow_run_v1b_n4');
@@ -145,17 +145,21 @@ async function n4CliFixture(t: TestContext) {
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
-  let draft = n4Draft();
+  const researchMessages: Array<Record<string, unknown>> = [];
+  let draft: TopicSelectionV1bResearchSliceOptionSetDraftPayload | TopicSelectionV1bEarlySemanticSupportPayload = n4Draft();
   let evidenceRevision = 0;
   let evidenceReads = 0;
   const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
     if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
     calls += 1;
     const packet: { slot_id: string; context_packet: { research_context: { frozen_domain: Record<string, unknown>; evidence_packets: unknown[] } } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
-    assert.equal(packet.slot_id, 'n4_research_slice_option_draft');
+    researchMessages.push(packet.context_packet.research_context.frozen_domain);
     assert.ok(packet.context_packet.research_context.frozen_domain.snapshot);
-    assert.ok(packet.context_packet.research_context.frozen_domain.profile);
-    assert.ok(packet.context_packet.research_context.frozen_domain.readiness);
+    if (!earlySupport) {
+      assert.equal(packet.slot_id, 'n4_research_slice_option_draft');
+      assert.ok(packet.context_packet.research_context.frozen_domain.profile);
+      assert.ok(packet.context_packet.research_context.frozen_domain.readiness);
+    }
     assert.equal(packet.context_packet.research_context.evidence_packets.length, 1);
     return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'n4-thread' }), JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'),
       stderr: '', exit_code: 0, timed_out: false };
@@ -180,12 +184,200 @@ async function n4CliFixture(t: TestContext) {
     },
   });
   t.after(() => runner.shutdown());
-  return { ...ctx, input, makeService, service: makeService(),
+  return { ...ctx, n1, n2, n3, input, makeService, service: makeService(), researchMessages,
     get calls() { return calls; }, get evidenceReads() { return evidenceReads; },
     setDraft(value: TopicSelectionV1bResearchSliceOptionSetDraftPayload) { draft = value; },
+    setEarlyOutput(value: TopicSelectionV1bEarlySemanticSupportPayload) { draft = value; },
     changeEvidence() { evidenceRevision += 1; },
   };
 }
+
+function earlyCliRequest(input: TopicSelectionV1bWorkflowHarnessRunRequest, workflowRunId: string) {
+  const payload = { ...input.frozen_input.payload };
+  if ('authority_input_provider' in payload) { payload.authority_input_provider = 'human_delegated'; payload.delegation_artifact_hash = null; }
+  const frozen = { ...input.frozen_input, payload };
+  return { ...input, workflow_run_id: workflowRunId, run_mode: 'product' as const, profile_id: null,
+    created_by: 'human' as const, execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null },
+    frozen_input: { ...frozen, frozen_input_hash: frozenInputHash(frozen) } };
+}
+
+for (const slot of ['n2', 'n3', 'n5'] as const) test(`Early CLI ${slot} reviews frozen bodies without replacing Human or deterministic authority`, async t => {
+  const ctx = await n4CliFixture(t, true);
+  let input: TopicSelectionV1bWorkflowHarnessRunRequest;
+  let accepted: TopicSelectionV1bAcceptedConstraintProfilePayload | TopicSelectionV1bAcceptedSliceSelectionPayload | null = null;
+  if (slot === 'n2') {
+    accepted = acceptedConstraintProfilePayload();
+    input = n2Request(ctx.bundle, ctx.n1, accepted);
+    ctx.setEarlyOutput({ ...accepted, human_constraint_notes: 'Review commentary only.', feasibility_budget: {} });
+  } else if (slot === 'n3') {
+    input = n3Request(ctx.n1, ctx.n2);
+    ctx.setEarlyOutput({ schema_version: 'IntakeReadinessClassificationSupport@v1', readiness_recommendation: 'blocked',
+      blocker_codes: ['reviewer_requests_more_evidence'], warning_codes: [], loopback_target_code: 'n3_profile_repair',
+      cited_refs: input.frozen_input.source_refs, rationale: 'Advisory concern; the deterministic readiness rule still decides.', no_authority_write_confirmed: true });
+  } else {
+    const n4 = await ctx.service.invokeNode(ctx.input);
+    const option = await selectedN4Option(ctx, n4);
+    accepted = acceptedSliceSelectionPayload(option);
+    input = n5Request(n4, accepted);
+    ctx.setEarlyOutput({ ...accepted, selection_rationale: 'Review commentary only.' });
+  }
+  input = earlyCliRequest(input, ctx.input.workflow_run_id);
+  const result = await ctx.service.invokeNode(input);
+  assert.equal(result.route_decision, 'invoke_next', JSON.stringify(result));
+  const calls = ctx.calls;
+  const replay = await ctx.makeService(new TopicSelectionControlPlaneService(ctx.controlPlaneRepository)).invokeNode(input);
+  assert.equal(replay.replay_provenance?.replayed, true);
+  assert.deepEqual(replay.authority_ref, result.authority_ref);
+  assert.equal(ctx.calls, calls);
+  if (slot === 'n2') {
+    const profile = await ctx.v1bRepository.findResearchConstraintProfileById(result.authority_ref!.ref_id);
+    assert.equal(profile?.human_constraint_notes, (accepted as TopicSelectionV1bAcceptedConstraintProfilePayload).human_constraint_notes);
+    assert.deepEqual(profile?.feasibility_budget, (accepted as TopicSelectionV1bAcceptedConstraintProfilePayload).feasibility_budget);
+  } else if (slot === 'n5') {
+    const decision = await ctx.researchSliceRepository.findSelectionDecisionById(result.authority_ref!.ref_id);
+    assert.equal(decision?.selection_rationale, (accepted as TopicSelectionV1bAcceptedSliceSelectionPayload).selection_rationale);
+  }
+});
+
+test('Early CLI rejects unfrozen Human input, scoped references and invented selection authority', async t => {
+  const ctx = await n4CliFixture(t, true);
+  const accepted = acceptedConstraintProfilePayload();
+  const input = earlyCliRequest(n2Request(ctx.bundle, ctx.n1, accepted), ctx.input.workflow_run_id);
+  const unfrozen = structuredClone(input);
+  unfrozen.frozen_input.payload.authority_input_provider = 'codex_delegated';
+  unfrozen.frozen_input.frozen_input_hash = frozenInputHash(unfrozen.frozen_input);
+  await assert.rejects(ctx.service.invokeNode(unfrozen), /codex_delegated authority input|accepted Human constraint/);
+  assert.equal(ctx.calls, 0);
+  ctx.setEarlyOutput({ ...accepted, claim_ceiling: 'Unbounded invented claim.' });
+  await assert.rejects(ctx.service.invokeNode({ ...input, node_attempt_id: 'n2-cli-invented-boundary' }), /accepted Human community or claim/);
+  const n3 = earlyCliRequest(n3Request(ctx.n1, ctx.n2), ctx.input.workflow_run_id);
+  const original = n3ReadinessClassificationSupport(n3);
+  const citation = original.cited_refs[0]!;
+  for (const [index, changed] of [ { ...citation, title_card_id: 'foreign' }, { ...citation, version_id: 'forged' },
+    { ...citation, ref_type: 'artifact_ref' }, { ...citation, ref_id: 'invented' }, { ...citation, legacy_ref: {} } ].entries()) {
+    ctx.setEarlyOutput({ ...original, cited_refs: [changed] });
+    await assert.rejects(ctx.service.invokeNode({ ...n3, node_attempt_id: `n3-cli-invented-ref-${index}` }), /reference.*scope\/version|Early CLI support did not succeed/);
+  }
+  ctx.setDraft(n4Draft());
+  const n4 = await ctx.service.invokeNode(ctx.input);
+  const option = await selectedN4Option(ctx, n4);
+  const selection = acceptedSliceSelectionPayload(option);
+  ctx.setEarlyOutput({ ...selection, decision: 'park', selected_option_ref: null, selected_option_hash: null });
+  await assert.rejects(ctx.service.invokeNode(earlyCliRequest(n5Request(n4, selection), ctx.input.workflow_run_id)), /accepted Human decision/);
+  assert.equal((await ctx.researchSliceRepository.findOptionSetById(n4.authority_ref!.ref_id))?.selected_option_id, null);
+});
+
+test('Early CLI N3 reads actual open rechecks and usable risk acceptance under the same frozen refs', async t => {
+  const ctx = await n4CliFixture(t, true, true);
+  const input = earlyCliRequest(n3Request(ctx.n1, ctx.n2), ctx.input.workflow_run_id);
+  ctx.setEarlyOutput(n3ReadinessClassificationSupport(input));
+  const covered = await ctx.service.invokeNode(input);
+  assert.equal(covered.route_decision, 'invoke_next');
+  const context = () => ctx.researchMessages.at(-1)!.risk_context as {
+    accepted_risks: Array<{ usable: boolean; record: TopicSelectionAcceptedRiskRecord }>;
+    rechecks: Array<{ record: TopicSelectionSearchPlanRecheckRequestRecord }>;
+    uncovered_open_recheck_refs: TopicSelectionFunctionalRef[];
+  };
+  assert.equal(context().accepted_risks[0]!.usable, true);
+  assert.match(context().accepted_risks[0]!.record.rationale, /accepts this recheck/);
+  assert.equal(context().rechecks[0]!.record.status, 'open');
+  assert.match(context().rechecks[0]!.record.reason, /Counter evidence/);
+  assert.deepEqual(context().uncovered_open_recheck_refs, []);
+  await ctx.recheckRepository.updateAcceptedRiskStatus('accepted_risk_1', { status: 'expired', updated_at: NOW });
+  const uncovered = await ctx.makeService().invokeNode({ ...input, node_attempt_id: 'n3-cli-risk-expired' });
+  assert.equal(uncovered.route_decision, 'loopback');
+  assert.equal(context().accepted_risks[0]!.usable, false);
+  assert.equal(context().uncovered_open_recheck_refs.length, 1);
+  assert.equal(ctx.calls, 2);
+});
+
+test('Early CLI rejects a caller-relabeled audit without a protected generation receipt', async t => {
+  const ctx = await n4CliFixture(t, true);
+  const input = earlyCliRequest(n3Request(ctx.n1, ctx.n2), ctx.input.workflow_run_id);
+  const original = await generateEarlySemanticSupportArtifact(ctx, input, 'n3_readiness_classification', n3ReadinessClassificationSupport(input));
+  const audit = await ctx.controlPlane.getArtifactRef(original.runtime_audit_ref!.ref_id);
+  assert.ok(audit?.payload);
+  const forgedAudit = await ctx.controlPlane.recordWorkflowHarnessArtifactRef({
+    title_card_id: TITLE_CARD_ID, workflow_run_id: input.workflow_run_id,
+    artifact_kind: 'diagnostic', storage_kind: 'inline',
+    payload: { ...audit.payload, provenance: { ...audit.payload.provenance as Record<string, unknown>,
+      execution_mode: 'codex_cli', source_kind: 'codex_cli_response' } },
+  });
+  const auditRef = ref('artifact_ref', forgedAudit.artifact_ref_id);
+  const forged = { ...original, execution_mode: 'codex_cli' as const, runtime_audit_ref: auditRef,
+    provenance_ref: auditRef, runtime_audit_hash: forgedAudit.checksum! };
+  const blocked = await ctx.service.invokeNode({ ...input, execution_spec: undefined, semantic_artifacts: [forged] });
+  assert.equal(blocked.gate_status, 'blocked');
+  assert.match(blocked.error_message ?? '', /protected generation receipt/);
+  assert.equal(ctx.calls, 0);
+});
+
+test('Early CLI N5 reads newly accepted selection risks outside its intake snapshot', async t => {
+  const ctx = await n4CliFixture(t, true);
+  const draft = n4Draft();
+  draft.portfolio_disposition = {
+    outcome: 'selected', rationale: 'Portfolio-only rationale for this bounded choice.', confidence: 0.8,
+    evidence_refs: draft.options[0]!.support_evidence_refs, rejection_reasons: [],
+    reopening_conditions: ['Reopen if the supporting dataset changes.'],
+    candidate_dispositions: [{ candidate_key: draft.options[0]!.option_key, disposition: 'selected',
+      rationale: 'Preserve the traceability boundary.', evidence_refs: draft.options[0]!.support_evidence_refs,
+      drop_reason_code: null, reopening_conditions: [] }],
+  };
+  ctx.setDraft(draft);
+  const n4 = await ctx.service.invokeNode(ctx.input);
+  const option = await selectedN4Option(ctx, n4);
+  const riskRef = ref('accepted_risk', 'selection_risk', TITLE_CARD_ID);
+  const selectedRef = ref('research_slice_option', option.research_slice_option_id, TITLE_CARD_ID);
+  const risk: TopicSelectionAcceptedRiskRecord = {
+    accepted_risk_id: riskRef.ref_id, workspace_id: null, title_card_id: TITLE_CARD_ID,
+    risk_type: 'bounded_selection', source_type: 'manual', source_ref: selectedRef, target_ref: selectedRef,
+    scope_refs: [selectedRef], affected_object_refs: [selectedRef], severity: 'blocking', status: 'active',
+    rationale: 'Accept the incomplete judgments only for historical replication.',
+    accepted_by: { actor_type: 'human', actor_id: 'reviewer' },
+    recheck_condition: 'New relevance judgments invalidate this choice.', expires_at: '2027-01-01T00:00:00.000Z',
+    created_at: NOW, updated_at: NOW,
+  };
+  await ctx.recheckRepository.createAcceptedRisk(risk);
+  const accepted = acceptedSliceSelectionPayload(option, { accepted_risk_refs: [riskRef] });
+  ctx.setEarlyOutput(accepted);
+  const result = await ctx.service.invokeNode(earlyCliRequest(n5Request(n4, accepted), ctx.input.workflow_run_id));
+  assert.equal(result.route_decision, 'invoke_next');
+  assert.deepEqual(ctx.researchMessages.at(-1)!.selection_risks, [{ ref: riskRef, record: risk }]);
+  const optionSet = await ctx.researchSliceRepository.findOptionSetById(n4.authority_ref!.ref_id);
+  const { options: _cachedOptions, ...portfolio } = optionSet!.options_payload;
+  const contextOptionSet = ctx.researchMessages.at(-1)!.optionSet as { options_payload: Record<string, unknown> };
+  assert.deepEqual(contextOptionSet.options_payload, portfolio);
+  assert.deepEqual(contextOptionSet.options_payload.portfolio_disposition, draft.portfolio_disposition);
+  const decision = await ctx.researchSliceRepository.findSelectionDecisionById(result.authority_ref!.ref_id);
+  const slice = await ctx.researchSliceRepository.findResearchSliceById(decision!.output_research_slice_ref!.ref_id);
+  assert.deepEqual(slice?.accepted_risk_refs, [riskRef]);
+});
+
+test('Early CLI receipt interruption and concurrent retry reuse the completed model attempt', async t => {
+  const ctx = await n4CliFixture(t, true);
+  const input = earlyCliRequest(n3Request(ctx.n1, ctx.n2), ctx.input.workflow_run_id);
+  ctx.setEarlyOutput(n3ReadinessClassificationSupport(input));
+  const key = `early-cli-support:${canonicalHash([input.workflow_run_id, input.node_attempt_id, 'n3_readiness_classification'])}`;
+  const create = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
+  let failed = false;
+  ctx.controlPlaneRepository.createArtifactRef = async record => {
+    if (record.stable_key === key && !failed) { failed = true; throw new Error('Interrupted early support receipt'); }
+    return create(record);
+  };
+  await assert.rejects(ctx.service.invokeNode(input), /Interrupted early support receipt/);
+  assert.equal(ctx.calls, 1);
+  const retries = await Promise.allSettled([ctx.makeService().invokeNode(input), ctx.makeService().invokeNode(input)]);
+  assert.ok(retries.some(result => result.status === 'fulfilled'));
+  for (const result of retries) if (result.status === 'rejected') assert.ok(result.reason instanceof AppError && result.reason.statusCode === 409);
+  const completed = await ctx.makeService().invokeNode(input);
+  assert.equal(completed.replay_provenance?.replayed, true);
+  assert.equal(ctx.calls, 1);
+  const drift = structuredClone(input);
+  drift.frozen_input.payload.constraint_profile_hash = '1'.repeat(64);
+  drift.frozen_input.frozen_input_hash = frozenInputHash(drift.frozen_input);
+  await assert.rejects(ctx.service.invokeNode(drift), /identity drifted/);
+  assert.equal(ctx.calls, 1);
+});
 
 test('N4 product CLI generates gated options from frozen evidence and replays before Human selection', async t => {
   const ctx = await n4CliFixture(t);
@@ -347,6 +539,27 @@ test('N4 coordinator executes a CLI frontier then stops at Human slice selection
   assert.equal(ctx.calls, 1);
 });
 
+function qualificationConstraint(availableArchives: boolean) {
+  const constraint = acceptedConstraintProfilePayload({ target_community: 'Information retrieval researchers',
+    intended_contribution_style: 'empirical_study',
+    method_constraints: ['Historical replication and bounded error analysis using existing source-tested retrievers and BM25; no new model training'],
+    resource_constraints: ['A bounded reproduction plan only; dataset/model access, annotation effort and hardware availability remain unverified'],
+    available_assets: ['Versioned BEIR S5/S6 comparison and annotation-bias prose; full numerical tables, implementation artifacts and current prior art are not supplied'],
+    claim_ceiling: 'A bounded historical replication or evaluation hypothesis. No established novelty, causal architecture claim, current-model failure, new measured gain or hardware-matched efficiency result.',
+    human_constraint_notes: 'Controlled Human fixture for N4 role qualification, not actual project approval.',
+    constraint_payload: { controlled_qualification: true } });
+  if (availableArchives) {
+    constraint.method_constraints = ['Evaluate fixed historical rankings against fixed qrels; no model training, new retrieval run, relabeling or extrapolation to current models'];
+    constraint.resource_constraints = ['Controlled scenario assumption: the researcher can load and score the fixed archived files on an available workstation; do not run additional retrieval or build a ColBERT index'];
+    constraint.available_assets = [
+      'Controlled Human scenario assumption: complete ANCE, TAS-B and BM25 ranked lists for the source-tested BioASQ and Touché-2020 query sets, matching corpus/query IDs, qrels with judged-status metadata and historical evaluation settings are available and mutually aligned.',
+      'Controlled Human scenario assumption: the historical result tables and scoring script are available for identity checks and bounded metric reproduction; permissions and workstation capacity for scoring these files have been checked within this hypothetical scenario.',
+      'These availability statements are fixed test assumptions, not artifacts inspected by this qualification and not actual project resource verification. The supplied BEIR prose remains the only inspected original paper evidence.',
+    ];
+  }
+  return constraint;
+}
+
 test('Codex N4 qualification uses original comparison evidence and retains Human selection', {
   skip: !['prepare', 'live'].includes(process.env.TOPIC_SELECTION_CODEX_N4_QUALIFICATION ?? ''),
 }, async t => {
@@ -381,23 +594,7 @@ test('Codex N4 qualification uses original comparison evidence and retains Human
   // Exercise the JSON boundary used by persisted artifact payloads, without claiming a relational restart.
   const createArtifact = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
   ctx.controlPlaneRepository.createArtifactRef = record => createArtifact(JSON.parse(JSON.stringify(record)));
-  const constraint = acceptedConstraintProfilePayload({ target_community: 'Information retrieval researchers',
-    intended_contribution_style: 'empirical_study',
-    method_constraints: ['Historical replication and bounded error analysis using existing source-tested retrievers and BM25; no new model training'],
-    resource_constraints: ['A bounded reproduction plan only; dataset/model access, annotation effort and hardware availability remain unverified'],
-    available_assets: ['Versioned BEIR S5/S6 comparison and annotation-bias prose; full numerical tables, implementation artifacts and current prior art are not supplied'],
-    claim_ceiling: 'A bounded historical replication or evaluation hypothesis. No established novelty, causal architecture claim, current-model failure, new measured gain or hardware-matched efficiency result.',
-    human_constraint_notes: 'Controlled Human fixture for N4 role qualification, not actual project approval.',
-    constraint_payload: { controlled_qualification: true } });
-  if (availableArchives) {
-    constraint.method_constraints = ['Evaluate fixed historical rankings against fixed qrels; no model training, new retrieval run, relabeling or extrapolation to current models'];
-    constraint.resource_constraints = ['Controlled scenario assumption: the researcher can load and score the fixed archived files on an available workstation; do not run additional retrieval or build a ColBERT index'];
-    constraint.available_assets = [
-      'Controlled Human scenario assumption: complete ANCE, TAS-B and BM25 ranked lists for the source-tested BioASQ and Touché-2020 query sets, matching corpus/query IDs, qrels with judged-status metadata and historical evaluation settings are available and mutually aligned.',
-      'Controlled Human scenario assumption: the historical result tables and scoring script are available for identity checks and bounded metric reproduction; permissions and workstation capacity for scoring these files have been checked within this hypothetical scenario.',
-      'These availability statements are fixed test assumptions, not artifacts inspected by this qualification and not actual project resource verification. The supplied BEIR prose remains the only inspected original paper evidence.',
-    ];
-  }
+  const constraint = qualificationConstraint(availableArchives);
   const { n1, n2, n3 } = await runReadyN3(ctx, constraint, key);
   const input = n4Request(n1, n2, n3, { workflow_run_id: key, node_attempt_id: key,
     execution_spec: { execution_mode: 'codex_cli', model_option_id: null }, run_mode: 'product' });
@@ -442,6 +639,103 @@ test('Codex N4 qualification uses original comparison evidence and retains Human
       assert.equal(stopped.halt.node_id, 'topic-selection.v1b.select-research-slice.v1');
     }
     assert.ok(['invoke_next', 'expand_evidence', 'reframe_scope', 'stop_v1b_complete'].includes(result.route_decision), JSON.stringify(result));
+  } catch (error) {
+    if (!(error instanceof QualificationPreviewComplete) || live) throw error;
+  } finally { save('artifacts', await ctx.controlPlane.listArtifactRefsByWorkflowRunId(key)); }
+});
+
+test('Codex early support qualification reviews original evidence and fixed Human input', {
+  skip: !['prepare', 'live'].includes(process.env.TOPIC_SELECTION_CODEX_EARLY_QUALIFICATION ?? ''),
+}, async t => {
+  const { qualificationBeirParagraphs } = await import('./test-fixtures/topic-selection-codex-qualification-sources.js');
+  const { qualificationRunner, QualificationPreviewComplete } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const source = process.env.TOPIC_SELECTION_QUALIFICATION_ALTERNATIVE_FULLTEXT;
+  const output = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  const slot = process.env.TOPIC_SELECTION_QUALIFICATION_SLOT;
+  const caseName = process.env.TOPIC_SELECTION_QUALIFICATION_CASE;
+  if (!source || !output || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || !['n2', 'n3', 'n5'].includes(slot ?? '') || !['complete', 'incomplete'].includes(caseName ?? '')
+    || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit early qualification configuration is required.');
+  const live = process.env.TOPIC_SELECTION_CODEX_EARLY_QUALIFICATION === 'live';
+  const limits = live ? { attempts: null, tokens: null, duration_ms: null,
+    attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, output, limits);
+  t.after(() => runner.shutdown()); t.after(() => budget?.close());
+  const key = `early_${runId}`;
+  const save = (name: string, value: unknown) => writeFileSync(join(directory, `${key}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600, flag: 'wx' });
+  save('manifest', { slot, case: caseName, model, limits, original_paragraphs: true,
+    controlled_extraction_readiness_and_human: true, actual_research_approval: false,
+    n5_upstream: slot === 'n5' ? 'Pinned original N4 model output, rematerialized as a controlled upstream fixture.' : null });
+  const sources = await qualificationBeirParagraphs(source, TITLE_CARD_ID);
+  const ctx = await seedHarnessV1aBundle({ evidenceUnits: sources.units,
+    ...(slot === 'n3' ? { openRecheck: true, acceptedRiskCoversRecheck: caseName === 'complete' } : {}),
+    needStatement: 'Bounded historical replication need: characterize the source-tested ANCE/TAS-B versus BM25 retrieval differences on BioASQ/Touché-2020, while distinguishing known BM25+CE/ColBERT tradeoffs and incomplete relevance judgments. The BEIR source already reports these observations; neither a novel repair nor current-model failure is established.' });
+  const create = ctx.controlPlaneRepository.createArtifactRef.bind(ctx.controlPlaneRepository);
+  ctx.controlPlaneRepository.createArtifactRef = record => create(JSON.parse(JSON.stringify(record)));
+  const constraint = qualificationConstraint(caseName === 'complete' || slot === 'n5');
+  const { n1, n2, n3 } = await runReadyN3(ctx, constraint, key);
+  let input = slot === 'n2' ? n2Request(ctx.bundle, n1, constraint) : n3Request(n1, n2);
+  if (slot === 'n5') {
+    const outcomeFile = process.env.TOPIC_SELECTION_QUALIFICATION_N4_OUTCOME;
+    if (!outcomeFile) throw new Error('N5 qualification requires the pinned original N4 outcome.');
+    const outcome: { final_message: string } = JSON.parse(readFileSync(outcomeFile, 'utf8'));
+    assert.equal(sha256Text(outcome.final_message), '24546627a94fd84183536c3bf12f84ce554624f71b61c0c0fd64509af898812d');
+    const draft: TopicSelectionV1bResearchSliceOptionSetDraftPayload = JSON.parse(outcome.final_message);
+    const request = n4Request(n1, n2, n3, { workflow_run_id: key });
+    const artifact = await generateN4RuntimeDraftArtifact(ctx, request, draft);
+    const n4 = await ctx.service.invokeNode({ ...request, semantic_artifacts: [artifact] });
+    assert.equal(n4.route_decision, 'invoke_next', JSON.stringify(n4));
+    const option = await selectedN4Option(ctx, n4);
+    const accepted = acceptedSliceSelectionPayload(option, caseName === 'complete' ? {} : {
+      decision: 'request_more_options', selected_option_ref: null, selected_option_hash: null,
+      selection_rationale: 'Controlled Human fixture: request alternatives before choosing; historical reproducibility alone does not settle research value.',
+      loopback_target: 'plan_research_slice_run', loopback_target_ref: null, loopback_reason_code: 'need_more_options',
+      required_actions: ['Compare a distinct bounded evaluation route without assuming novelty.'],
+    });
+    input = n5Request(n4, accepted);
+    save('upstream-options', await ctx.researchSliceRepository.listOptionsByOptionSetId(n4.authority_ref!.ref_id));
+  }
+  input = { ...earlyCliRequest(input, key), node_attempt_id: key };
+  save('request', input);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const makeService = () => new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, { modelProfileRegistry,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry,
+      codexCliRunner: runner, codexCliModelId: model }), evidencePacketResolver: sources.resolver(ctx.evidenceRepository),
+    runnerDependencies: { evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
+      recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
+      researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
+      topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository },
+  });
+  try {
+    const result = await makeService().invokeNode(input);
+    save('result', result);
+    assert.ok(['invoke_next', 'loopback', 'wait'].includes(result.route_decision), JSON.stringify(result));
+    const count = budget?.snapshot().attempts.length;
+    const replay = await makeService().invokeNode(input);
+    save('replay', replay);
+    assert.equal(replay.replay_provenance?.replayed, true);
+    assert.equal(budget?.snapshot().attempts.length, count);
+    if (slot === 'n2') {
+      const profile = await ctx.v1bRepository.findResearchConstraintProfileById(result.authority_ref!.ref_id);
+      save('authority', profile);
+      assert.equal(profile?.human_constraint_notes, constraint.human_constraint_notes);
+      assert.deepEqual(profile?.feasibility_budget, constraint.feasibility_budget);
+    } else if (slot === 'n3') save('authority', await ctx.v1bRepository.findReadinessAssessmentById(result.authority_ref!.ref_id));
+    else {
+      const decision = await ctx.researchSliceRepository.findSelectionDecisionById(result.authority_ref!.ref_id);
+      save('authority', decision);
+      const accepted = input.frozen_input.payload.accepted_selection_payload as TopicSelectionV1bAcceptedSliceSelectionPayload;
+      assert.equal(decision?.decision, accepted.decision);
+      assert.equal(decision?.selection_rationale, accepted.selection_rationale);
+      assert.equal(result.route_decision, caseName === 'complete' ? 'invoke_next' : 'loopback');
+    }
   } catch (error) {
     if (!(error instanceof QualificationPreviewComplete) || live) throw error;
   } finally { save('artifacts', await ctx.controlPlane.listArtifactRefsByWorkflowRunId(key)); }

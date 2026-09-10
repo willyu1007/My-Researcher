@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
@@ -115,12 +116,13 @@ export type TopicSelectionV1bEarlySemanticRuntimeContextPacket = {
   source_refs: TopicSelectionFunctionalRef[];
   source_hashes: Record<string, string>;
   frozen_input_payload: TopicSelectionV1bEarlyFrozenPayload;
+  research_context?: Record<string, unknown>;
 };
 
 export type GenerateTopicSelectionV1bEarlySemanticSupportInput<T extends TopicSelectionV1bEarlySemanticSupportPayload> = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
   slot_id: TopicSelectionV1bEarlySemanticSupportSlotId;
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
   codex_response?: TopicSelectionCodexAssistedAgentOutput<T> | null;
   mocked_output?: TopicSelectionMockedAgentOutput<T> | null;
@@ -211,6 +213,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
@@ -219,8 +222,10 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
       promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
+      resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
     } = {},
   ) {
+    this.resolveResearchContext = options.resolveResearchContext;
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -234,10 +239,15 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
   async generateSupportArtifact<T extends TopicSelectionV1bEarlySemanticSupportPayload>(
     input: GenerateTopicSelectionV1bEarlySemanticSupportInput<T>,
   ): Promise<TopicSelectionV1bEarlySemanticSupportGenerationResult<T>> {
+    if (input.execution_mode === 'codex_cli' && (input.codex_response != null || input.mocked_output != null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'CLI support generates its own output from frozen inputs.');
+    }
     const binding = this.slotBinding(input.slot_id);
     const frozenPayload = this.assertFrozenPayload(input.request, binding);
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
     const sourceHashes = this.sourceHashes(input.request, frozenPayload, binding);
+    const researchContext = await this.resolveCliResearchContext(input.request, input.execution_mode, binding);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes);
     const contextPacket = this.buildContextPacket({
@@ -246,10 +256,18 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       binding,
       runtimeProfile,
       runtimeInvocationContextHash,
-      sourceHashes,
+      sourceHashes, researchContext,
     });
     const contextPacketHash = this.hash(contextPacket);
+    const receiptKey = `early-cli-support:${this.hash([input.request.workflow_run_id, input.request.node_attempt_id, input.slot_id])}`;
+    const requestHash = input.execution_mode === 'codex_cli'
+      ? this.hash({ request: input.request, contextPacketHash, runtime: this.cliSupportIdentity(input.slot_id, runMode) }) : null;
+    if (requestHash) {
+      const receipt = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+      if (receipt) return this.readReceipt<T>(receipt, requestHash);
+    }
     const contextArtifact = await this.controlPlane.recordArtifactRef({
+      ...(requestHash ? { stable_key: `${receiptKey}:context:${contextPacketHash}` } : {}),
       workspace_id: input.request.workspace_id ?? null,
       title_card_id: input.request.title_card_id ?? null,
       artifact_kind: 'diagnostic',
@@ -287,7 +305,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
         context_policy_profile: runtimeProfile.profile,
         context_policy_profile_hash: runtimeProfile.profile_hash,
         runtime_invocation_context_hash: runtimeInvocationContextHash,
-        context_payloads: [contextPacket],
+        context_payloads: input.execution_mode === 'codex_cli' ? [] : [contextPacket],
       },
       codex_response: input.codex_response ?? null,
       mocked_output: input.mocked_output ?? null,
@@ -303,6 +321,10 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       };
     }
 
+    if (input.execution_mode === 'codex_cli') {
+      assertV1aCodexReferences(invocation.structured_output, contextPacket);
+      this.assertHumanDecisionEcho(frozenPayload, invocation.structured_output);
+    }
     const semanticArtifact = await this.recordSemanticSupportArtifact({
       request: input.request,
       binding,
@@ -316,7 +338,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       createdBy: input.created_by ?? input.request.created_by ?? 'system',
     });
 
-    return {
+    const result: TopicSelectionV1bEarlySemanticSupportGenerationResult<T> = {
       status: 'succeeded',
       semantic_artifact: semanticArtifact,
       structured_output: invocation.structured_output,
@@ -324,17 +346,57 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       context_packet_ref: contextPacketRef,
       context_packet_hash: contextPacketHash,
     };
+    if (requestHash) {
+      const payload = { request_hash: requestHash, result };
+      try {
+        await this.controlPlane.recordArtifactRef({ stable_key: receiptKey,
+          workspace_id: input.request.workspace_id ?? null, title_card_id: input.request.title_card_id ?? null,
+          workflow_run_id: input.request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+          payload, checksum: this.hash(payload), created_by: 'system' });
+      } catch (error) {
+        const winner = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+        if (!winner) throw error;
+        return this.readReceipt<T>(winner, requestHash);
+      }
+    }
+    return result;
   }
 
-  buildAdmissionExpectedIdentity(input: {
+  cliSupportIdentity(slotId: TopicSelectionV1bEarlySemanticSupportSlotId, runMode: TopicSelectionAgentRunMode) {
+    const binding = this.slotBinding(slotId);
+    return { binding, prompt: configuredPrompt(slotId), runner: this.agentOrchestrator.codexCliExecutionIdentity,
+      profile_hash: this.resolveModelProfile(binding, 'codex_cli', runMode).profile_hash };
+  }
+
+  async hasCliGenerationReceipt(request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef): Promise<boolean> {
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(`early-cli-support:${this.hash([request.workflow_run_id, request.node_attempt_id, artifact.slot_id])}`);
+    const result = receipt?.payload?.result as TopicSelectionV1bEarlySemanticSupportGenerationResult<TopicSelectionV1bEarlySemanticSupportPayload> | undefined;
+    return Boolean(receipt?.artifact_kind === 'diagnostic' && receipt.payload
+      && receipt.checksum === this.hash(receipt.payload) && receipt.workflow_run_id === request.workflow_run_id
+      && (receipt.title_card_id ?? null) === (request.title_card_id ?? null)
+      && (receipt.workspace_id ?? null) === (request.workspace_id ?? null)
+      && result?.status === 'succeeded' && this.hash(result.semantic_artifact) === this.hash(artifact));
+  }
+
+  private readReceipt<T extends TopicSelectionV1bEarlySemanticSupportPayload>(record: TopicSelectionArtifactRefRecord,
+    requestHash: string): TopicSelectionV1bEarlySemanticSupportGenerationResult<T> {
+    const result = record.payload?.result as TopicSelectionV1bEarlySemanticSupportGenerationResult<T> | undefined;
+    if (!result || record.checksum !== this.hash(record.payload) || record.payload?.request_hash !== requestHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Early CLI support input or runtime identity drifted.');
+    }
+    return result;
+  }
+
+  async buildAdmissionExpectedIdentity(input: {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
     slotId: TopicSelectionV1bEarlySemanticSupportSlotId;
     normalizedPayloadHash: string;
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
     runMode: TopicSelectionAgentRunMode;
     profileId: string;
     modelOptionId: string | null;
-  }): TopicSelectionV1bEarlySemanticSupportAdmissionExpectedIdentity {
+  }): Promise<TopicSelectionV1bEarlySemanticSupportAdmissionExpectedIdentity> {
     const binding = this.slotBinding(input.slotId);
     if (input.profileId !== binding.model_profile_id) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'v1b early semantic support profile does not match runtime slot binding.');
@@ -344,6 +406,8 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
     }
     const frozenPayload = this.assertFrozenPayload(input.request, binding);
     const sourceHashes = this.sourceHashes(input.request, frozenPayload, binding);
+    const researchContext = await this.resolveCliResearchContext(input.request, input.executionMode, binding);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes);
     const contextPacket = this.buildContextPacket({
@@ -352,7 +416,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       binding,
       runtimeProfile,
       runtimeInvocationContextHash,
-      sourceHashes,
+      sourceHashes, researchContext,
     });
     const modelProfile = this.resolveModelProfile(binding, input.executionMode, input.runMode);
     const promptPacket = this.promptPacketRuntime.buildPromptPacket({
@@ -403,7 +467,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       request: TopicSelectionV1bWorkflowHarnessRunRequest;
       binding: EarlyRuntimeSlotBinding;
       runMode: TopicSelectionAgentRunMode;
-      executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+      executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
       structuredOutput: T;
       invocation: TopicSelectionAgentInvocationResult<T>;
       runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
@@ -474,6 +538,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
+    researchContext?: Record<string, unknown>;
   }): TopicSelectionV1bEarlySemanticRuntimeContextPacket {
     return {
       schema_version: 'TopicSelectionV1bEarlySemanticRuntimeContextPacket@v1',
@@ -492,6 +557,7 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
       source_refs: this.sourceRefs(input.request, input.frozenPayload, input.binding),
       source_hashes: input.sourceHashes,
       frozen_input_payload: input.frozenPayload,
+      ...(input.researchContext ? { research_context: input.researchContext } : {}),
     };
   }
 
@@ -781,8 +847,41 @@ export class TopicSelectionV1bEarlySemanticSupportRuntimeService {
     return value as TopicSelectionV1bN5HarnessFrozenInputPayload;
   }
 
+  private assertHumanDecisionEcho(frozen: TopicSelectionV1bEarlyFrozenPayload, output: TopicSelectionV1bEarlySemanticSupportPayload) {
+    if ('accepted_constraint_profile_payload' in frozen) {
+      const accepted = frozen.accepted_constraint_profile_payload;
+      if (!('target_community' in output) || output.target_community !== accepted.target_community
+        || output.claim_ceiling !== accepted.claim_ceiling
+        || accepted.non_goals.some(goal => !output.non_goals.includes(goal))) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N2 CLI review changed the accepted Human community or claim boundary.');
+      }
+    }
+    if ('accepted_selection_payload' in frozen) {
+      const accepted = frozen.accepted_selection_payload;
+      const refIdentity = (ref: TopicSelectionFunctionalRef | null) => ref
+        ? [ref.ref_type, ref.ref_id, ref.version_id ?? null, ref.title_card_id ?? null, ref.legacy_ref ?? null] : null;
+      if (!('decision' in output) || output.decision !== accepted.decision
+        || output.selected_option_hash !== accepted.selected_option_hash
+        || this.hash(refIdentity(output.selected_option_ref)) !== this.hash(refIdentity(accepted.selected_option_ref))
+        || this.hash(output.accepted_risk_refs.map(ref => this.hash(refIdentity(ref))).sort()) !== this.hash(accepted.accepted_risk_refs.map(ref => this.hash(refIdentity(ref))).sort())
+        || output.loopback_reason_code !== accepted.loopback_reason_code
+        || this.hash(output.loopback_target) !== this.hash(accepted.loopback_target)
+        || this.hash(refIdentity(output.loopback_target_ref)) !== this.hash(refIdentity(accepted.loopback_target_ref))) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N5 CLI review changed the accepted Human decision, risk acceptance or loopback.');
+      }
+    }
+  }
+
+  private async resolveCliResearchContext(request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    mode: TopicSelectionAgentExecutionMode, binding: EarlyRuntimeSlotBinding) {
+    if (mode !== 'codex_cli') return undefined;
+    if (!this.resolveResearchContext) throw new AppError(400, 'INVALID_PAYLOAD', 'Early CLI support requires original research context.');
+    this.assertFrozenPayload(request, binding);
+    return this.resolveResearchContext(request);
+  }
+
   private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'codex_cli' ? 'product' : executionMode === 'mocked_llm' ? 'test' : 'acceptance';
   }
 
   private executorKind(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionExecutorKind {

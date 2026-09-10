@@ -4,7 +4,7 @@ Inventory established at `a5263023`, reconciled with the current Phase 4 impleme
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), Phase 4 opens N4 (#15), leaving 10 closed (26 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), Phase 4 opens N4 (#15) and optional N2/N3/N5 support (#18–20), leaving seven closed (29 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
@@ -25,9 +25,9 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | Product CLI enabled; original BEIR evidence qualification covers evidence expansion and selectable controlled-availability plans, protected JSON replay and N5 Human stop | Phase 4 / CX-04 |
 | 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; product CLI qualified | Phase 2 / CX-02 |
 | 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; product CLI qualified | Phase 2 / CX-02 |
-| 18 | `topic-selection.v1b.constraint-profile-support.codex.v1` | External support today; prepare suggestions, retain Human constraint authority | Phase 4 / CX-04 |
-| 19 | `topic-selection.v1b.intake-readiness-support.codex.v1` | External support today; cannot override deterministic readiness | Phase 4 / CX-04 |
-| 20 | `topic-selection.v1b.slice-selection-support.codex.v1` | External support today; cannot make the researcher's slice choice | Phase 4 / CX-04 |
+| 18 | `topic-selection.v1b.constraint-profile-support.codex.v1` | Product CLI enabled; real original-evidence reviews preserve exact accepted Human constraints and resource assumptions | Phase 4 / CX-04 |
+| 19 | `topic-selection.v1b.intake-readiness-support.codex.v1` | Product CLI enabled; actual recheck/risk bodies distinguish covered and uncovered cases; deterministic readiness retains authority | Phase 4 / CX-04 |
+| 20 | `topic-selection.v1b.slice-selection-support.codex.v1` | Product CLI enabled; full option portfolio and original evidence review exact Human selection or request-more-options; completed replay is qualified | Phase 4 / CX-04 |
 | 21 | `topic-selection.v1b.n6-loopback-triage-support.codex.v1` | External support today; preserve existing loopback targets/currentness | Phase 4 / CX-04 |
 | 22 | `topic-selection.v1b.candidate-grouping-support.codex.v1` | External support today; no candidate authority writes | Phase 4 / CX-04 |
 | 23 | `topic-selection.v1b.failed-trial-synthesis-support.codex.v1` | External support today; retain trial history and non-advance outcomes | Phase 4 / CX-04 |

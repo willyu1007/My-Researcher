@@ -814,6 +814,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       modelProfileRegistry: this.modelProfileRegistry,
     });
     this.earlySemanticSupportRuntime = new TopicSelectionV1bEarlySemanticSupportRuntimeService(controlPlane, {
+      resolveResearchContext: request => this.resolveEarlyCliResearchContext(request),
       agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
@@ -1169,6 +1170,113 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...(admissibleCitationRefs ? { admissible_citation_refs: admissibleCitationRefs } : {}) };
   }
 
+  private async resolveEarlyCliResearchContext(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<Record<string, unknown>> {
+    const dependency = this.runnerDependencyBlocker(input.node_id);
+    if (dependency) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependency.message);
+    const fail = (message: string): never => { throw new AppError(409, 'GATE_CONSTRAINT_FAILED', message); };
+    const intake = this.runnerDependencies.v1bIntakeRepository!;
+    let domain: Record<string, unknown>;
+    let snapshotForRisks: TopicSelectionV1bIntakeSnapshotRecord;
+    let evidenceRefs: TopicSelectionFunctionalRef[];
+    let handoffHash: string | null = null;
+    if (input.node_id === 'topic-selection.v1b.select-research-slice.v1') {
+      const parsed = parseN5Payload(input.frozen_input.payload);
+      if (!parsed.ok) return fail(parsed.message);
+      const payload = parsed.value;
+      if (payload.authority_input_provider !== 'human_delegated'
+        || canonicalHash(payload.accepted_selection_payload) !== payload.accepted_selection_payload_hash) {
+        return fail('N5 CLI support requires an exact accepted Human selection payload.');
+      }
+      const loaded = await this.loadN5OptionSet(payload.research_slice_option_set_ref.ref_id);
+      if (!loaded.ok) return fail(loaded.message);
+      const { optionSet, options, planRun } = loaded.value;
+      if (optionSet.title_card_id !== input.title_card_id || !refsEqual(payload.research_slice_option_set_ref, buildOptionSetRef(optionSet))
+        || payload.research_slice_option_set_hash !== optionSet.comparison_payload.authority_hash
+        || optionSet.status !== 'ready_for_selection') return fail('N5 CLI support requires the exact ready option set.');
+      const selected = payload.accepted_selection_payload.decision === 'select'
+        ? n5SelectedOption(payload.accepted_selection_payload, options) : null;
+      const gate = this.n5SelectionGateBlocker(payload, loaded.value, selected);
+      if (gate) return fail(gate.message);
+      const snapshot = await intake.findIntakeSnapshotById(planRun.v1b_intake_snapshot_id);
+      const profile = await intake.findResearchConstraintProfileById(planRun.research_constraint_profile_id);
+      if (!snapshot || !profile || snapshot.title_card_id !== input.title_card_id
+        || profile.v1b_intake_snapshot_id !== snapshot.v1b_intake_snapshot_id) return fail('N5 CLI support is missing its original constraint lineage.');
+      snapshotForRisks = snapshot;
+      evidenceRefs = flattenEvidenceRoleBundle(snapshot.evidence_role_bundle);
+      // Materialized options already contain their draft. Keep unique portfolio reasoning/reopening conditions.
+      const { options: _cachedOptions, ...portfolioContext } = optionSet.options_payload;
+      const optionSetContext = { ...optionSet, options_payload: portfolioContext };
+      const selectionRisks = await Promise.all(uniqueRefs([
+        ...planRun.accepted_risk_refs, ...payload.accepted_selection_payload.accepted_risk_refs,
+      ]).filter(ref => ref.ref_type === 'accepted_risk').map(async ref => {
+        const record = await this.runnerDependencies.recheckRiskMemoryRepository!.findAcceptedRiskById(ref.ref_id);
+        if (record?.title_card_id != null && record.title_card_id !== input.title_card_id) return fail('N5 selection risk belongs to another title.');
+        if (record?.workspace_id != null && record.workspace_id !== (input.workspace_id ?? null)) return fail('N5 selection risk belongs to another workspace.');
+        // Retain scope, status and expiry; intake validated-need eligibility is not slice eligibility.
+        return { ref, record };
+      }));
+      domain = { optionSet: optionSetContext, options, planRun, snapshot, profile, selection_risks: selectionRisks };
+      handoffHash = payload.n4_handoff_hash;
+    } else {
+      const n2 = input.node_id === 'topic-selection.v1b.record-research-constraint-profile.v1';
+      const parsed = n2 ? parseN2Payload(input.frozen_input.payload) : parseN3Payload(input.frozen_input.payload);
+      if (!parsed.ok) return fail(parsed.message);
+      const payload = parsed.value;
+      const snapshot = await intake.findIntakeSnapshotById(payload.intake_snapshot_ref.ref_id);
+      if (!snapshot || snapshot.title_card_id !== input.title_card_id
+        || !refsEqual(payload.intake_snapshot_ref, buildSnapshotRef(snapshot))
+        || payload.intake_snapshot_hash !== hashSnapshotAuthority(snapshot)) return fail('Early CLI support intake snapshot identity drifted.');
+      snapshotForRisks = snapshot;
+      evidenceRefs = flattenEvidenceRoleBundle(snapshot.evidence_role_bundle);
+      if ('accepted_constraint_profile_payload' in payload) {
+        if (payload.authority_input_provider !== 'human_delegated'
+          || canonicalHash(payload.accepted_constraint_profile_payload) !== payload.accepted_constraint_profile_payload_hash) {
+          return fail('N2 CLI support requires an exact accepted Human constraint payload.');
+        }
+        const bundle = await this.runnerDependencies.needValidationRepository!.findV1aToV1bInputBundleById(snapshot.v1b_input_bundle_id);
+        if (!bundle || !refsEqual(payload.v1a_bundle_ref, snapshot.v1b_input_bundle_ref)
+          || payload.v1a_bundle_hash !== canonicalHash(bundle)) return fail('N2 CLI support bundle lineage drifted.');
+        const previousProfile = payload.previous_profile_ref ? await intake.findResearchConstraintProfileById(payload.previous_profile_ref.ref_id) : null;
+        if (payload.previous_profile_ref && (!previousProfile || !refsEqual(payload.previous_profile_ref, buildProfileRef(previousProfile))
+          || previousProfile.v1b_input_bundle_id !== snapshot.v1b_input_bundle_id
+          || payload.previous_profile_hash !== hashProfileAuthority(previousProfile))) return fail('N2 CLI support previous profile lineage drifted.');
+        domain = { snapshot, bundle, previousProfile };
+      } else {
+        const profile = await intake.findResearchConstraintProfileById(payload.constraint_profile_ref.ref_id);
+        if (!profile || profile.v1b_intake_snapshot_id !== snapshot.v1b_intake_snapshot_id
+          || !refsEqual(payload.constraint_profile_ref, buildProfileRef(profile))
+          || payload.constraint_profile_hash !== hashProfileAuthority(profile)) return fail('N3 CLI support constraint identity drifted.');
+        domain = { snapshot, profile };
+        handoffHash = payload.n2_handoff_hash;
+      }
+    }
+    const usableRisks = await this.resolveUsableAcceptedRisks(snapshotForRisks.risk_refs, snapshotForRisks);
+    const riskRecords = await Promise.all(snapshotForRisks.risk_refs.filter(ref => ref.ref_type === 'accepted_risk').map(async ref => {
+      const record = await this.runnerDependencies.recheckRiskMemoryRepository!.findAcceptedRiskById(ref.ref_id);
+      if (record?.title_card_id != null && record.title_card_id !== input.title_card_id) return fail('Early CLI risk context belongs to another title.');
+      return { ref, record, usable: usableRisks.some(risk => risk.accepted_risk_id === ref.ref_id) };
+    }));
+    const recheckRecords = await Promise.all(snapshotForRisks.recheck_request_refs.filter(ref => ref.ref_type === 'search_plan_recheck_request').map(async ref => {
+      const record = await this.runnerDependencies.searchResourceRepository!.findSearchPlanRecheckRequestById(ref.ref_id);
+      if (record && record.title_card_id !== input.title_card_id) return fail('Early CLI recheck context belongs to another title.');
+      return { ref, record };
+    }));
+    domain.risk_context = { accepted_risks: riskRecords, rechecks: recheckRecords,
+      uncovered_open_recheck_refs: recheckRecords.filter(({ record }) => record?.status === 'open'
+        && !usableRisks.some(risk => riskCoversRecheck(risk, record, snapshotForRisks))).map(({ ref }) => ref) };
+    if (handoffHash) {
+      const artifacts = await this.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
+      const handoff = artifacts.find(artifact => artifact.title_card_id === input.title_card_id
+        && artifact.checksum === handoffHash && canonicalHash(artifact.payload) === handoffHash);
+      if (!handoff) return fail('Early CLI support requires its persisted upstream handoff in this workflow.');
+      domain.handoff = handoff.payload;
+    }
+    return { frozen_domain: domain, evidence_packets: await this.resolveCodexEvidencePackets(input, uniqueRefs(evidenceRefs), {
+      query: 'Review the frozen accepted constraints, readiness or Human slice choice against its original evidence.',
+      target_claim: 'Preserve the accepted Human input and report only grounded support.',
+    }) };
+  }
+
   private async resolveCodexEvidencePackets(input: TopicSelectionV1bWorkflowHarnessRunRequest,
     evidenceRefs: TopicSelectionFunctionalRef[], intent: { query: string; target_claim: string; rationale?: string }) {
     if (!input.title_card_id || !this.evidencePacketResolver) {
@@ -1380,6 +1488,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   private async invokeCliNode(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    const earlySlot = this.getNodePolicy(input.node_id).semantic_support_slots.find(slot =>
+      ['n2_constraint_profile_semantic_support', 'n3_readiness_classification', 'n5_slice_selection_review'].includes(slot.slot_id));
+    if (earlySlot) return this.invokeCliEarlySupport(input, earlySlot.slot_id as TopicSelectionV1bEarlySemanticSupportSlotId);
     if (input.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1') return this.invokeCliN7Admission(input);
     if (input.execution_spec?.model_option_id != null || ![
       'topic-selection.v1b.generate-research-slice-options.v1',
@@ -1438,6 +1549,43 @@ export class TopicSelectionV1bWorkflowHarnessService {
         }
         artifact = generated.semantic_artifact;
       }
+    }
+    return this.invokeNode({ ...request, semantic_artifacts: [artifact] });
+  }
+
+  private async invokeCliEarlySupport(input: TopicSelectionV1bWorkflowHarnessRunRequest,
+    slotId: TopicSelectionV1bEarlySemanticSupportSlotId): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    if (input.execution_spec?.model_option_id != null || input.profile_id != null) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Early CLI support uses the fixed optional slot without gateway options.');
+    }
+    // CLI selects an optional review; the node still consumes the exact Human/mechanical input.
+    const { execution_spec: _execution, ...withoutExecution } = input;
+    const request = { ...withoutExecution, run_mode: input.run_mode ?? 'product' as const };
+    const { run_mode: _runMode, ...preflight } = request;
+    const policy = this.getNodePolicy(request.node_id);
+    const blocker = this.policyBlocker(policy, preflight, this.hashContext(preflight, null));
+    if (blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', blocker.message);
+    const key = `early-cli-input:${canonicalHash([request.workflow_run_id, request.node_attempt_id, slotId])}`;
+    const requestHash = canonicalHash({ request, runtime: this.earlySemanticSupportRuntime.cliSupportIdentity(slotId, request.run_mode) });
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(key);
+    let artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    if (receipt) {
+      if (receipt.checksum !== canonicalHash(receipt.payload) || receipt.payload?.request_hash !== requestHash || !isRecord(receipt.payload.artifact)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Early CLI support request or runtime identity drifted.');
+      }
+      artifact = receipt.payload.artifact as unknown as TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    } else {
+      const generated = await this.earlySemanticSupportRuntime.generateSupportArtifact({
+        request, slot_id: slotId, execution_mode: 'codex_cli', run_mode: request.run_mode,
+      });
+      if (generated.status !== 'succeeded') throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Early CLI support did not succeed.', {
+        blocker_codes: generated.invocation_result.blocker_codes,
+      });
+      artifact = generated.semantic_artifact;
+      const payload = { request_hash: requestHash, artifact };
+      await this.controlPlane.recordArtifactRef({ stable_key: key, workflow_run_id: request.workflow_run_id,
+        workspace_id: request.workspace_id ?? null, title_card_id: request.title_card_id ?? null,
+        artifact_kind: 'diagnostic', storage_kind: 'inline', payload, checksum: canonicalHash(payload), created_by: 'system' });
     }
     return this.invokeNode({ ...request, semantic_artifacts: [artifact] });
   }
@@ -5577,11 +5725,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!artifact) {
       return { ok: true, value: null };
     }
-    if (artifact.execution_mode !== 'codex_assisted' && artifact.execution_mode !== 'mocked_llm') {
+    if (artifact.execution_mode !== 'codex_cli' && artifact.execution_mode !== 'codex_assisted' && artifact.execution_mode !== 'mocked_llm') {
       return {
         ok: false,
         code: 'V1B_EARLY_SUPPORT_ARTIFACT_PROVENANCE_CLASS_INVALID',
-        message: 'Promoted v1b N2/N3/N5 semantic support artifacts must be generated by runtime codex_assisted or mocked_llm paths.',
+        message: 'Promoted v1b N2/N3/N5 semantic support artifacts must be generated by the CLI, codex_assisted or mocked_llm runtime.',
       };
     }
     if (!artifact.normalized_output_ref) {
@@ -5619,7 +5767,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     let expectedIdentity;
     try {
-      expectedIdentity = this.earlySemanticSupportRuntime.buildAdmissionExpectedIdentity({
+      expectedIdentity = await this.earlySemanticSupportRuntime.buildAdmissionExpectedIdentity({
         request: input,
         slotId,
         normalizedPayloadHash: payloadHash,
@@ -5671,10 +5819,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     ) {
       return earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support provenance must point to its audit artifact_ref.');
     }
+    if (artifact.execution_mode === 'codex_cli' && !await this.earlySemanticSupportRuntime.hasCliGenerationReceipt(input, artifact)) {
+      return earlyRuntimeAuditDrift('Early CLI support is missing its protected generation receipt.');
+    }
     const auditArtifact = await this.controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
     if (
       !auditArtifact
       || auditArtifact.artifact_kind !== 'diagnostic'
+      || auditArtifact.checksum !== canonicalHash(auditArtifact.payload)
       || auditArtifact.checksum !== artifact.runtime_audit_hash
       || auditArtifact.workflow_run_id !== input.workflow_run_id
     ) {
@@ -5685,7 +5837,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return earlyRuntimeAuditDrift('v1b N2/N3/N5 runtime support audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
-    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
+    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : artifact.execution_mode === 'codex_cli' ? 'codex_cli_response' : 'codex_response';
     if (
       auditPayload.node_id !== input.node_id
       || auditPayload.workflow_run_id !== input.workflow_run_id

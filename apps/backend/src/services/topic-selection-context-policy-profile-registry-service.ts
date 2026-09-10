@@ -891,7 +891,9 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         invocation_slot_id: TOPIC_SELECTION_V1B_EARLY_SEMANTIC_INVOCATION_SLOT_IDS.slice_selection_support,
         functional_template: 'delegated_payload_candidate',
         context_family: 'v1b_slice_selection_context',
-        estimated_input_token_target: 16000,
+        // Original BEIR excerpts plus the real two-option portfolio exceed the old ref-only
+        // target even after removing the duplicate options_payload cache. Preserve both bodies.
+        estimated_input_token_target: 24000,
         estimated_output_token_budget: 1600,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,

@@ -187,9 +187,9 @@ function makeControlPlane() {
 // these v1b prompt bodies, so these are their only drift coverage; the cross-slot inequality proves
 // the shared constructor actually diverged each sibling. Re-baseline ONLY for a deliberate change.
 const EARLY_SEMANTIC_SUPPORT_SYSTEM_GOLDEN = {
-  n2: '2ec0534c50086a3575404da5104e7c2e84eecd949c93cc6b02b2b41fd5caaa96',
-  n3: '17183102e1be81d6dee4e75f8df22045efe7d40534e169d02aee925fa06c755d',
-  n5: '556edf0c6c6e29376a17d576a81b599a1dafe75cc91853536f8ce9d22b42d115',
+  n2: 'ed37e00d226df65902d5afc1c9eee483da540df43f79309b26d690463648885b',
+  n3: 'e0d170e07157e96eaff47bec2f8e286717028ed2b7231337da781926154ca276',
+  n5: '6a9912cb2bc233a98d066dcc4088d278c3662c167978cd9c86d3e0d69b0339fd',
 };
 test('v1b early-semantic-support per-slot prompt bodies are byte-identity drift-anchored (T-128 W-05)', () => {
   const n2 = buildV1bEarlySemanticSupportSystemContent('n2_constraint_profile_semantic_support');

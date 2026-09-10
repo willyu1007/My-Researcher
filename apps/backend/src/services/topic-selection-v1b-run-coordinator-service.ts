@@ -94,6 +94,7 @@ const POLICY_BY_NODE_ID = new Map<string, NodePolicy>(
 );
 
 /** Nodes whose harness-routed debate escalation/re-entry the coordinator drives caller-side (T-127 W-07 item a). */
+const N3_NODE_ID = 'topic-selection.v1b.assess-intake-readiness.v1';
 const N4_NODE_ID = 'topic-selection.v1b.generate-research-slice-options.v1';
 const N5_NODE_ID = 'topic-selection.v1b.select-research-slice.v1';
 const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1';
@@ -396,7 +397,7 @@ const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<
 
 export type TopicSelectionV1bRunCoordinatorNodeInput = {
   /**
-   * N4/N6/N7-admission/N8 consume codex_cli through the canonical harness. Other nodes/modes remain reserved.
+   * N3-support/N4/N6/N7-admission/N8 consume codex_cli through the canonical harness. Other nodes/modes remain reserved.
    * The CLI branch generates its own role outputs and defaults to product run mode.
    */
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
@@ -936,9 +937,9 @@ export class TopicSelectionV1bRunCoordinatorService {
         );
       }
       if (nodeInput?.execution_spec && (nodeInput.execution_spec.execution_mode !== 'codex_cli'
-        || nodeInput.execution_spec.model_option_id != null || ![N4_NODE_ID, N6_NODE_ID, N7_NODE_ID, N8_NODE_ID].includes(nextNodeId))) {
+        || nodeInput.execution_spec.model_option_id != null || ![N3_NODE_ID, N4_NODE_ID, N6_NODE_ID, N7_NODE_ID, N8_NODE_ID].includes(nextNodeId))) {
         throw new AppError(400, 'INVALID_PAYLOAD',
-          `${nextNodeId}: execution_spec is reserved outside the integrated N4/N6/N7-admission/N8 codex_cli route; gateway model options are not accepted.`);
+          `${nextNodeId}: execution_spec is reserved outside the integrated N3-support/N4/N6/N7-admission/N8 codex_cli route; gateway model options are not accepted.`);
       }
 
       // A fresh N5 handoff gets one regular bounded Debate. Existing regeneration and

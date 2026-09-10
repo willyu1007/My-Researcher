@@ -356,3 +356,23 @@ EvidenceUnit refs; a selected recommendation must remain selectable with no hard
 prompt supports evidenced non-advance instead of manufacturing an option. N5 still requires the
 Human choice, and coordinator progression stops there. Real qualification and profile activation
 are recorded separately in verification.md and the execution inventory.
+
+## Phase 4 early optional support
+
+N2/N3/N5 accept an explicit CLI support execution spec through the canonical harness; coordinator
+advance also accepts N3 support. N2/N5 retain Human stops and require exact accepted Human payloads.
+Their node execution policy stays delegated/deterministic: the CLI spec selects the optional slot,
+then the existing gate consumes Human/mechanical authority. The model cannot replace those inputs.
+
+The early context compiler loads actual frozen intake/bundle/constraint/handoff lineage and original
+evidence. N3 carries actual recheck/risk records and effective coverage. N5 loads the full option
+portfolio and plan, plus newly accepted selection-risk bodies; it removes only the duplicate options
+array from the option-set cache, preserving unique portfolio/reopening content. All context bodies
+participate in admission identity. Complete nested functional references and exact Human decision,
+selected identity, accepted risks and loopback fields are validated before support admission.
+
+Protected `early-cli-support` receipts bind generated output to request/context/prompt/profile/runner.
+`early-cli-input` lets completion replay happen before reloading a now-selected N5 option set.
+Missing generation-receipt recovery reuses the completed orchestrator attempt; admission rechecks
+live source identity before the first domain write. Externally relabeled audits cannot supply these
+protected receipts. Existing CLI domain claims preserve exclusion and ambiguous-write refusal.
