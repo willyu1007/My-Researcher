@@ -114,6 +114,13 @@ profile registry; a configured runner is required.
   while preserving all quote/locator bindings, including during single-agent compression. An intact
   evidence context that exceeds the existing budget stops before model work.
 
+With the app checkpoint policy enabled, read the current checkpoint through
+`GET /topic-selection/title-cards/:titleCardId/research-status` and its
+`GET /topic-selection/checkpoints/:checkpointId/packet`. Before candidate persistence, the researcher
+must review the evidence landscape and submit the exact `target_snapshot_hash` as
+`confirmed_snapshot_hash` to `POST /topic-selection/checkpoints/:checkpointId/decisions`.
+An evidence update requires review of the new snapshot.
+
 Reuse the exact workflow/node-attempt identity and request after a lost response; completed results
 replay without another model invocation. Changed input or an unfinished claim returns 409. Inspect
 retained model/domain artifacts before creating a new attempt after an interrupted commit; unlike
@@ -139,6 +146,13 @@ and stable workflow/node-attempt IDs for these single-agent consumers:
   review bindings remain required where the app's checkpoint policy applies. Model review cannot
   author the confirmation, accept omitted risks or bypass a checkpoint. Only a confirmed result
   can proceed to the deterministic `publish-v1b-input-bundle` node.
+
+For the gap checkpoint, carry the current whole-pool hash in
+`confirmation_input.gap_selection_review.confirmed_candidate_pool_hash`, the exact selected
+candidate version and a review of every candidate. Compare substantive research differences;
+having two drafts does not establish two viable alternatives. Stale snapshots, omitted candidates
+or missing required risk/check acceptance are refused. Publication preserves the confirmed
+candidate's evidence and risks; exact repeated publication returns the same frozen bundle.
 
 Use the registered default profiles; external `mocked_output`/`codex_response`, a different executor
 or profile and acceptance-mode CLI requests are rejected. Completed or blocked submissions replay

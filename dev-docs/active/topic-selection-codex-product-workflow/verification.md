@@ -6,6 +6,7 @@
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 2 closeout then Phase 3 on 2026-09-09 | confirmed through Phase 3 | Phases 4–5 remain required and outside current authorization; N6/N8 alone cannot complete T-153. |
 | CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream, three evidence-convergence and two optional Arena profiles admit product CLI (25 total); 11 selection/promotion profiles remain closed. |
+| CX-03 / Phase 3 closeout | Sampling/recovery, extraction/discovery, adjudication/confirmation, convergence and Arena checks; repaired Debate 169–174 and checkpoint-bound source-to-v1b 175–178 | passed with independent semantic, artifact and replay review | Actual model outputs, exact product checkpoint owners and unique frozen lineage; retrieval/readiness and Human inputs remain controlled, JSON/in-memory persistence is not full CLI relational recovery. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
 | Role bodies and deterministic projection | Shared prior-output resolver; canonical CLI replay and derivation checks | passed in the suites above | Explorers receive no peer bodies, Critic receives both; later roles receive verified bodies. Final role is projected with debate_derived provenance and no fifth model call. Source/hash drift is rejected. |
@@ -14,7 +15,7 @@
 | Exact Human delta / CX-02 | Coordinator/harness/refinement tests | 196 passed before final timeout fix; coordinator then 68 passed; directed final recovery 3 passed | Three CLI role calls preserve the exact current contract, produce a separately audited deterministic admission, and reopen pending Human confirmation. Interrupted derivation write reuses completed attempts. No real Human decisions. |
 | Timeout and no-op recovery | Delayed refinement runtime test and directed coordinator cases | passed | Whole review plus final N7 gate shares timeout; node_timeout→node_in_flight→settled recovery executes once. Canonical no-op is mechanical. Joint review finding corrected and re-reviewed. |
 | Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
-| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. N6 prompt catalog/scenario versions align; 18 qualified profiles now admit product CLI; the other 18 stay closed. |
+| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. Prompt catalog/scenario versions align; 25 profiles admit product CLI and 11 stay closed; individual qualification boundaries are recorded below. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
 | Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This earlier preparation used no model calls and did not itself qualify or activate profiles. |
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
@@ -397,7 +398,8 @@ an explicitly local profile override, not a new real-model qualification. Those 
   ledger, no provider fallback or hidden retry. Private raw evidence remains under
   `/tmp/my-researcher-t153-phase2/live/`.
 - These checks do not prove real candidate admission from discovery, actual Human approval, app
-  checkpoint integration or a complete fresh upstream-to-v1b product chain. Fresh upstream lineage remains Phase 3 work; CX-03 and whole-flow acceptance remain open.
+  checkpoint integration or a complete fresh upstream-to-v1b product chain. The checkpoint-bound
+  composition below supplies the later lineage evidence, while retaining the Human-fixture boundary.
 
 ## Phase 3 evidence-convergence qualification
 
@@ -446,7 +448,8 @@ an explicitly local profile override, not a new real-model qualification. Those 
   no pending call. Convergence attempts 137–142 used 84,413 reported tokens. Shared aggregate limits
   remain null and each model call retains its 600-second deadline. The standing product convergence
   limits are separate from this qualification ledger. Private evidence is under the same live path.
-- Fresh upstream-to-v1b lineage with real candidate admission remains authorized Phase 3 work. CX-03 and whole-flow acceptance remain open.
+- This convergence-only check does not establish fresh candidate-to-v1b lineage; that evidence is
+  recorded in the checkpoint-bound composition below.
 
 ## Phase 3 optional Arena qualification
 
@@ -520,7 +523,8 @@ an explicitly local profile override, not a new real-model qualification. Those 
   research approval or a novelty/efficacy judgment.
 - The live helper starts with a controlled SearchRun/fulltext map and four roles from one section;
   it does not run extraction or the app checkpoint guard. In-memory domain repositories and JSON
-  artifact storage are disclosed. The next qualification covers fresh N5-to-v1b consumers; full app checkpoint composition remains, so this result alone does not close CX-03.
+  artifact storage are disclosed. This result alone does not close CX-03; the later source extraction
+  and checkpoint-bound composition below establish those additional claims.
 - Review found that CLI persistence_context could differ from the map lineage checked for model
   context. The context compiler now refuses missing/mismatched SearchRun, SearchPlan or snapshot
   refs before model work. A public-harness regression failed before correction and passes after it,
@@ -566,9 +570,9 @@ an explicitly local profile override, not a new real-model qualification. Those 
   source is not independent corroboration. Domain stores are in memory, artifacts cross JSON storage,
   and Human input is explicitly a fixture. The app evidence/gap checkpoint guard is not configured
   in this helper; this is a consumer chain, not full product checkpoint approval. Further inspection
-  found the selected-portfolio prompt incorrectly requires a single draft, and the strict CLI schema
-  renders mechanism_payload as an empty object. The following unit aligns both interfaces before qualifying the existing
-  two-distinct-viable-candidates gap checkpoint. CX-03 stays open.
+  found the selected-portfolio prompt incorrectly required a single draft, and the strict CLI schema
+  rendered mechanism_payload as an empty object. The comparative unit below corrects both interfaces;
+  the final checkpoint-bound composition supplies the two-distinct-candidate evidence for CX-03.
 - Verification: 132 focused harness/binding checks passed with three opt-in skips; the subsequent
   cross-link correction passed the two affected source-polarity tests; backend no-emit typecheck,
   llm:config:check (five checks) and workflow-matrix consistency passed. The four-call live test
@@ -658,13 +662,67 @@ an explicitly local profile override, not a new real-model qualification. Those 
   adapter and harness tests: 169 passed, three opt-in live skips; backend no-emit typecheck, config
   checks and matrix consistency pass. Independent review also passed 25 tests, rejected the actual
   165 output, accepted 164 and both historical Critic/framing/final sets (117–119 and 124–126), and
-  confirmed no downstream authority at 168. `checkpoint_debate_v2_live` starts at 169 to qualify
-  the repaired full chain; its result is pending.
+  confirmed no downstream authority at 168. The fix landed in 39b065f7.
+- `checkpoint_debate_v2_live` (169–174) completes N5 and all five repaired Debate calls. N5 v5
+  produces 11 units / 11 links as 33,519 compact JSON characters, preserving source and quote limits.
+  Two independent Explorers propose seven directions each; Critic and framing retain material
+  residual-need, intervention-comparison, task-specific, resource-budget and annotation-stability
+  objections. Final synthesis v4 returns `evidence_expansion_required` with no drafts, retaining
+  the objections and reopening conditions. This is an honest non-advance result, not a successful
+  checkpoint-to-v1b chain. It does not borrow the sole QA baseline unit for retrieval. Exact N5/N6
+  reconstructed-service replay adds no calls; the harness then fails its expected-candidate assertion.
+  Calls report 28,895 / 23,125 / 23,135 / 27,152 / 23,911 / 30,857 tokens; through 174:
+  3,664,511 reported tokens plus the same 11 unknowns. Independent review verifies all six role
+  outputs, exact predecessor bodies, 56 artifact checksums, 14 inner payload hashes, 31 artifact-ref
+  hashes, all output/trace/default-profile audit hashes and both complete claim/receipt results.
+- The next independent single-agent composition check adds the explicit BM25-baseline paragraph
+  (index 0 of the verified 17-paragraph original selection) before the existing eight focused
+  paragraphs. `/tmp/my-researcher-t153-phase2/beir-comparison-paragraphs.json` retains the source
+  body/hash; its nine paragraphs contain 5,198 characters with array SHA-256
+  `4e78146c033b185700e9afcafd43d6d207d6861e1f13530e9709c7aeaac17f7f`.
+  This supplies omitted original comparator context; it does not establish the missing prior-art
+  comparisons or justify reversing the completed Debate's judgment. Production prompts/gates are
+  unchanged. The fixed input hash and focused checkpoint test pass; independent source review
+  confirms the unchanged eight paragraphs and original comparator paragraph. The real single-agent
+  composition `checkpoint_comparison_v7_live` completes at 175–178, as recorded below.
+
+## Phase 3 checkpoint-bound composition
+
+- `checkpoint_comparison_v7_live` (175–178) passes the canonical source-to-v1b helper with the
+  actual EvidenceLandscape and GapSelection owners. N5 v5 extracts 13 units / 13 links, including
+  separate source-backed QA and BM25 baseline units. Exact evidence-snapshot Human review precedes
+  candidate persistence. Source retrieval, parser/readiness setup and Human inputs remain explicitly
+  controlled; repositories are in-memory with JSON artifact storage.
+- Single-agent N6 v5 produces two substantive historical capability candidates: middle-position
+  multi-document QA and domain/task-shift retrieval. The model prefers QA; the predeclared fixed
+  Human preference selects the actual retrieval candidate. Research object, comparison and outcome
+  differ in the actual bodies, matching the fixed Human comparison. QA has no challenge unit and
+  remains an exploratory alternative, not a separately readiness-qualified need. Retrieval uses its
+  own BM25 baseline and retains five source-grounded resource/annotation challenges.
+- N7 returns `validate` within the historical, single-study scope, with all five risk refs residual,
+  none accepted by the model, and required Human checks outstanding. The fixed Human input accepts
+  those exact five risks and checks, reviews both candidates against the current whole-pool hash,
+  and preserves scope/non-goals. Stale-hash and incomplete-pool reviews are rejected. N8 returns
+  `pass` with complete risk/check coverage and no scope violation; its text explicitly disclaims
+  actual research approval.
+- The resulting advancing gap checkpoint binds the exact Human authority. Publish creates exactly
+  one `v1b_input_bundle_168`, sourced from the actual persisted retrieval candidate, retaining its
+  evidence map/role bundle, five risks and two gap codes. Reconstructed-service N5/N6/N7/N8 replay
+  adds no model calls; repeated publish returns the same unique bundle. Gateway calls remain zero.
+  The live helper passes. Independent review verifies all four actual model outputs, 48 artifact
+  checksums, eight inner payload hashes, 19 artifact-ref hashes, all output/trace/default-profile
+  audit hashes and four complete claim/receipt results. N8's candidate statement, N7 rationale and
+  Human input match exactly; five residual risks survive Human acceptance and frozen publication.
+- Calls 175–178 report 30,572 / 33,644 / 24,822 / 12,261 tokens (101,299 total). Through 178:
+  3,765,810 reported tokens, the same 11 unknown-usage calls and no pending attempts. The per-call
+  deadline remains 600 seconds and all aggregate ceilings remain null. Together with the earlier
+  sampling, convergence, Arena and negative cases, this closes CX-03 and Phase 3. No actual research
+  approval, statistical quality calibration or full CLI relational recovery is claimed.
 
 ## Outstanding verification
 
-- Qualify the corrected Need Discovery portfolio/payload interface with substantive candidate alternatives
-  through the real evidence/gap checkpoint owners. The consumer-only lineage does not close CX-03 or whole-flow acceptance.
+- Phase 3 is closed. Remaining v1b/v1c profile integration and whole-workflow operation belong to
+  Phases 4–5; the full-task acceptance remains open.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
 - Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and

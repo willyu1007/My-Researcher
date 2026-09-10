@@ -9,8 +9,8 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
 | 1 | `topic-selection-resource-sampling-classification` | Product CLI enabled; stable submission ID, prepared-commit recovery and exact batch references verified; real pinned-abstract qualification attempt 93 passed | Phase 3 / CX-03 |
-| 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Product CLI enabled; repository original abstracts and explicitly bound original paragraphs; source/locator integrity, same-source scope refinements and N5-to-v1b consumer replay qualified | Phase 3 / CX-03 |
-| 3 | `topic-selection.generate-need-candidate.single-agent.v1` | Product CLI enabled; source/strength/conflict inputs, two real non-advance cases and exact recovery qualified | Phase 3 / CX-03 |
+| 2 | `topic-selection.evidence-map-extraction.single-agent.v1` | Product CLI enabled; original abstracts/bound paragraphs, quote/locator integrity and same-source refinements qualified; N5 v5 composes actual evidence/gap checkpoints through unique v1b publication | Phase 3 / CX-03 |
+| 3 | `topic-selection.generate-need-candidate.single-agent.v1` | Product CLI enabled; source/strength/conflict inputs, substantive candidate alternatives, non-advance and checkpoint-bound exact replay qualified with v5 | Phase 3 / CX-03 |
 | 4 | `topic-selection.need-adjudication.single-agent.v1` | Product CLI enabled; original-fulltext bounded/overclaim qualification and exact JSON receipt replay; model support cannot confirm a need | Phase 3 / CX-03 |
 | 5 | `topic-selection.confirmation-semantic-review.single-agent.v1` | Product CLI enabled; complete/incomplete fixed-Human qualification, exact Human input and JSON persistence replay verified | Phase 3 / CX-03 |
 | 6 | `topic-selection.need-discovery.explorer.v1` | Product CLI enabled; two independent Explorers qualified with scoped original evidence and exact identity | Phase 3 / CX-03 |
@@ -21,7 +21,7 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 11 | `topic-selection.evidence-convergence.empirical-skeptic.v1` | Product CLI enabled; independent source-limitation review, exact claims/retrieval lineage and stopped-failure recovery verified | Phase 3 / CX-03 |
 | 12 | `topic-selection.evidence-convergence.synthesis-arbiter.v1` | Product CLI enabled; consumes both actual first-pass bodies, preserves unresolved evidence and an undecided Human checkpoint | Phase 3 / CX-03 |
 | 13 | `topic-selection.need-discovery.arbiter-framing.v1` | Product CLI enabled; real summaries/identities consumed and concrete review questions preserved | Phase 3 / CX-03 |
-| 14 | `topic-selection.need-discovery.arbiter-final.v1` | Product CLI enabled; real five-call loops, consumed process refs, portfolio gates and exact replay qualified | Phase 3 / CX-03 |
+| 14 | `topic-selection.need-discovery.arbiter-final.v1` | Product CLI enabled; real five-call loops, per-role complete-reference admission, consumed process bodies, v4 evidence-expansion judgment and exact replay qualified | Phase 3 / CX-03 |
 | 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | N4 draft generation; preserve N5 human selection | Phase 4 / CX-04 |
 | 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; product CLI qualified | Phase 2 / CX-02 |
 | 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; product CLI qualified | Phase 2 / CX-02 |

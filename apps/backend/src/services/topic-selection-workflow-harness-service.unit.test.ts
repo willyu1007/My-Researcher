@@ -3446,6 +3446,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
     assert.ok([
       '2024b3b422976030b018733e711bff634697eb3eb6e3828b3b2e62a69defff72', // complete S5/S6 prose selection
       '9d80cb9b51e5c5dba197970aa95c551881edc2cee2518dd7ee66372a122d9647', // focused comparison, costs and annotation-bias selection
+      '4e78146c033b185700e9afcafd43d6d207d6861e1f13530e9709c7aeaac17f7f', // same focused selection plus the explicit BM25 baseline paragraph
     ].includes(sha256Text(JSON.stringify(alternative.paragraphs))));
     sources.push(alternative);
   }
