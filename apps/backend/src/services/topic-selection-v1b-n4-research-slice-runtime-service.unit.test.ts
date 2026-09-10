@@ -294,7 +294,7 @@ test('v1b N4 research-slice runtime is byte-stable across runs with identical fi
 // T-128 W-05 — N4 research-slice prompt-body byte-identity drift anchor. Pin the rendered SYSTEM
 // content so any body change is a LOUD, intentional re-baseline. No harness/replay/e2e guard pins this
 // v1b prompt body, so this is its only drift coverage. Re-baseline ONLY for a deliberate change.
-const N4_RESEARCH_SLICE_SYSTEM_GOLDEN = 'c111329935c65fb0b6746a2ab235b503a9beec7554701dcb55c061a9d54b0e4c';
+const N4_RESEARCH_SLICE_SYSTEM_GOLDEN = '6fff8b46ac4ce694bb398b8694001d4253c29ca320e890c36df0d27dbe488561';
 test('v1b N4 research-slice prompt body is byte-identity drift-anchored (T-128 W-05)', () => {
   assert.equal(sha256Text(buildV1bN4ResearchSliceSystemContent()), N4_RESEARCH_SLICE_SYSTEM_GOLDEN);
   // Must-preserve substrings the artifact/admission asserts depend on.

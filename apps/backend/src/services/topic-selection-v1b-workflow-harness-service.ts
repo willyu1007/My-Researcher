@@ -1,3 +1,4 @@
+import { stableStringify } from './literature-content-processing-utils.js';
 import { verifyRefinementDeltaCliDerivation } from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
 import type { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
 import type { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
@@ -808,6 +809,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     this.now = options.now ?? (() => new Date().toISOString());
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
     this.n4ResearchSliceRuntime = new TopicSelectionV1bN4ResearchSliceRuntimeService(controlPlane, {
+      resolveResearchContext: request => this.resolveCodexResearchContext(request),
       agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
@@ -1089,6 +1091,18 @@ export class TopicSelectionV1bWorkflowHarnessService {
   async resolveCodexResearchContext(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<Record<string, unknown>> {
     const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
     if (dependencyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependencyBlocker.message);
+    if (input.node_id === 'topic-selection.v1b.generate-research-slice-options.v1') {
+      const prepared = await this.prepareN4Context(input);
+      if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
+      const { snapshot, profile, readiness, planningInput } = prepared.value;
+      const evidenceRefs = uniqueRefs(Object.values(planningInput.evidence_role_bundle).flat());
+      const evidencePackets = await this.resolveCodexEvidencePackets(input, evidenceRefs, {
+        query: 'Compare feasible research slices for the frozen validated need and accepted constraints.',
+        target_claim: stableStringify(planningInput.claim_ceiling),
+        rationale: 'Resolve frozen research evidence without changing its scope.',
+      });
+      return { frozen_domain: { snapshot, profile, readiness }, evidence_packets: evidencePackets };
+    }
     let bodies: N6LoadedContext | N8LoadedContext | (N7LoadedContext & Pick<N6LoadedContext, 'researchSlice' | 'evidenceRefs'>);
     let admissibleCitationRefs: TopicSelectionFunctionalRef[] | undefined;
     let regenerationContext: Record<string, unknown> | undefined;
@@ -1127,28 +1141,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
       const evidenceRefs = await repository.listEvidenceRefsByResearchSliceId(researchSlice.research_slice_id);
       bodies = { ...loaded.value, researchSlice, evidenceRefs };
     } else {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N6/N7/N8.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N4/N6/N7/N8.');
     }
     const evidenceRefs = uniqueRefs(bodies.evidenceRefs.map(row => row.evidence_ref));
-    if (!input.title_card_id || !this.evidencePacketResolver) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context requires a title and configured evidence packet resolver.');
-    }
-    if (evidenceRefs.some(ref => ref.ref_type !== 'evidence_unit')) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Frozen research evidence must resolve to scoped EvidenceUnits before Codex execution.');
-    }
-    const evidencePackets = [];
-    for (let offset = 0; offset < evidenceRefs.length; offset += 12) {
-      evidencePackets.push(await this.evidencePacketResolver.resolve({
-        schema_version: 'TopicSelectionResearchEvidencePacketRequest@v1', title_card_id: input.title_card_id,
-        participant_role: 'synthesis_arbiter',
-        query_intent: {
-          intent_type: 'support', query: bodies.researchSlice.slice_statement,
-          target_claim: bodies.researchSlice.expected_claim,
-          rationale: 'Resolve the frozen question/value review evidence without changing its scope.',
-        },
-        evidence_unit_refs: evidenceRefs.slice(offset, offset + 12),
-      }));
-    }
+    const evidencePackets = await this.resolveCodexEvidencePackets(input, evidenceRefs, {
+      query: bodies.researchSlice.slice_statement, target_claim: bodies.researchSlice.expected_claim,
+    });
     if ('reviewedRefinement' in bodies && bodies.reviewedRefinement) {
       const { currentContract, previousContract, currentAnswerabilityPlan, previousAnswerabilityPlan } = bodies.reviewedRefinement;
       // The review concerns this exact delta. Handoffs/formation logs duplicate these bodies and
@@ -1169,6 +1167,30 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return { frozen_domain: frozenDomain, evidence_packets: evidencePackets,
       ...(regenerationContext ? { regeneration_context: regenerationContext } : {}),
       ...(admissibleCitationRefs ? { admissible_citation_refs: admissibleCitationRefs } : {}) };
+  }
+
+  private async resolveCodexEvidencePackets(input: TopicSelectionV1bWorkflowHarnessRunRequest,
+    evidenceRefs: TopicSelectionFunctionalRef[], intent: { query: string; target_claim: string; rationale?: string }) {
+    if (!input.title_card_id || !this.evidencePacketResolver) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context requires a title and configured evidence packet resolver.');
+    }
+    if (evidenceRefs.some(ref => ref.ref_type !== 'evidence_unit')) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Frozen research evidence must resolve to scoped EvidenceUnits before Codex execution.');
+    }
+    const evidencePackets = [];
+    for (let offset = 0; offset < evidenceRefs.length; offset += 12) {
+      evidencePackets.push(await this.evidencePacketResolver.resolve({
+        schema_version: 'TopicSelectionResearchEvidencePacketRequest@v1', title_card_id: input.title_card_id,
+        participant_role: 'synthesis_arbiter',
+        query_intent: {
+          intent_type: 'support', query: intent.query,
+          target_claim: intent.target_claim,
+          rationale: intent.rationale ?? 'Resolve the frozen question/value review evidence without changing its scope.',
+        },
+        evidence_unit_refs: evidenceRefs.slice(offset, offset + 12),
+      }));
+    }
+    return evidencePackets;
   }
 
   /** Resolve failed proposal bodies against the existing, validated regeneration projection. */
@@ -1360,9 +1382,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private async invokeCliNode(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
     if (input.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1') return this.invokeCliN7Admission(input);
     if (input.execution_spec?.model_option_id != null || ![
+      'topic-selection.v1b.generate-research-slice-options.v1',
       'topic-selection.v1b.generate-topic-question-candidates.v1', 'topic-selection.v1b.assess-topic-value.v1',
     ].includes(input.node_id)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex CLI execution is supported only for the integrated N6/N8 route, without gateway model options.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Codex CLI execution is supported only for the integrated N4/N6/N8 route, without gateway model options.');
     }
     const request = { ...input, run_mode: input.run_mode ?? 'product' as const };
     const policy = this.getNodePolicy(request.node_id);
@@ -1373,7 +1396,17 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const policyBlocker = this.policyBlocker(policy, request, hashContext);
     if (policyBlocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', policyBlocker.message);
     let artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
-    if (request.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
+    if (request.node_id === 'topic-selection.v1b.generate-research-slice-options.v1') {
+      const prepared = await this.prepareN4Context(request);
+      if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
+      const generated = await this.n4ResearchSliceRuntime.generateDraftArtifact({
+        request, planning_input: prepared.value.planningInput, execution_mode: 'codex_cli', run_mode: request.run_mode,
+      });
+      if (generated.status !== 'succeeded') {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N4 CLI did not produce an admitted draft.', { blocker_codes: generated.invocation_result.blocker_codes });
+      }
+      artifact = generated.semantic_artifact;
+    } else if (request.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
       const n7 = await this.n6InputCarriesN7LoopbackProjection(request);
       const n6 = await this.n6InputCarriesN6GateFailureProjection(request);
       if (!n7.ok || !n6.ok || (n7.value && n6.value)) {
@@ -5083,6 +5116,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       result: resultWithoutTraceArtifact,
       created_at: this.now(),
     } satisfies TopicSelectionV1bWorkflowHarnessTracePayload;
+    // CLI receipts hash the JSON value that survives persistence, including optional issue/request fields.
+    const persistedTrace = this.cliNodeCommitKey(input)
+      ? JSON.parse(JSON.stringify(tracePayload)) as Record<string, unknown>
+      : tracePayload as unknown as Record<string, unknown>;
     const cliCommitKey = this.cliNodeCommitKey(input);
     const traceArtifact = await this.controlPlane.recordArtifactRef({
       stable_key: cliCommitKey ? `${cliCommitKey}:result` : undefined,
@@ -5092,7 +5129,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       storage_kind: 'inline',
       workflow_run_id: input.workflow_run_id,
       input_snapshot_id: prepared.inputSnapshot.input_snapshot_id,
-      payload: tracePayload as unknown as Record<string, unknown>,
+      payload: persistedTrace,
       created_by: createdBy,
     });
     const result: TopicSelectionV1bWorkflowHarnessRunResult = {
@@ -11061,6 +11098,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     if (
       semanticArtifact.runtime_provenance_class === 'runtime_verified'
+      && semanticArtifact.execution_mode !== 'codex_cli'
       && semanticArtifact.execution_mode !== 'codex_assisted'
       && semanticArtifact.execution_mode !== 'mocked_llm'
     ) {
@@ -11078,8 +11116,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     const admissionExecutionMode = semanticArtifact.execution_mode === 'mocked_llm'
       ? 'mocked_llm'
-      : 'codex_assisted';
-    const expectedIdentity = this.resolveN4ResearchSliceAdmissionExpectedIdentity({
+      : semanticArtifact.execution_mode === 'codex_cli' ? 'codex_cli' : 'codex_assisted';
+    const expectedIdentity = await this.resolveN4ResearchSliceAdmissionExpectedIdentity({
       input,
       payload,
       planningInput,
@@ -11128,10 +11166,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     ) {
       return n4RuntimeAuditDrift('N4 runtime research-slice draft provenance must point to its audit artifact_ref.');
     }
+    if (artifact.execution_mode === 'codex_cli' && !await this.n4ResearchSliceRuntime.hasCliGenerationReceipt(input, artifact)) {
+      return n4RuntimeAuditDrift('N4 CLI draft is missing its protected generation receipt.');
+    }
     const auditArtifact = await this.controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
     if (
       !auditArtifact
       || auditArtifact.artifact_kind !== 'diagnostic'
+      || auditArtifact.checksum !== canonicalHash(auditArtifact.payload)
       || auditArtifact.checksum !== artifact.runtime_audit_hash
       || auditArtifact.workflow_run_id !== input.workflow_run_id
     ) {
@@ -11142,7 +11184,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return n4RuntimeAuditDrift('N4 runtime research-slice draft audit payload is not a valid invocation audit snapshot.');
     }
     const provenance = auditPayload.provenance;
-    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
+    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : artifact.execution_mode === 'codex_cli' ? 'codex_cli_response' : 'codex_response';
     if (
       auditPayload.node_id !== input.node_id
       || auditPayload.workflow_run_id !== input.workflow_run_id
@@ -11169,20 +11211,20 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return { ok: true };
   }
 
-  private resolveN4ResearchSliceAdmissionExpectedIdentity(input: {
+  private async resolveN4ResearchSliceAdmissionExpectedIdentity(input: {
     input: TopicSelectionV1bWorkflowHarnessRunRequest;
     payload: TopicSelectionV1bN4HarnessFrozenInputPayload;
     planningInput: TopicSelectionV1bResearchSlicePlanningInput;
     draftHash: string;
     semanticArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
-    admissionExecutionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
-  }): { ok: true; value: TopicSelectionV1bN4ResearchSliceAdmissionExpectedIdentity } | {
+    admissionExecutionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
+  }): Promise<{ ok: true; value: TopicSelectionV1bN4ResearchSliceAdmissionExpectedIdentity } | {
     ok: false;
     code: string;
     message: string;
-  } {
+  }> {
     try {
-      const value = this.n4ResearchSliceRuntime.buildAdmissionExpectedIdentity({
+      const value = await this.n4ResearchSliceRuntime.buildAdmissionExpectedIdentity({
         request: input.input,
         frozenPayload: input.payload,
         planningInput: input.planningInput,
@@ -11784,15 +11826,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
       result: resultWithoutTraceArtifact,
       created_at: this.now(),
     } satisfies TopicSelectionV1bWorkflowHarnessTracePayload;
+    // CLI receipts hash the JSON value that survives persistence, including optional issue/request fields.
+    const persistedTrace = this.cliNodeCommitKey(input)
+      ? JSON.parse(JSON.stringify(tracePayload)) as Record<string, unknown>
+      : tracePayload as unknown as Record<string, unknown>;
     const traceArtifact = await this.controlPlane.recordArtifactRef({
-      stable_key: this.cliNodeCommitKey(input) ? `${this.cliNodeCommitKey(input)}:blocked:${canonicalHash(tracePayload)}` : undefined,
+      stable_key: this.cliNodeCommitKey(input) ? `${this.cliNodeCommitKey(input)}:blocked:${canonicalHash(persistedTrace)}` : undefined,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? null,
       artifact_kind: 'trace',
       storage_kind: 'inline',
       workflow_run_id: input.workflow_run_id,
       input_snapshot_id: inputSnapshot.input_snapshot_id,
-      payload: tracePayload as unknown as Record<string, unknown>,
+      payload: persistedTrace,
       created_by: createdBy,
     });
     const result: TopicSelectionV1bWorkflowHarnessRunResult = {

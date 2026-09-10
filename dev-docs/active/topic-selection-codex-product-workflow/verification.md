@@ -5,7 +5,7 @@
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 4 on 2026-09-10 after Phase 3 closeout | confirmed through Phase 4 | Phase 5 remains required and outside current authorization; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream, three evidence-convergence and two optional Arena profiles admit product CLI (25 total); 11 selection/promotion profiles remain closed. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream, three evidence-convergence and two optional Arena profiles plus N4 admit product CLI (26 total); 10 selection/promotion profiles remain closed. |
 | CX-03 / Phase 3 closeout | Sampling/recovery, extraction/discovery, adjudication/confirmation, convergence and Arena checks; repaired Debate 169–174 and checkpoint-bound source-to-v1b 175–178 | passed with independent semantic, artifact and replay review | Actual model outputs, exact product checkpoint owners and unique frozen lineage; retrieval/readiness and Human inputs remain controlled, JSON/in-memory persistence is not full CLI relational recovery. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
@@ -15,11 +15,61 @@
 | Exact Human delta / CX-02 | Coordinator/harness/refinement tests | 196 passed before final timeout fix; coordinator then 68 passed; directed final recovery 3 passed | Three CLI role calls preserve the exact current contract, produce a separately audited deterministic admission, and reopen pending Human confirmation. Interrupted derivation write reuses completed attempts. No real Human decisions. |
 | Timeout and no-op recovery | Delayed refinement runtime test and directed coordinator cases | passed | Whole review plus final N7 gate shares timeout; node_timeout→node_in_flight→settled recovery executes once. Canonical no-op is mechanical. Joint review finding corrected and re-reviewed. |
 | Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
-| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. Prompt catalog/scenario versions align; 25 profiles admit product CLI and 11 stay closed; individual qualification boundaries are recorded below. |
+| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. Prompt catalog/scenario versions align; 26 profiles admit product CLI and 10 stay closed; individual qualification boundaries are recorded below. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
 | Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This earlier preparation used no model calls and did not itself qualify or activate profiles. |
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
 | CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
+
+## Phase 4 — N4 research-slice generation
+
+The canonical harness invocation and coordinator accept `codex_cli/product` for N4. The runtime
+loads frozen N1/N2/N3 bodies and original evidence through the existing packet resolver; complete
+nested references, claim ceilings, portfolio disposition and the existing option gate remain enforced.
+Protected draft and domain receipts preserve completed output, exact replay and ambiguous-write
+exclusion. No model-created option is automatically selected: the next node remains N5 Human.
+
+- Local verification: full N4 runtime/admission, coordinator and harness suites passed **212 checks**
+  with two opt-in skips. Seven N4 CLI cases cover original-context compilation, all five reference
+  identity fields/nested inventions, missing generation receipt recovery, two-consumer exclusion,
+  ambiguous partial domain write, forged external audit, non-advance, JSON admitted/blocked replay
+  and coordinator Human stop. Registry suite passed 13 checks; the seven CLI cases are repeated
+  against shipped eligibility. Backend no-emit typecheck, config (5 checks), matrix and diff checks
+  passed. Public v1b HTTP suite passed 18 checks with one unavailable Prisma smoke skip.
+- Source qualification: nine pinned original BEIR v4 S5/S6 paragraphs, 5,198 characters, with actual
+  quote/locator validation; fulltext SHA256 `9857965c203b4935ec628a8ff203f3fe6666580d12d12f63607ca618c31b7070`
+  and paragraph-array SHA256 `4e78146c033b185700e9afcafd43d6d207d6861e1f13530e9709c7aeaac17f7f`.
+  Evidence-role extraction, readiness and upstream Human decisions are controlled fixtures; this
+  unit does not claim the Phase 3 source-to-v1b chain was composed into N4.
+- Attempts 179 and 180 were correctly refused: v2 mixed authority refs into portfolio evidence;
+  v3 selected options while retaining hard blockers. Prompt v4 makes the existing gate contract
+  explicit without relaxing it. Attempt 181 retains two parked, blocked alternatives and requests
+  evidence expansion with concrete reopening conditions; no option-set or advancing handoff.
+- Attempts 182 and 183 use a separate explicit Human test assumption that aligned historical
+  ranking archives, qrels, scoring script and workstation access exist. They do not establish actual
+  project resource availability. Both outputs retain this distinction and propose bounded historical
+  scoring/coverage analyses, without novelty, current-model, causal or corrected-relevance claims.
+  Attempt 183 produces a selectable option set and stops at N5 Human; reconstructed service replay
+  creates no additional model call or option set.
+- Attempt 182 exposed a completion checksum defect: optional `refs: undefined` was hashed before
+  JSON persistence dropped it. The original failing checksum is reproducible by restoring precisely
+  those three undefined fields. CLI completed/blocked trace content is now normalized at persistence;
+  both checksum and blocked stable key use that same JSON value. Public admitted-warning and
+  blocked-undefined replay tests reproduce the old failure and pass after correction. The original
+  182 failure remains in its raw evidence; 183 verifies the corrected full path. No hash algorithm or
+  pre-existing upstream authority identity changed.
+- Shipped N4 profile hash `b8d1d30371327540ee2176a1ce54cd44ab42bb178d3a53b0ca16137fafd9d08d`
+  exactly matches successful real audits 181 and 183. Prompt v4 rendered SHA256
+  `6fff8b46ac4ce694bb398b8694001d4253c29ca320e890c36df0d27dbe488561`.
+  Qualification used `gpt-6-astra`, high effort, App Server and the existing 600-second call timeout;
+  aggregate limits remain null. Through 183: **3,913,913 reported tokens**, 11 unknown-usage calls,
+  no pending attempts. Raw evidence stays under `/tmp/my-researcher-t153-phase2/live/` as
+  `attempt-179` through `attempt-183` and `n4_beir_*`; no secrets are added to the repository.
+
+Independent review covers the source/model semantics, actual persisted receipts, complete references,
+N5 Human stop and the trace correction. Full CLI relational restart and actual research acceptance
+remain outside these in-memory/JSON and controlled-Human qualifications. The ten remaining Phase 4
+support/promotion profiles stay closed until their own consumer and model checks pass.
 
 ## Implementation quality review
 

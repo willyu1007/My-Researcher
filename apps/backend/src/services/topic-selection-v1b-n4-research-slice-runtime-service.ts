@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
@@ -112,6 +113,7 @@ export type TopicSelectionV1bN4ResearchSliceRuntimeContextPacket = {
   source_hashes: Record<string, string>;
   frozen_input_payload: TopicSelectionV1bN4HarnessFrozenInputPayload;
   planning_input: TopicSelectionV1bResearchSlicePlanningInput;
+  research_context?: Record<string, unknown>;
   required_structure_manifest: TopicSelectionV1bN4RequiredStructureManifest;
 };
 
@@ -133,7 +135,7 @@ export type TopicSelectionV1bN4RuntimeCompressionAttempt = {
 export type GenerateTopicSelectionV1bN4RuntimeDraftInput = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
   planning_input: TopicSelectionV1bResearchSlicePlanningInput;
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
   runtime_token_budget_overrides?: TopicSelectionV1bN4RuntimeTokenBudgetOverrides | null;
   compression_attempt?: TopicSelectionV1bN4RuntimeCompressionAttempt | null;
@@ -178,6 +180,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
@@ -186,8 +189,10 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
       promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
+      resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
     } = {},
   ) {
+    this.resolveResearchContext = options.resolveResearchContext;
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -201,11 +206,17 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
   async generateDraftArtifact(
     input: GenerateTopicSelectionV1bN4RuntimeDraftInput,
   ): Promise<TopicSelectionV1bN4RuntimeDraftGenerationResult> {
+    if (input.execution_mode === 'codex_cli' && (input.codex_response != null || input.mocked_output != null
+      || input.compression_attempt != null || input.runtime_token_budget_overrides != null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N4 CLI requires original runtime context without external answers or budget/compression overrides.');
+    }
     const frozenPayload = this.assertN4FrozenPayload(input.request);
     this.assertPlanningInput(input.planning_input, frozenPayload);
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
     const sourceHashes = this.sourceHashes(input.request, frozenPayload, input.planning_input);
+    const researchContext = await this.resolveCliResearchContext(input.request, input.execution_mode);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
@@ -221,11 +232,22 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       runtimeProfile,
       runtimeInvocationContextHash,
       sourceHashes,
-      requiredStructureManifest,
+      requiredStructureManifest, researchContext,
     });
     this.assertRequiredStructureManifest(contextPacket);
     const contextPacketHash = this.hash(contextPacket);
+    const receiptKey = `n4-cli-draft:${this.hash([input.request.workflow_run_id, input.request.node_attempt_id])}`;
+    const receiptHash = input.execution_mode === 'codex_cli' ? this.hash({
+      request: input.request, contextPacketHash, binding, runMode,
+      runner: this.agentOrchestrator.codexCliExecutionIdentity,
+      prompt: this.messages(binding, contextPacket), profile: this.resolveModelProfile(binding, input.execution_mode, runMode).profile_hash,
+    }) : null;
+    if (receiptHash) {
+      const previous = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+      if (previous) return this.readReceiptResult(previous, receiptHash);
+    }
     const contextArtifact = await this.controlPlane.recordArtifactRef({
+      ...(receiptHash ? { stable_key: `${receiptKey}:context:${contextPacketHash}` } : {}),
       workspace_id: input.request.workspace_id ?? null,
       title_card_id: input.request.title_card_id ?? null,
       artifact_kind: 'diagnostic',
@@ -260,7 +282,12 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       input_refs: contextPacket.source_refs,
       context_packet_refs: [contextPacketRef],
       context_packet_hashes: [contextPacketHash],
-      runtime_token_budget: this.runtimeTokenBudget({
+      runtime_token_budget: input.execution_mode === 'codex_cli' ? {
+        context_policy_profile: runtimeProfile.profile,
+        context_policy_profile_hash: runtimeProfile.profile_hash,
+        runtime_invocation_context_hash: runtimeInvocationContextHash,
+        context_payloads: [],
+      } : this.runtimeTokenBudget({
         runtimeProfile,
         runtimeInvocationContextHash,
         contextPacket,
@@ -281,6 +308,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       };
     }
 
+    if (input.execution_mode === 'codex_cli') assertV1aCodexReferences(invocation.structured_output, contextPacket);
     const semanticArtifact = await this.recordSemanticDraftArtifact({
       request: input.request,
       binding,
@@ -293,7 +321,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       sourceHashes,
       createdBy: input.created_by ?? input.request.created_by ?? 'system',
     });
-    return {
+    const result: TopicSelectionV1bN4RuntimeDraftGenerationResult = {
       status: 'succeeded',
       semantic_artifact: semanticArtifact,
       structured_output: invocation.structured_output,
@@ -301,18 +329,54 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       context_packet_ref: contextPacketRef,
       context_packet_hash: contextPacketHash,
     };
+    if (receiptHash) {
+      const payload = { request_hash: receiptHash, result };
+      try {
+        await this.controlPlane.recordArtifactRef({
+          stable_key: receiptKey, workspace_id: input.request.workspace_id ?? null,
+          title_card_id: input.request.title_card_id ?? null, workflow_run_id: input.request.workflow_run_id,
+          artifact_kind: 'diagnostic', storage_kind: 'inline', payload, checksum: this.hash(payload), created_by: 'system',
+        });
+      } catch (error) {
+        const winner = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+        if (!winner) throw error;
+        return this.readReceiptResult(winner, receiptHash);
+      }
+    }
+    return result;
   }
 
-  buildAdmissionExpectedIdentity(input: {
+  async hasCliGenerationReceipt(request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef): Promise<boolean> {
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(`n4-cli-draft:${this.hash([request.workflow_run_id, request.node_attempt_id])}`);
+    const result = receipt?.payload?.result as TopicSelectionV1bN4RuntimeDraftGenerationResult | undefined;
+    return Boolean(receipt?.artifact_kind === 'diagnostic' && receipt.payload
+      && receipt.checksum === this.hash(receipt.payload)
+      && receipt.workflow_run_id === request.workflow_run_id
+      && (receipt.title_card_id ?? null) === (request.title_card_id ?? null)
+      && (receipt.workspace_id ?? null) === (request.workspace_id ?? null)
+      && result?.status === 'succeeded'
+      && this.hash(result.semantic_artifact) === this.hash(artifact));
+  }
+
+  private readReceiptResult(record: TopicSelectionArtifactRefRecord, requestHash: string): TopicSelectionV1bN4RuntimeDraftGenerationResult {
+    const result = record.payload?.result as TopicSelectionV1bN4RuntimeDraftGenerationResult | undefined;
+    if (!result || record.checksum !== this.hash(record.payload) || record.payload?.request_hash !== requestHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'N4 CLI draft replay input or runtime identity drifted.');
+    }
+    return result;
+  }
+
+  async buildAdmissionExpectedIdentity(input: {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
     frozenPayload: TopicSelectionV1bN4HarnessFrozenInputPayload;
     planningInput: TopicSelectionV1bResearchSlicePlanningInput;
     normalizedPayloadHash: string;
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
     runMode: TopicSelectionAgentRunMode;
     profileId: string;
     modelOptionId: string | null;
-  }): TopicSelectionV1bN4ResearchSliceAdmissionExpectedIdentity {
+  }): Promise<TopicSelectionV1bN4ResearchSliceAdmissionExpectedIdentity> {
     const binding = this.slotBinding();
     if (input.profileId !== binding.model_profile_id) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'v1b N4 research-slice draft profile does not match runtime slot binding.');
@@ -322,6 +386,8 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
     }
     this.assertPlanningInput(input.planningInput, input.frozenPayload);
     const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, input.planningInput);
+    const researchContext = await this.resolveCliResearchContext(input.request, input.executionMode);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const requiredStructureManifest = this.requiredStructureManifest(sourceHashes);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
@@ -337,7 +403,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       runtimeProfile,
       runtimeInvocationContextHash,
       sourceHashes,
-      requiredStructureManifest,
+      requiredStructureManifest, researchContext,
     });
     this.assertRequiredStructureManifest(contextPacket);
     const modelProfile = this.resolveModelProfile(binding, input.executionMode, input.runMode);
@@ -387,7 +453,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
     binding: N4RuntimeSlotBinding;
     runMode: TopicSelectionAgentRunMode;
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
     structuredOutput: TopicSelectionV1bResearchSliceOptionSetDraftPayload;
     invocation: TopicSelectionAgentInvocationResult<TopicSelectionV1bResearchSliceOptionSetDraftPayload>;
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
@@ -459,6 +525,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
     requiredStructureManifest: TopicSelectionV1bN4RequiredStructureManifest;
+    researchContext?: Record<string, unknown>;
   }): TopicSelectionV1bN4ResearchSliceRuntimeContextPacket {
     return {
       schema_version: 'TopicSelectionV1bN4ResearchSliceRuntimeContextPacket@v1',
@@ -479,6 +546,7 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
       source_hashes: input.sourceHashes,
       frozen_input_payload: input.frozenPayload,
       planning_input: input.planningInput,
+      ...(input.researchContext ? { research_context: input.researchContext } : {}),
       required_structure_manifest: input.requiredStructureManifest,
     };
   }
@@ -925,8 +993,14 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
     }
   }
 
+  private async resolveCliResearchContext(request: TopicSelectionV1bWorkflowHarnessRunRequest, mode: TopicSelectionAgentExecutionMode) {
+    if (mode !== 'codex_cli') return undefined;
+    if (!this.resolveResearchContext) throw new AppError(400, 'INVALID_PAYLOAD', 'N4 CLI requires the scoped research context resolver.');
+    return this.resolveResearchContext(request);
+  }
+
   private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'codex_cli' ? 'product' : executionMode === 'mocked_llm' ? 'test' : 'acceptance';
   }
 
   private executorKind(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionExecutorKind {

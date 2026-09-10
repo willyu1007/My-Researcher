@@ -1,10 +1,10 @@
 # Execution inventory
 
-Inventory established at `a5263023`, reconciled with the current Phase 3 implementation on 2026-09-10. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
+Inventory established at `a5263023`, reconciled with the current Phase 4 implementation on 2026-09-10. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), leaving 11 closed (25 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), Phase 4 opens N4 (#15), leaving 10 closed (26 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
@@ -22,7 +22,7 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 12 | `topic-selection.evidence-convergence.synthesis-arbiter.v1` | Product CLI enabled; consumes both actual first-pass bodies, preserves unresolved evidence and an undecided Human checkpoint | Phase 3 / CX-03 |
 | 13 | `topic-selection.need-discovery.arbiter-framing.v1` | Product CLI enabled; real summaries/identities consumed and concrete review questions preserved | Phase 3 / CX-03 |
 | 14 | `topic-selection.need-discovery.arbiter-final.v1` | Product CLI enabled; real five-call loops, per-role complete-reference admission, consumed process bodies, v4 evidence-expansion judgment and exact replay qualified | Phase 3 / CX-03 |
-| 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | N4 draft generation; preserve N5 human selection | Phase 4 / CX-04 |
+| 15 | `topic-selection.v1b.research-slice-options.single-agent.v1` | Product CLI enabled; original BEIR evidence qualification covers evidence expansion and selectable controlled-availability plans, protected JSON replay and N5 Human stop | Phase 4 / CX-04 |
 | 16 | `topic-selection.v1b.topic-question-candidates.single-agent.v1` | N6 CLI Debate bridge consumes admitted final deterministically without an extra model call; product CLI qualified | Phase 2 / CX-02 |
 | 17 | `topic-selection.v1b.topic-value-assessment.single-agent.v1` | Ordinary CLI assessment and deterministic Debate bridge integrated; product CLI qualified | Phase 2 / CX-02 |
 | 18 | `topic-selection.v1b.constraint-profile-support.codex.v1` | External support today; prepare suggestions, retain Human constraint authority | Phase 4 / CX-04 |

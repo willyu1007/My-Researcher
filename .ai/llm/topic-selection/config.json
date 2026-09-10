@@ -74,7 +74,7 @@
       "system": "prompts/v1b/n3-intake-readiness-support/system.md"
     },
     "topic-selection.v1b.n4.research-slice-options.runtime-draft": {
-      "version": "v1",
+      "version": "v4",
       "system": "prompts/v1b/n4-research-slice-options/system.md"
     },
     "topic-selection.v1b.n5.slice-selection.runtime-support": {

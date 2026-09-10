@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import type { TopicSelectionEvidenceUnitRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import { InMemoryLiteratureRepository } from '../../repositories/in-memory-literature-repository.js';
 import type { TopicSelectionEvidenceMapRepository } from '../../repositories/topic-selection-evidence-map.repository.js';
@@ -59,6 +60,59 @@ export async function qualificationSources(file: string, titleCardId: string, in
         return [id, { ready: Boolean(abstract?.abstractText), reason: 'EVIDENCE_READY' as const,
           freshness: 'fresh' as const, freshness_detail: null }] as const;
       }))),
+    }),
+  };
+}
+
+/** Controlled evidence units over the previously verified BEIR comparison and bias paragraphs.
+ * Source and quote resolution are real; retrieval, extraction and upstream Human choices are fixtures.
+ */
+export async function qualificationBeirParagraphs(file: string, titleCardId: string) {
+  const source: { url: string; text: string; paragraphs: string[] } = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(source.url, 'https://arxiv.org/html/2104.08663v4#S5');
+  assert.equal(sha256Text(source.text), '9857965c203b4935ec628a8ff203f3fe6666580d12d12f63607ca618c31b7070');
+  assert.equal(sha256Text(JSON.stringify(source.paragraphs)), '4e78146c033b185700e9afcafd43d6d207d6861e1f13530e9709c7aeaac17f7f');
+  const literature = new InMemoryLiteratureRepository();
+  const literatureId = 'arxiv:2104.08663v4';
+  const documentId = 'qualification-beir-document';
+  const dates = { createdAt: '2026-09-10T00:00:00.000Z', updatedAt: '2026-09-10T00:00:00.000Z' };
+  const ref = (ref_type: string, ref_id: string) => ({ ref_type, ref_id, title_card_id: titleCardId, version_id: null });
+  await literature.upsertFulltextExtractionBundle({
+    document: { id: documentId, literatureId, sourceAssetId: 'qualification-beir-asset', normalizedText: source.text,
+      normalizedTextPath: null, normalizedTextChecksum: sha256Text(source.text), parserName: 'controlled-pinned-original', parserVersion: 'v1',
+      parserArtifactPath: null, parserArtifactMimeType: null, status: 'READY', diagnostics: [], ...dates },
+    sections: [{ id: 'qualification-beir-prose', documentId, sectionId: 'qualification-beir-prose', title: 'BEIR S5/S6 prose',
+      level: 1, orderIndex: 1, startOffset: 0, endOffset: source.text.length, pageStart: 1, pageEnd: 1, checksum: sha256Text(source.text), ...dates }],
+    anchors: [], paragraphs: source.paragraphs.map((text, index) => {
+      const start = source.text.indexOf(text);
+      assert.ok(text.trim() && start >= 0);
+      const id = `qualification-beir-paragraph-${index + 1}`;
+      return { id, documentId, paragraphId: id, sectionId: 'qualification-beir-prose', orderIndex: index + 1, text,
+        startOffset: start, endOffset: start + text.length, pageNumber: null, checksum: sha256Text(text), confidence: 1, ...dates };
+    }),
+  });
+  const roles = ['baseline', 'support', 'challenge', 'context', 'context', 'challenge', 'context', 'challenge', 'challenge'] as const;
+  const units: TopicSelectionEvidenceUnitRecord[] = source.paragraphs.map((text, index) => {
+    const paragraph = ref('fulltext_paragraph', `qualification-beir-paragraph-${index + 1}`);
+    const literatureRef = ref('literature_record', literatureId);
+    const sourceRef = ref('literature_source', source.url);
+    return { evidence_unit_id: `qualification-beir-unit-${index + 1}`, title_card_id: titleCardId,
+      evidence_map_id: 'evidence_map_1', evidence_map_version: 'v1', search_run_ref: ref('search_run', 'search_run_1'),
+      search_plan_ref: ref('search_plan', 'search_plan_1'), literature_snapshot_ref: ref('literature_resource_pool_snapshot', 'literature_snapshot_1'),
+      literature_ref: literatureRef, source_refs: [sourceRef],
+      locator: { locator_type: 'paragraph', locator_ref: paragraph, paragraph_ref: paragraph, literature_ref: literatureRef,
+        source_ref: sourceRef, document_ref: ref('fulltext_document', documentId), section_ref: null, anchor_ref: null },
+      evidence_role: roles[index]!, source_attribution_kind: 'source_claim', source_statement: text,
+      interpretation_payload: { controlled_unit: true, paragraph_hash: sha256Text(text), historical_source_only: true },
+      abstract_only: false, review_status: 'machine_checked', freshness_status: 'current', issue_codes: [],
+      created_by: 'system', created_at: dates.createdAt };
+  });
+  return { units, source,
+    resolver: (evidenceMapRepository: TopicSelectionEvidenceMapRepository) => new TopicSelectionResearchEvidencePacketService({
+      evidenceMapRepository, literatureRepository: literature,
+      directEvidenceReadinessResolver: async ids => new Map(ids.map(id => [id, {
+        ready: id === literatureId, reason: 'EVIDENCE_READY' as const, freshness: 'fresh' as const, freshness_detail: null,
+      }])),
     }),
   };
 }

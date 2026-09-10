@@ -334,3 +334,25 @@ It binds stored original paragraph refs, requires an exact evidence-review decis
 persistence, and carries the current whole candidate-pool hash and versioned candidate reviews into
 Human confirmation. Its retrieval/readiness/parser setup and Human decisions remain controlled
 fixtures; exact identity checks are not proof of scientific validity or actual researcher approval.
+
+
+## Phase 4 N4 research-slice generation
+
+The existing N4 runtime and canonical v1b harness/coordinator now accept the CLI execution shape.
+The compiler verifies frozen N1/N2/N3 identities and readiness, then resolves every evidence-role
+ref through the existing original-evidence packet service. N6/N7/N8 retain their previous packet
+content and identity while sharing that resolver helper. Actual N4 research bodies join the
+planning input and required-structure manifest in the runtime context hash.
+
+N4 rejects external answers and caller budget/compression overrides on the CLI line. It preserves
+original input bodies, validates complete nested references before draft recording, and binds
+its immutable `n4-cli-draft` receipt to the request, context, prompt/profile and runner identity.
+Draft admission requires that protected receipt plus matching runtime audit. Completed model work
+can recover a failed generation-receipt write without another call; domain commit claims preserve
+single-writer behavior and leave ambiguous interrupted domain writes closed for inspection.
+
+The existing N4 portfolio and option gates retain authority. Set-level evidence citations must be
+EvidenceUnit refs; a selected recommendation must remain selectable with no hard blockers. The
+prompt supports evidenced non-advance instead of manufacturing an option. N5 still requires the
+Human choice, and coordinator progression stops there. Real qualification and profile activation
+are recorded separately in verification.md and the execution inventory.

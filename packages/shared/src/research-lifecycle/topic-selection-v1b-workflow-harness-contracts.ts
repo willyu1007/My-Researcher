@@ -418,7 +418,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N4ResearchSliceOptionGate',
     required_for_progress: true,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -1072,7 +1072,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     model_option_id_allowed: true,
     codex_support_allowed: true,
     delegated_payload_allowed: false,
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm', 'provider_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm', 'provider_llm'],
     semantic_support_slots: slotsFor('topic-selection.v1b.generate-research-slice-options.v1'),
     route_edges: [
       {

@@ -80,11 +80,11 @@ function cloneRegistry(
   return JSON.parse(JSON.stringify(registry)) as TopicSelectionModelProfileRegistry;
 }
 
-test('only qualified upstream and N6/N8 profiles admit product CLI execution without provider options', () => {
+test('only qualified topic-selection profiles admit product CLI execution without provider options', () => {
   const service = new TopicSelectionModelProfileRegistryService();
   const ids = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS;
   const qualified = new Set<string>([
-    ids.topic_question_candidates_single_agent, ids.topic_value_assessment_single_agent,
+    ids.research_slice_options_single_agent, ids.topic_question_candidates_single_agent, ids.topic_value_assessment_single_agent,
     ids.n7_n8_debate_admission_support, ids.n7_n6_refinement_delta_admission,
     ids.n8_bounded_debate, TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
     TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID, TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
@@ -100,7 +100,7 @@ test('only qualified upstream and N6/N8 profiles admit product CLI execution wit
     ...Object.values(TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS),
     TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID, TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
   ]);
-  assert.equal(qualified.size, 25);
+  assert.equal(qualified.size, 26);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
     .map(profile => profile.profile_id)), qualified);

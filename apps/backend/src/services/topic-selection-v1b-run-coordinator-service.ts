@@ -94,6 +94,7 @@ const POLICY_BY_NODE_ID = new Map<string, NodePolicy>(
 );
 
 /** Nodes whose harness-routed debate escalation/re-entry the coordinator drives caller-side (T-127 W-07 item a). */
+const N4_NODE_ID = 'topic-selection.v1b.generate-research-slice-options.v1';
 const N5_NODE_ID = 'topic-selection.v1b.select-research-slice.v1';
 const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1';
 const N7_NODE_ID = 'topic-selection.v1b.materialize-topic-question-contract.v1';
@@ -395,7 +396,7 @@ const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<
 
 export type TopicSelectionV1bRunCoordinatorNodeInput = {
   /**
-   * N6/N8 consume codex_cli through the canonical harness. Other nodes/modes remain reserved.
+   * N4/N6/N7-admission/N8 consume codex_cli through the canonical harness. Other nodes/modes remain reserved.
    * The CLI branch generates its own role outputs and defaults to product run mode.
    */
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
@@ -493,7 +494,7 @@ export type AdvanceTopicSelectionV1bRunInput = {
    * N4/N8 draft through the node's RUNTIME service (codex_assisted → runtime_verified) and invoke
    * the harness node directly with the artifact attached, on the SAME workflow_run_id — the
    * projection folds those traces like any human-route invocation. Regular N6 uses node_inputs.debate
-   * or its Codex HTTP role_outputs bridge. Integrated N6, N7 admission support and N8 also
+   * or its Codex HTTP role_outputs bridge. Integrated N4, N6, N7 admission support and N8 also
    * consume node_inputs.execution_spec=codex_cli; other node/executor combinations remain reserved.
    */
   run_mode?: TopicSelectionAgentRunMode | null;
@@ -935,9 +936,9 @@ export class TopicSelectionV1bRunCoordinatorService {
         );
       }
       if (nodeInput?.execution_spec && (nodeInput.execution_spec.execution_mode !== 'codex_cli'
-        || nodeInput.execution_spec.model_option_id != null || ![N6_NODE_ID, N7_NODE_ID, N8_NODE_ID].includes(nextNodeId))) {
+        || nodeInput.execution_spec.model_option_id != null || ![N4_NODE_ID, N6_NODE_ID, N7_NODE_ID, N8_NODE_ID].includes(nextNodeId))) {
         throw new AppError(400, 'INVALID_PAYLOAD',
-          `${nextNodeId}: execution_spec is reserved outside the integrated N6/N7-admission/N8 codex_cli route; gateway model options are not accepted.`);
+          `${nextNodeId}: execution_spec is reserved outside the integrated N4/N6/N7-admission/N8 codex_cli route; gateway model options are not accepted.`);
       }
 
       // A fresh N5 handoff gets one regular bounded Debate. Existing regeneration and

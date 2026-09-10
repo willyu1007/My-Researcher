@@ -9,7 +9,7 @@ separates externally authored operation from product-driven CLI execution.
   app. The backend accepts an externally produced, contract-shaped `codex_response` and records its
   workflow, attempt, hash, approval, and reuse provenance.
 - The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
-  execution traces. Its qualified sampling, extraction, need-discovery, N6/N7-admission/N8 and exact-delta profiles admit product mode.
+  execution traces. Its qualified sampling, extraction, need-discovery, N4/N6/N7-admission/N8 and exact-delta profiles admit product mode.
   Other topic-selection profiles remain closed; `codex_assisted` still means external output.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
@@ -17,13 +17,20 @@ separates externally authored operation from product-driven CLI execution.
 
 ## Product-driven CLI operation
 
-N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` consume
+N4/N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` consume
 `execution_spec: { execution_mode: "codex_cli", model_option_id: null }`. This branch defaults to
 `product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
-remain reserved. The default registry admits the 11 profiles used by this slice; no registry override
+remain reserved. The default registry admits the 12 profiles used by this slice; no registry override
 is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
-below; three evidence-convergence and two optional Arena roles bring the total to 25. Other selection/promotion roles remain closed.
+below; three evidence-convergence and two optional Arena roles bring the total to 26. Other selection/promotion roles remain closed.
+
+N4 accepts the same CLI execution spec on its frozen `N3ToN4Handoff@v1` request. The runtime loads
+N1 intake, Human constraints, N3 readiness and the original role-bound evidence. Its model draft
+passes through the existing option gate: a selectable recommendation stops at N5 Human selection;
+insufficient evidence or infeasible options can request evidence expansion, scope revision or stop.
+No option is selected by the CLI. Draft receipts bind the original evidence, prompt and execution
+identity; a completed model attempt can recover a missing generation receipt without another call.
 
 N6 runs its existing four-role Debate, including its frozen regeneration contexts. Ordinary N8 uses
 one assessment attempt; post-feedback N8 uses the existing bounded Debate. N8 checks the exact

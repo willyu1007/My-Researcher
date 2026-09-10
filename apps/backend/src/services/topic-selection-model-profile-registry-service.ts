@@ -661,7 +661,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_v1a_bundle_and_constraint_lineage',
         'prepare_deterministic_slice_option_gate',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'ResearchSliceOptionSetDraft@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1B_RESEARCH_SLICE_OPTIONS_SINGLE_AGENT_PROFILE_ID).map(
         (option) => ({
