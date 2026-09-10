@@ -132,9 +132,14 @@ Completed Phase 2 execution order:
 - Verification: Evidence scope/quote integrity, material/no-delta/failed retrieval, linked-round recovery, role output admission, no-topic disposition and strict-human stops; real Codex evidence for enabled roles.
 - Recovery: Preserve predecessors and exact Human decisions; route unresolved evidence to the existing owning stage.
 
-### Phase 4 — Complete remaining selection, promotion and feedback roles (detail provisional)
+### Phase 4 — Complete remaining selection, promotion and feedback roles
 - Outcome: Remaining v1b support and option-generation roles plus v1c promotion/conditions/feedback operate with Codex, and deterministic package/bridge/intake joins remain usable.
 - Approach: Complete the Phase 1 inventory; preserve optional support and deterministic fast paths, required risk-bearing Debate and exact human decisions.
+- Execution order within the approved route:
+  1. Connect required N4 research-slice option generation through the canonical v1b invocation/coordinator. Resolve actual frozen N1/N2/N3 authorities and original evidence, preserve the option-set gate and the following Human slice selection, and verify replay before opening the profile.
+  2. Connect the six remaining optional v1b support profiles: N2/N3/N5 commentary, N6 loopback triage and N7 grouping/failed-trial synthesis. Reuse their existing runtime/admission owners and immutable support receipts. Accepted constraints and slice choices remain Human inputs; optional support does not become required progression work.
+  3. Connect ordinary and risk-bearing promotion support, delegated decision candidates and downstream feedback normalization. Preserve grouped conditions, mandatory risk coverage, exact Human promotion and existing deterministic bridge/intake/recheck owners. Qualify each enabled role and its non-advance/recovery boundary using real Codex outputs.
+- First action: Add a public N4 CLI invocation test with a real runner transport boundary, then implement frozen evidence compilation, protected draft provenance and exact replay in the existing N4 runtime/harness.
 - Exit criteria: CX-04/CX-05 hold; no required stage depends on manually supplied role responses or another generation provider.
 - Verification: Product-entry checks for human support versus authority, risk/no-risk promotion, grouped condition coverage, non-promote outcomes, downstream invalidation and feedback/recheck.
 - Recovery: Keep decisions immutable; retain explicit failed support and route repairs through existing authorities.
@@ -149,13 +154,13 @@ Completed Phase 2 execution order:
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through phase 3
+- Authorized boundary: through phase 4
 - [x] Decisions: Full-workflow outcome, Codex-only generation rollout and N6/N8-first sequencing were confirmed by the user on 2026-09-09.
 - [x] Design: Source inventory, N6/N8 technical design and role-specific Codex qualification were approved by the user on 2026-09-09.
 - [x] Route: Five phases reach the complete workflow; later integration details are explicitly provisional rather than descoped.
 - [x] Verification: Stage coverage, real-model evidence and composed failure/recovery checks are specified in verification.md.
 
-The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09. Phases 4–5 remain required task work outside the current implementation authorization. Live-run accounting is recorded separately; this authorization does not claim completed model verification or Human research decisions.
+The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09, then authorized Phase 4 on 2026-09-10. Phase 5 remains required task work outside the current implementation authorization. Live-run accounting is recorded separately; this authorization does not claim completed model verification or Human research decisions.
 
 ## Risks and recovery
 
