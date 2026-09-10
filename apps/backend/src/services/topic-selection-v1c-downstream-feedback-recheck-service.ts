@@ -1,3 +1,10 @@
+import { Ajv } from 'ajv';
+import { topicSelectionDownstreamTopicFeedbackCreateInputSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-downstream-feedback-recheck-contracts';
+import type { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import type { TopicSelectionV1cN6FeedbackNormalizationRuntimeService } from './topic-selection-v1c-n6-feedback-normalization-runtime-service.js';
+import { TopicSelectionV1cN6FeedbackNormalizationAdmissionService, type TopicSelectionV1cN6FeedbackNormalizationSourceInput } from './topic-selection-v1c-n6-feedback-normalization-admission-service.js';
+import { executeV1aCodexSubmission } from './topic-selection-v1a-codex-submission.js';
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import crypto from 'node:crypto';
 
 import {
@@ -87,6 +94,8 @@ export type TopicSelectionV1cDownstreamRecheckProjection = {
 };
 
 export type TopicSelectionV1cDownstreamFeedbackRecheckServiceOptions = {
+  controlPlane?: TopicSelectionControlPlaneService;
+  feedbackRuntime?: TopicSelectionV1cN6FeedbackNormalizationRuntimeService;
   repository: TopicSelectionV1cDownstreamFeedbackRecheckRepository;
   paperProjectBridgeService: TopicSelectionPaperProjectBridgeHandoffProvider;
   recheckRiskMemoryService: TopicSelectionDownstreamRecheckSink;
@@ -104,6 +113,23 @@ const TOPIC_SELECTION_ACTOR_TYPE_SET: readonly TopicSelectionActorType[] = [
   ...TOPIC_SELECTION_ACTOR_TYPES,
 ];
 
+export type NormalizeDownstreamTopicFeedbackInput = TopicSelectionV1cN6FeedbackNormalizationSourceInput & {
+  execution_spec: { execution_mode: 'codex_cli'; model_option_id?: null };
+  workflow_run_id: string; node_attempt_id: string;
+};
+const sourceKeys = ['paper_project_bridge_id', 'workspace_id', 'downstream_source_kind', 'downstream_source_ref',
+  'source_feedback_refs', 'observed_blocker_refs', 'artifact_refs', 'policy_version_id', 'created_by'];
+export const topicSelectionCliFeedbackBodySchema = {
+  type: 'object', additionalProperties: false,
+  required: ['paper_project_bridge_id', 'downstream_source_kind', 'downstream_source_ref', 'raw_feedback_text', 'workflow_run_id', 'node_attempt_id', 'execution_spec'],
+  properties: { ...Object.fromEntries(Object.entries(topicSelectionDownstreamTopicFeedbackCreateInputSchema.properties)
+    .filter(([key]) => sourceKeys.includes(key))), raw_feedback_text: { type: 'string', minLength: 1 },
+    workflow_run_id: { type: 'string', minLength: 1 }, node_attempt_id: { type: 'string', minLength: 1 },
+    execution_spec: { type: 'object', additionalProperties: false, required: ['execution_mode'],
+      properties: { execution_mode: { const: 'codex_cli' }, model_option_id: { type: 'null' } } } },
+};
+const validCliFeedback = new Ajv({ strict: false }).compile(topicSelectionCliFeedbackBodySchema);
+
 export class TopicSelectionV1cDownstreamFeedbackRecheckService {
   private readonly repository: TopicSelectionV1cDownstreamFeedbackRecheckRepository;
   private readonly paperProjectBridgeService: TopicSelectionPaperProjectBridgeHandoffProvider;
@@ -111,12 +137,44 @@ export class TopicSelectionV1cDownstreamFeedbackRecheckService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
-  constructor(options: TopicSelectionV1cDownstreamFeedbackRecheckServiceOptions) {
+  constructor(private readonly options: TopicSelectionV1cDownstreamFeedbackRecheckServiceOptions) {
     this.repository = options.repository;
     this.paperProjectBridgeService = options.paperProjectBridgeService;
     this.recheckRiskMemoryService = options.recheckRiskMemoryService;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+  }
+
+  async normalizeDownstreamTopicFeedback(input: NormalizeDownstreamTopicFeedbackInput) {
+    input = structuredClone(input);
+    if (!validCliFeedback(input) || !input.workflow_run_id.trim() || !input.node_attempt_id.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'CLI feedback requires raw source text and stable IDs without an external candidate.');
+    }
+    const { controlPlane, feedbackRuntime: runtime } = this.options;
+    if (!controlPlane || !runtime) throw new AppError(500, 'INTERNAL_ERROR', 'CLI feedback runtime is not configured.');
+    const { execution_spec: _executionSpec, workflow_run_id, node_attempt_id, ...source } = input;
+    const handoff = await this.paperProjectBridgeService.getPaperProjectBridgeHandoff(input.paper_project_bridge_id);
+    const runtimeIdentity = runtime.cliExecutionIdentity;
+    const generated = await runtime.generateCandidate({ bridge_handoff: handoff, source, workflow_run_id, node_attempt_id,
+      execution_mode: 'codex_cli', run_mode: 'product', policy_version: source.policy_version_id, created_by: 'system' });
+    if (generated.status !== 'succeeded') throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI feedback normalization did not succeed.',
+      { blocker_codes: generated.invocation_result.blocker_codes });
+    const admitted = new TopicSelectionV1cN6FeedbackNormalizationAdmissionService(runtime).admit({
+      bridge_handoff: handoff, source, candidate_artifact: generated.candidate_artifact, candidate: generated.structured_output });
+    if (!admitted.admitted) throw new AppError(422, 'GATE_CONSTRAINT_FAILED', admitted.blocker.message, { blocker_code: admitted.blocker.code });
+    // Reuse the existing persistent submission guard for record-only domain effects. An ambiguous partial
+    // recheck write stays blocked for inspection; completed calls replay their exact result without another write.
+    const submissionInput = { ...input, title_card_id: handoff.bridge.title_card_id, handoff_hash: canonicalHash(handoff),
+      runtime_hash: canonicalHash(runtimeIdentity), candidate_hash: canonicalHash(generated.structured_output) };
+    return executeV1aCodexSubmission({ controlPlane, nodeId: 'topic-selection.v1c.downstream-feedback-recheck.v1', input: submissionInput,
+      preflight: () => this.assertValidCreateInput(admitted.create_input), execute: async () => {
+        const current = await this.paperProjectBridgeService.getPaperProjectBridgeHandoff(input.paper_project_bridge_id);
+        if (canonicalHash(current) !== canonicalHash(handoff)) throw new AppError(409, 'VERSION_CONFLICT', 'Feedback bridge changed before recording.');
+        const result = await this.recordDownstreamTopicFeedback({ ...admitted.create_input,
+          feedback_payload: { raw_feedback_text: source.raw_feedback_text, cli_normalization: {
+            candidate_artifact: generated.candidate_artifact, admission_identity_hash: admitted.admission_identity_hash } } });
+        return { ...result, candidate_artifact: generated.candidate_artifact, admission_identity_hash: admitted.admission_identity_hash };
+      } });
   }
 
   async recordDownstreamTopicFeedback(

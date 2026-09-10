@@ -325,7 +325,7 @@ test('v1c N4 runtime emits candidate and admission prepares human decision input
   assert.equal(generated.candidate_artifact.output_contract, 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1');
 
   const humanRepository = new RecordingHumanPromotionDecisionRepository();
-  const admitted = admission.admit({
+  const admitted = await admission.admit({
     gate_handoff: handoff,
     candidate_artifact: generated.candidate_artifact,
     candidate: generated.structured_output,
@@ -377,7 +377,7 @@ test('v1c N4 admission blocks prompt drift before human decision input', async (
     throw new Error('Expected N4 delegated decision candidate generation to succeed.');
   }
 
-  const admitted = admission.admit({
+  const admitted = await admission.admit({
     gate_handoff: handoff,
     candidate_artifact: {
       ...generated.candidate_artifact,
@@ -422,7 +422,7 @@ test('v1c N4 admission blocks out-of-bounds candidate refs before human authorit
     throw new Error('Expected N4 delegated decision candidate generation to succeed.');
   }
 
-  const admitted = admission.admit({
+  const admitted = await admission.admit({
     gate_handoff: handoff,
     candidate_artifact: generated.candidate_artifact,
     candidate: generated.structured_output,
@@ -439,9 +439,9 @@ test('v1c N4 admission blocks out-of-bounds candidate refs before human authorit
 });
 
 const DELEGATED_PROMOTION_DECISION_SYSTEM_BODY_GOLDEN =
-  '271c75b557b668a792fc531e356fc6243665b76013aa51ce88e90776369e5738';
+  '7eb4719a6ce7099e2e6ba55af263c5bf1f0b105fe97a3462317dc5b330273c0b';
 
-test('v1c N4 delegated-promotion-decision system prompt is product-grade and byte-stable (golden anchor)', () => {
+test('v1c N4 delegated-promotion-decision system prompt is product-grade and byte-stable (golden anchor)', async () => {
   const body = buildV1cN4DelegatedPromotionDecisionSystemContent();
   assert.equal(buildV1cN4DelegatedPromotionDecisionSystemContent(), body);
   assert.equal(sha256Text(body), DELEGATED_PROMOTION_DECISION_SYSTEM_BODY_GOLDEN);
@@ -467,4 +467,78 @@ test('v1c N4 delegated-promotion-decision system prompt is product-grade and byt
   assert.match(body, /explicit human acceptance through the N4 authority writer is required/);
 
   assert.match(body, /never inventing refs or hashes/);
+});
+
+
+test('CLI N4 preserves original context and replays receipt interruption before exact Human acceptance', async t => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
+  const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
+  const { TopicSelectionV1cN4DelegatedPromotionDecisionService } = await import('./topic-selection-v1c-n4-delegated-promotion-decision-service.js');
+  const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
+  const home = mkdtempSync(join(tmpdir(), 'delegated-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const handoff = makeGateHandoff();
+  const output = candidateOutput(handoff);
+  output.conditions = output.conditions.map(({ owner: _owner, ...condition }) => condition);
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(row => row.profile_id === 'topic-selection.v1c.delegated-promotion-decision.v1')!;
+  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    assert.match(options.stdin, /Original evidence limits the promotion claim/);
+    calls += 1;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `delegated-${calls}` }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
+  const repository = new RecordingHumanPromotionDecisionRepository();
+  const gateService = new GateHandoffProvider(handoff);
+  const humanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({ repository,
+    promotionGateService: gateService, checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture() });
+  let context = 'Original evidence limits the promotion claim';
+  const service = () => {
+    const runtime = new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(controlPlane, { modelProfileRegistry, agentOrchestrator,
+      resolveResearchContext: async () => ({ original_evidence: context }) });
+    return new TopicSelectionV1cN4DelegatedPromotionDecisionService({ controlPlane, runtime,
+      admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(runtime),
+      gateService, humanPromotionDecisionService });
+  };
+  const input = { promotion_gate_check_id: handoff.promotion_gate_check_id, workflow_run_id: 'cli-n4', node_attempt_id: 'candidate',
+    execution_spec: { execution_mode: 'codex_cli' as const } };
+  const record = controlPlane.recordArtifactRef.bind(controlPlane);
+  let interrupt = true;
+  controlPlane.recordArtifactRef = async value => {
+    if (interrupt && value.stable_key?.startsWith('v1c-cli-delegated:')) { interrupt = false; throw new Error('candidate receipt interruption'); }
+    return record(value);
+  };
+  await assert.rejects(service().generateDelegatedPromotionCandidate(input), /candidate receipt interruption/);
+  assert.equal(calls, 1); assert.equal(repository.writes.length, 0);
+  const preview = await service().generateDelegatedPromotionCandidate(input);
+  assert.deepEqual(await service().generateDelegatedPromotionCandidate(input), preview);
+  assert.equal(calls, 1); assert.equal(repository.writes.length, 0);
+  const acceptance = { promotion_gate_check_id: input.promotion_gate_check_id, workflow_run_id: input.workflow_run_id,
+    node_attempt_id: input.node_attempt_id, candidate_receipt_ref: preview.candidate_receipt_ref, confirmed_candidate_hash: preview.candidate_hash,
+    human_actor: { actor_type: 'human' as const, actor_id: 'reviewer' }, promote_reconfirmed: true,
+    condition_owners: output.conditions.map(condition => ({ condition_id: condition.condition_id, owner: { actor_type: 'human' as const, actor_id: 'researcher' } })) };
+  context = 'Changed evidence';
+  await assert.rejects(service().recordDelegatedPromotionDecision(acceptance), /drift|differs|match/i);
+  assert.equal(repository.writes.length, 0);
+  context = 'Original evidence limits the promotion claim';
+  const accepted = await service().recordDelegatedPromotionDecision(acceptance);
+  assert.ok(accepted); assert.equal(repository.writes.length, 1); assert.equal(calls, 1);
+  assert.deepEqual(await service().recordDelegatedPromotionDecision(acceptance), accepted);
+  assert.equal(repository.writes.length, 1); assert.equal(calls, 1);
+  output.decision_support_refs = [];
+  await assert.rejects(service().generateDelegatedPromotionCandidate({ ...input, node_attempt_id: 'missing-support-refs' }), /must cite/);
+  assert.equal(repository.writes.length, 1); assert.equal(calls, 2);
+  context = 'Original evidence limits the promotion claim. '.repeat(25000);
+  await assert.rejects(service().generateDelegatedPromotionCandidate({ ...input, node_attempt_id: 'oversized' }), /did not succeed/);
+  assert.equal(calls, 2, 'Full-context overflow stops before a paid call; it cannot fall back to ref-only compression.');
 });

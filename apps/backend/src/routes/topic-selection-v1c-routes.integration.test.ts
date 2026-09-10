@@ -1,3 +1,7 @@
+import { TopicSelectionCodexCliRunnerService } from '../services/topic-selection-codex-cli-runner-service.js';
+import { TopicSelectionAgentOrchestratorService } from '../services/topic-selection-agent-orchestrator-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from '../services/topic-selection-model-profile-registry-service.js';
+import { TopicSelectionV1cN6FeedbackNormalizationRuntimeService } from '../services/topic-selection-v1c-n6-feedback-normalization-runtime-service.js';
 import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type { TopicSelectionPromotionConditionCandidate } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import { promotionDebateRoleOutputs } from '../services/test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
@@ -773,6 +777,7 @@ async function makeV1cRouteHarness(
     TopicSelectionResearchCheckpointService,
     'adaptExistingStageDecision' | 'assertCompleteCheckpointChain' | 'getPacket' | 'materializePromotionCheckpoint'
   > = createAdvancingTopicSelectionCheckpointControlFixture(),
+  codexCliRunner?: TopicSelectionCodexCliRunnerService,
 ): Promise<V1cRouteHarness> {
   const app = Fastify({ logger: false });
   app.setErrorHandler((error, _request, reply) => {
@@ -792,6 +797,16 @@ async function makeV1cRouteHarness(
       },
     });
   });
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const profiles = createDefaultTopicSelectionModelProfileRegistry();
+  if (codexCliRunner) for (const id of ['topic-selection.v1c.delegated-promotion-decision.v1', 'topic-selection.v1c.downstream-feedback-normalization.v1']) {
+    const profile = profiles.profiles.find(row => row.profile_id === id)!;
+    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+    profile.run_mode_eligibility.codex_cli = ['product'];
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry: profiles });
+  const cliOptions = codexCliRunner ? { modelProfileRegistry,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner, codexCliModelId: 'gpt-6-astra' }) } : undefined;
   const promotionInputService = new TopicSelectionV1cPromotionInputService({
     repository: new InMemoryTopicSelectionV1cPromotionInputRepository(),
     topicPackageRepository,
@@ -818,6 +833,7 @@ async function makeV1cRouteHarness(
     now: () => NOW,
   });
   const downstreamFeedbackRecheckService = new TopicSelectionV1cDownstreamFeedbackRecheckService({
+    controlPlane, feedbackRuntime: new TopicSelectionV1cN6FeedbackNormalizationRuntimeService(controlPlane, cliOptions),
     repository: new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository(),
     paperProjectBridgeService,
     recheckRiskMemoryService: new NullRecheckSink(),
@@ -837,9 +853,10 @@ async function makeV1cRouteHarness(
     promotionInputService,
   });
   const n4DelegatedRuntime = new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(
-    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository(), { now: () => NOW }),
+    controlPlane, { ...cliOptions, resolveResearchContext: async handoff => ({ gate_check: handoff.gate_check }) },
   );
   const n4DelegatedPromotionDecisionService = new TopicSelectionV1cN4DelegatedPromotionDecisionService({
+    controlPlane,
     runtime: n4DelegatedRuntime,
     admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(n4DelegatedRuntime),
     gateService: promotionGateService,
@@ -1096,8 +1113,8 @@ test('POST /promotion-decisions/delegated rejects a non-human authorizer over HT
       },
     });
     // the authority boundary fires (fail-fast, before any gate/runtime call) over HTTP.
-    assert.equal(res.statusCode, 422);
-    assert.equal((res.json() as { error: { code: string } }).error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(res.statusCode, 400);
+    assert.equal((res.json() as { error: { code: string } }).error.code, 'INVALID_PAYLOAD');
   } finally {
     await app.close();
   }
@@ -2747,4 +2764,63 @@ test('FIND-028: HTTP Human edits grouped conditions; N4 rejects omitted findings
   } finally {
     await app.close();
   }
+});
+
+
+test('CLI HTTP candidate review and feedback normalization use canonical Human and record-only owners', async t => {
+  const { mkdtempSync, rmSync } = await import('node:fs'); const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
+  const home = mkdtempSync(join(tmpdir(), 'v1c-http-cli-')); t.after(() => rmSync(home, { recursive: true, force: true }));
+  const repository = makeSeededTopicPackageRepository(uniqueId('cli-http'));
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    const packet: { context_packet: Record<string, unknown> } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+    const p = packet.context_packet;
+    const refs = p.allowed_refs as TopicSelectionFunctionalRef[];
+    const output = p.slot_id === 'n4_delegated_promotion_decision_candidate' ? {
+      schema_version: 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1', promotion_gate_check_id: p.promotion_gate_check_id,
+      promotion_input_snapshot_id: p.promotion_input_snapshot_id, promotion_input_snapshot_hash: p.promotion_input_snapshot_hash,
+      title_card_id: repository.topicPackage.title_card_id, decision: 'promote_to_paper_project', rationale: 'Controlled HTTP acceptance fixture.',
+      confirmed_snapshot_hash: p.promotion_input_snapshot_hash, conditions: [], required_actions: [], loopback_target: null,
+      allowed_refinements: [], stop_conditions: [], reopen_conditions: [], cited_refs: refs, decision_support_refs: refs,
+      no_authority_write_confirmed: true, no_bridge_creation_confirmed: true, human_review_required: true,
+    } : {
+      schema_version: 'topic-selection-v1c-downstream-feedback-candidate.v1', paper_project_bridge_id: p.paper_project_bridge_id,
+      downstream_source_kind: p.downstream_source_kind, downstream_source_ref: p.downstream_source_ref,
+      source_feedback_refs: p.source_feedback_refs, observed_blocker_refs: p.observed_blocker_refs, artifact_refs: p.artifact_refs,
+      feedback_signal: 'no_recheck_needed', severity: 'info', summary: 'Only formatting changed.', required_action: null, feedback_payload: {},
+      normalization_hints: { requires_recheck_hint: false, loopback_target_hint: null, affected_ref_hint: null, reason_codes: ['no_recheck_needed'] },
+      cited_refs: refs, no_upstream_mutation_confirmed: true,
+    };
+    calls += 1;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `v1c-http-${calls}` }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  }); t.after(() => runner.shutdown());
+  const { app } = await makeV1cRouteHarness(repository, undefined, runner); t.after(() => app.close());
+  const { gateBundle } = await createReadyGate(app, repository.v1cInputBundle.v1b_to_v1c_input_bundle_id);
+  const input = { promotion_gate_check_id: gateBundle.promotion_gate_check.promotion_gate_check_id,
+    workflow_run_id: 'http-cli', node_attempt_id: 'candidate', execution_spec: { execution_mode: 'codex_cli' } };
+  const preview = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions/delegated/candidates', payload: input });
+  assertStatus(preview, 201);
+  const candidate = preview.json() as { candidate_receipt_ref: TopicSelectionFunctionalRef; candidate_hash: string };
+  const acceptance = { promotion_gate_check_id: input.promotion_gate_check_id, workflow_run_id: input.workflow_run_id,
+    node_attempt_id: input.node_attempt_id, candidate_receipt_ref: candidate.candidate_receipt_ref, confirmed_candidate_hash: candidate.candidate_hash,
+    human_actor: { actor_type: 'human', actor_id: 'reviewer' }, condition_owners: [] };
+  const unconfirmed = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions/delegated', payload: acceptance });
+  assert.equal(unconfirmed.statusCode, 409);
+  const accept = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions/delegated', payload: { ...acceptance, promote_reconfirmed: true } });
+  assertStatus(accept, 201); assert.equal(calls, 1);
+  const human = accept.json() as { promotion_decision: { promotion_decision_id: string } };
+  const bridge = await app.inject({ method: 'POST', url: '/topic-selection/v1c/paper-project-bridges', payload: { promotion_decision_id: human.promotion_decision.promotion_decision_id } });
+  assertStatus(bridge, 201);
+  const b = bridge.json() as { handoff: { paper_project_bridge_id: string } };
+  const feedbackInput = { paper_project_bridge_id: b.handoff.paper_project_bridge_id, workflow_run_id: 'http-cli', node_attempt_id: 'feedback',
+    execution_spec: { execution_mode: 'codex_cli' }, downstream_source_kind: 'reviewer_check',
+    downstream_source_ref: ref('reviewer_check', 'format-review', repository.topicPackage.title_card_id), raw_feedback_text: 'Only formatting changed.' };
+  const feedback = await app.inject({ method: 'POST', url: '/topic-selection/v1c/downstream-feedback/normalize', payload: feedbackInput });
+  assertStatus(feedback, 201); assert.equal(calls, 2);
+  const replay = await app.inject({ method: 'POST', url: '/topic-selection/v1c/downstream-feedback/normalize', payload: feedbackInput });
+  assert.deepEqual(replay.json(), feedback.json()); assert.equal(calls, 2);
+  const invalid = await app.inject({ method: 'POST', url: '/topic-selection/v1c/downstream-feedback/normalize', payload: { ...feedbackInput, codex_response: {} } });
+  assert.equal(invalid.statusCode, 400); assert.equal(calls, 2);
 });

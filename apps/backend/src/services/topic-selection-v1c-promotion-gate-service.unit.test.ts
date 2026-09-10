@@ -1052,7 +1052,7 @@ class FakePromotionGatePrismaClient {
 }
 
 const PROMOTION_DECISION_SUPPORT_SYSTEM_BODY_GOLDEN =
-  '2fe7423f82700a248d7a1d27784b9d80dc94d062b879752e6ca68069fe2b6cc6';
+  '09e3c7a55f9755b6e634f7e6aa218d8bca94d7a56cfbbe0bcb0205f08c5bcc18';
 
 test('v1c promotion-decision-support system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cPromotionDecisionSupportSystemContent();

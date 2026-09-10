@@ -1,5 +1,6 @@
 import { Ajv } from 'ajv';
 import { topicSelectionRiskFindingPayloadSchema, type TopicSelectionRiskFindingPayload, type TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type { TopicSelectionPromotionGateHandoff } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import type { TopicSelectionPromotionInputSnapshotHandoff } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-input-contracts';
 import type { TopicSelectionRecheckRiskMemoryRepository } from '../repositories/topic-selection-recheck-risk-memory.repository.js';
 import type { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
@@ -20,6 +21,18 @@ export class TopicSelectionV1cCodexContextService {
     acceptedRisks: Pick<TopicSelectionRecheckRiskMemoryRepository, 'findAcceptedRiskById'>;
     researchEvidence: Pick<TopicSelectionResearchEvidencePacketService, 'resolve'>;
   }) {}
+
+  async gate(gate: TopicSelectionPromotionGateHandoff, input: TopicSelectionPromotionInputSnapshotHandoff): Promise<Record<string, unknown>> {
+    if (gate.promotion_input_snapshot_id !== input.promotion_input_snapshot_id
+      || gate.promotion_input_snapshot_hash !== input.snapshot_hashes.promotion_input_snapshot_hash
+      || !refsEqual(gate.promotion_input_snapshot_ref, input.promotion_input_snapshot_ref)
+      || gate.gate_check.title_card_id !== input.snapshot.title_card_id
+      || gate.gate_check.workspace_id !== input.snapshot.workspace_id) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI decision context differs from its frozen promotion input.');
+    }
+    return { ...await this.promotion(input), gate_check: gate.gate_check, promotion_support: gate.support,
+      promotion_dossier: gate.dossier, argument_readiness: gate.argument_readiness_mini_check };
+  }
 
   async promotion(handoff: TopicSelectionPromotionInputSnapshotHandoff): Promise<Record<string, unknown>> {
     const snapshot = handoff.snapshot;

@@ -25,6 +25,7 @@ import {
   topicSelectionV1cDownstreamFeedbackCandidateSchema,
   type TopicSelectionV1cDownstreamFeedbackCandidate,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-downstream-feedback-recheck-contracts';
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import { AppError } from '../errors/app-error.js';
 import {
   sha256Text,
@@ -94,6 +95,7 @@ export interface TopicSelectionV1cN6FeedbackNormalizationContextPacket {
   source_feedback_refs: TopicSelectionFunctionalRef[];
   observed_blocker_refs: TopicSelectionFunctionalRef[];
   artifact_refs: TopicSelectionFunctionalRef[];
+  research_context: Record<string, unknown>;
   raw_feedback_text: string;
   raw_feedback_hash: string;
   allowed_refs: TopicSelectionFunctionalRef[];
@@ -202,9 +204,32 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
     });
   }
 
+  get cliExecutionIdentity() {
+    this.agentOrchestrator.assertProductCodexProfile(TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_NORMALIZATION_PROFILE_ID);
+    return { runner: this.agentOrchestrator.codexCliExecutionIdentity, prompt: PROMPT_TEMPLATE,
+      model: this.modelProfileRegistry.resolveProfile({ profile_id: TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_NORMALIZATION_PROFILE_ID,
+        execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null }).profile_hash,
+      context: this.resolveRuntimeProfile(this.slotBinding()).profile_hash };
+  }
+
   async generateCandidate(
     input: GenerateTopicSelectionV1cN6FeedbackCandidateInput,
   ): Promise<TopicSelectionV1cN6FeedbackCandidateGenerationResult> {
+    if (input.execution_mode === 'codex_cli') {
+      if (input.codex_response != null || input.mocked_output != null || input.model_option_id != null
+        || input.compression_attempt != null || input.runtime_token_budget_overrides != null
+        || (input.run_mode != null && input.run_mode !== 'product') || !input.workflow_run_id.trim() || !input.node_attempt_id.trim()) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'CLI feedback requires stable IDs and forbids external answers or runtime overrides.');
+      }
+      this.agentOrchestrator.assertProductCodexProfile(TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_NORMALIZATION_PROFILE_ID);
+      const h = input.bridge_handoff;
+      if (this.hash(h.working_copy_payload) !== h.working_copy_payload_hash
+        || this.hash(h.bridge.working_copy_payload) !== h.working_copy_payload_hash
+        || h.bridge.bridge_payload_hash !== h.bridge_payload_hash
+        || h.source_promotion_handoff.promotion_input_snapshot_hash !== h.promotion_input_snapshot_hash) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI feedback requires intact bridge and working-copy bodies.');
+      }
+    }
     this.assertBridgeAndSource(input.bridge_handoff, input.source);
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? this.defaultRunMode(input.execution_mode);
@@ -220,6 +245,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
     });
     const contextPacketHash = this.hash(contextPacket);
     const contextArtifact = await this.controlPlane.recordArtifactRef({
+      ...(input.execution_mode === 'codex_cli' ? { stable_key: `n6-cli-feedback-context:${this.hash([input.workflow_run_id, input.node_attempt_id])}` } : {}),
       workspace_id: input.bridge_handoff.bridge.workspace_id ?? null,
       title_card_id: input.bridge_handoff.bridge.title_card_id,
       artifact_kind: 'diagnostic',
@@ -250,7 +276,9 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
       },
       prompt_variant_key: binding.invocation_slot_id,
       schema_name: binding.output_contract,
-      schema: binding.schema,
+      schema: input.execution_mode === 'codex_cli' ? { ...topicSelectionV1cDownstreamFeedbackCandidateSchema,
+        properties: { ...topicSelectionV1cDownstreamFeedbackCandidateSchema.properties,
+          feedback_payload: { type: 'object', additionalProperties: false, properties: {}, required: [] } } } : binding.schema,
       messages: this.messages(binding, contextPacket),
       input_refs: contextPacket.source_refs,
       context_packet_refs: [contextPacketRef],
@@ -276,6 +304,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
       };
     }
 
+    if (input.execution_mode === 'codex_cli') assertV1aCodexReferences(invocation.structured_output, contextPacket.allowed_refs);
     const candidateArtifact = await this.recordCandidateArtifact({
       input,
       binding,
@@ -392,6 +421,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
       throw new AppError(500, 'INTERNAL_ERROR', 'N6 feedback candidate structured output hash drift detected.');
     }
     const outputArtifact = await this.controlPlane.recordArtifactRef({
+      ...(input.input.execution_mode === 'codex_cli' ? { stable_key: `n6-cli-feedback-output:${this.hash([input.input.workflow_run_id, input.input.node_attempt_id, outputHash])}` } : {}),
       workspace_id: input.input.bridge_handoff.bridge.workspace_id ?? null,
       title_card_id: input.input.bridge_handoff.bridge.title_card_id,
       artifact_kind: 'structured_output',
@@ -477,6 +507,10 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
       source_feedback_refs: source.source_feedback_refs ?? [],
       observed_blocker_refs: source.observed_blocker_refs ?? [],
       artifact_refs: source.artifact_refs ?? [],
+      research_context: { working_copy_payload: handoff.working_copy_payload,
+        commitment_scope: handoff.source_promotion_handoff.promotion_commitment_profile.scope,
+        human_rationale: handoff.source_promotion_handoff.human_promotion_decision.rationale,
+        allowed_refinements: handoff.allowed_refinements, stop_conditions: handoff.stop_conditions, reopen_conditions: handoff.reopen_conditions },
       raw_feedback_text: source.raw_feedback_text,
       raw_feedback_hash: this.hash(source.raw_feedback_text),
       allowed_refs: allowedRefs,
@@ -517,6 +551,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
     source: TopicSelectionV1cN6FeedbackNormalizationSourceInput,
   ): Record<string, string> {
     return {
+      bridge_body_hash: this.hash(handoff),
       bridge_payload_hash: handoff.bridge_payload_hash,
       working_copy_payload_hash: handoff.working_copy_payload_hash,
       promotion_input_snapshot_hash: handoff.promotion_input_snapshot_hash,
@@ -555,7 +590,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
       context_policy_profile_hash: input.runtimeProfile.profile_hash,
       runtime_invocation_context_hash: input.runtimeInvocationContextHash,
       dynamic_material_refs: dynamicMaterialRefs,
-      context_payloads: [input.contextPacket],
+      context_payloads: [], // The messages already contain the entire packet.
       compression_attempt: compressionAttempt,
       estimated_input_tokens_override: input.overrides?.estimated_input_tokens_override,
       schema_overhead_tokens_override: input.overrides?.schema_overhead_tokens_override,
@@ -772,7 +807,7 @@ export class TopicSelectionV1cN6FeedbackNormalizationRuntimeService {
   }
 
   private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'codex_cli' ? 'product' : executionMode === 'mocked_llm' ? 'test' : 'acceptance';
   }
 
   private executorKind(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionExecutorKind {

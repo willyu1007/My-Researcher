@@ -390,6 +390,7 @@ import { TopicSelectionV1cHumanPromotionDecisionService } from './services/topic
 import { TopicSelectionV1cPaperProjectBridgeService } from './services/topic-selection-v1c-paper-project-bridge-service.js';
 import { TopicSelectionV1cPromotionGateService } from './services/topic-selection-v1c-promotion-gate-service.js';
 import { TopicSelectionV1cN2BoundedDebateRuntimeService } from './services/topic-selection-v1c-n2-bounded-debate-runtime-service.js';
+import { TopicSelectionV1cN6FeedbackNormalizationRuntimeService } from './services/topic-selection-v1c-n6-feedback-normalization-runtime-service.js';
 import { TopicSelectionV1cCodexContextService } from './services/topic-selection-v1c-codex-context-service.js';
 import { TopicSelectionV1cN2BoundedDebateAdmissionService } from './services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from './services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
@@ -1440,8 +1441,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   // T-128 W-13: v1c-N4 delegated promotion-decision production caller (distinct delegated endpoint; human still
   // authorizes; not RBAC-gated today — a tracked follow-up).
   const topicSelectionV1cN4DelegatedPromotionDecisionRuntime =
-    new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(topicSelectionControlPlaneService);
+    new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(topicSelectionControlPlaneService, {
+      agentOrchestrator: topicSelectionV1cAgentOrchestrator,
+      resolveResearchContext: async gate => topicSelectionV1cCodexContext.gate(gate,
+        await topicSelectionV1cPromotionInputService.getPromotionInputHandoff(gate.promotion_input_snapshot_id)),
+    });
   const topicSelectionV1cN4DelegatedPromotionDecisionService = new TopicSelectionV1cN4DelegatedPromotionDecisionService({
+    controlPlane: topicSelectionControlPlaneService,
     runtime: topicSelectionV1cN4DelegatedPromotionDecisionRuntime,
     admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(topicSelectionV1cN4DelegatedPromotionDecisionRuntime),
     gateService: topicSelectionV1cPromotionGateService,
@@ -1457,6 +1463,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     },
   });
   const topicSelectionV1cDownstreamFeedbackRecheckService = new TopicSelectionV1cDownstreamFeedbackRecheckService({
+    controlPlane: topicSelectionControlPlaneService,
+    feedbackRuntime: new TopicSelectionV1cN6FeedbackNormalizationRuntimeService(topicSelectionControlPlaneService,
+      { agentOrchestrator: topicSelectionV1cAgentOrchestrator }),
     repository: topicSelectionV1cDownstreamFeedbackRecheckRepository,
     paperProjectBridgeService: topicSelectionV1cPaperProjectBridgeService,
     recheckRiskMemoryService: topicSelectionRecheckRiskMemoryService,

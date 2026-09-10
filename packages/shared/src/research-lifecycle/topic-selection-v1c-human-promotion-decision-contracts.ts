@@ -14,6 +14,7 @@ import {
   TOPIC_SELECTION_PROMOTION_GATE_LOOPBACK_TARGETS,
   topicSelectionPromotionGateHandoffSchema,
   topicSelectionPromotionGateRequiredActionSchema,
+  topicSelectionPromotionConditionCandidateSchema,
 } from './topic-selection-v1c-promotion-gate-contracts.js';
 
 export const TOPIC_SELECTION_HUMAN_PROMOTION_DECISIONS = [
@@ -242,7 +243,8 @@ export interface TopicSelectionV1cDelegatedPromotionDecisionCandidate {
   decision: TopicSelectionHumanPromotionDecisionKind;
   rationale: string;
   confirmed_snapshot_hash: string;
-  conditions: TopicSelectionPromotionCondition[];
+  /** CLI drafts omit owners; the Human assigns them only when accepting the reviewed candidate. */
+  conditions: Array<Omit<TopicSelectionPromotionCondition, 'owner'> & { owner?: TopicSelectionActorRef }>;
   required_actions: TopicSelectionPromotionGateRequiredAction[];
   loopback_target: TopicSelectionPromotionLoopbackTarget | null;
   allowed_refinements: TopicSelectionAllowedPromotionRefinement[];
@@ -473,6 +475,16 @@ export const topicSelectionV1cDelegatedPromotionDecisionCandidateSchema = {
       },
     },
   ],
+} as const;
+
+/** The product-generated candidate cannot invent condition owners before Human review. */
+export const topicSelectionV1cDelegatedPromotionDecisionCliCandidateSchema = {
+  ...topicSelectionV1cDelegatedPromotionDecisionCandidateSchema,
+  properties: { ...topicSelectionV1cDelegatedPromotionDecisionCandidateSchema.properties,
+    conditions: { type: 'array', items: topicSelectionPromotionConditionCandidateSchema } },
+  allOf: topicSelectionV1cDelegatedPromotionDecisionCandidateSchema.allOf.map(rule => ({ ...rule,
+    then: { ...rule.then, properties: { ...rule.then.properties,
+      conditions: { ...rule.then.properties.conditions, items: topicSelectionPromotionConditionCandidateSchema } } } })),
 } as const;
 
 export const topicSelectionHumanPromotionDecisionRecordSchema = {

@@ -1,3 +1,5 @@
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AppError } from '../errors/app-error.js';
@@ -27,7 +29,9 @@ function makeSubject(opts: {
   let recordedInternalOptions: any = null;
   const generatedCandidate = opts.generated ?? candidate('park');
 
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const runtime = {
+    cliExecutionIdentity: { runner: 'controlled-runner', profile: 'controlled-profile' },
     generateCandidate: async () => {
       calls.generate += 1;
       if (opts.generateBlocked) {
@@ -44,6 +48,7 @@ function makeSubject(opts: {
     },
   };
   const admission = {
+    validateCandidateForReview: () => null,
     admit: (input: any) => {
       calls.admit += 1;
       if (opts.admitBlocked) {
@@ -69,7 +74,7 @@ function makeSubject(opts: {
   const gateService = {
     getPromotionGateHandoff: async (id: string) => {
       calls.getHandoff += 1;
-      return { promotion_gate_check_id: id };
+      return { promotion_gate_check_id: id, gate_check: { title_card_id: 'title_card_001', workspace_id: null } };
     },
   };
   const humanPromotionDecisionService = {
@@ -84,6 +89,7 @@ function makeSubject(opts: {
   };
 
   const service = new TopicSelectionV1cN4DelegatedPromotionDecisionService({
+    controlPlane,
     runtime: runtime as any,
     admission: admission as any,
     gateService: gateService as any,
@@ -168,4 +174,24 @@ test('v1c N4 delegated: an admit blocker surfaces as a GATE_CONSTRAINT_FAILED Ap
     },
   );
   assert.equal(calls.record, 0);
+});
+
+
+test('CLI delegated candidate is reviewable and requires its exact Human confirmation before authority writes', async () => {
+  const { service, calls } = makeSubject();
+  const input = { promotion_gate_check_id: 'promotion_gate_check_001', workflow_run_id: 'wr', node_attempt_id: 'na', execution_spec: { execution_mode: 'codex_cli' as const } };
+  const draft = await service.generateDelegatedPromotionCandidate(input);
+  assert.equal(calls.record, 0);
+  assert.equal(calls.generate, 1);
+  assert.deepEqual(await service.generateDelegatedPromotionCandidate(input), draft);
+  assert.equal(calls.generate, 1);
+  await assert.rejects(service.generateDelegatedPromotionCandidate({ ...input, policy_version_id: 'changed' }), /different|changed/);
+  const acceptance = { promotion_gate_check_id: input.promotion_gate_check_id, workflow_run_id: 'wr', node_attempt_id: 'na',
+    human_actor: { actor_type: 'human' as const, actor_id: 'reviewer_001' },
+    candidate_receipt_ref: draft.candidate_receipt_ref, confirmed_candidate_hash: draft.candidate_hash };
+  await assert.rejects(service.recordDelegatedPromotionDecision({ ...acceptance, confirmed_candidate_hash: 'different' }), /candidate|confirmation/);
+  assert.equal(calls.record, 0);
+  await service.recordDelegatedPromotionDecision(acceptance);
+  assert.equal(calls.record, 1);
+  assert.equal(calls.generate, 1, 'Human acceptance consumes the reviewed candidate without invoking the model again.');
 });

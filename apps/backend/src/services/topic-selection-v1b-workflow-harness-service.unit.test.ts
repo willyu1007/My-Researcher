@@ -9538,7 +9538,7 @@ test('Codex v1c qualification reads published evidence and recovers promotion su
   const slot = process.env.TOPIC_SELECTION_QUALIFICATION_SLOT;
   const n4Outcome = process.env.TOPIC_SELECTION_QUALIFICATION_N4_OUTCOME;
   if (!source || !output || !model || !home || !n4Outcome || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
-    || !['ordinary', 'debate'].includes(slot ?? '') || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit v1c qualification configuration is required.');
+    || !['ordinary', 'debate', 'delegated', 'feedback', 'feedback_no_recheck'].includes(slot ?? '') || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit v1c qualification configuration is required.');
   const live = process.env.TOPIC_SELECTION_CODEX_V1C_QUALIFICATION === 'live';
   const limits = live ? { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
@@ -9552,6 +9552,104 @@ test('Codex v1c qualification reads published evidence and recovers promotion su
   const sources = await qualificationBeirParagraphs(source, TITLE_CARD_ID);
   const ctx = await seedHarnessV1aBundle({ evidenceUnits: sources.units,
     needStatement: 'Bounded historical BEIR replication; incomplete judgments and unestablished novelty must remain explicit.' });
+  if (slot === 'delegated' || slot === 'feedback' || slot === 'feedback_no_recheck') {
+    const base = process.env.TOPIC_SELECTION_QUALIFICATION_PROMOTION_BASE;
+    if (!base) throw new Error('Qualification requires a completed ordinary promotion prefix.');
+    const promotion: Awaited<ReturnType<InstanceType<typeof TopicSelectionV1cPromotionInputService>['getPromotionInputHandoff']>> = JSON.parse(readFileSync(`${base}-handoff.json`, 'utf8'));
+    const gateResult: Awaited<ReturnType<InstanceType<typeof TopicSelectionV1cPromotionGateService>['createPromotionGateCheckFromSupport']>> = JSON.parse(readFileSync(`${base}-gate.json`, 'utf8'));
+    const gate = gateResult.handoff;
+    const compiler = new TopicSelectionV1cCodexContextService({ controlPlane: ctx.controlPlane, acceptedRisks: ctx.recheckRepository,
+      researchEvidence: sources.resolver(ctx.evidenceRepository) });
+    const research = await compiler.gate(gate, promotion); save('research', research); save('gate-input', gate);
+    const registry = createDefaultTopicSelectionModelProfileRegistry();
+    const id = slot === 'delegated' ? 'topic-selection.v1c.delegated-promotion-decision.v1' : 'topic-selection.v1c.downstream-feedback-normalization.v1';
+    const profile = registry.profiles.find(row => row.profile_id === id)!;
+    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+    profile.run_mode_eligibility.codex_cli = ['product'];
+    const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+    const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: model });
+    const { TopicSelectionV1cHumanPromotionDecisionService } = await import('./topic-selection-v1c-human-promotion-decision-service.js');
+    const { InMemoryTopicSelectionV1cHumanPromotionDecisionRepository } = await import('../repositories/in-memory-topic-selection-v1c-human-promotion-decision-repository.js');
+    const { createAdvancingTopicSelectionCheckpointControlFixture } = await import('./test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js');
+    const humanRepository = new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository();
+    const gateProvider = { getPromotionGateHandoff: async () => gate, getLatestPromotionGateHandoffByPromotionInputSnapshotId: async () => gate };
+    const humanWriter = new TopicSelectionV1cHumanPromotionDecisionService({ repository: humanRepository,
+      promotionGateService: gateProvider, checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture() });
+    try {
+      if (slot === 'delegated') {
+        const { TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService } = await import('./topic-selection-v1c-n4-delegated-promotion-decision-runtime-service.js');
+        const { TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService } = await import('./topic-selection-v1c-n4-delegated-promotion-decision-admission-service.js');
+        const { TopicSelectionV1cN4DelegatedPromotionDecisionService } = await import('./topic-selection-v1c-n4-delegated-promotion-decision-service.js');
+        const service = () => {
+          const runtime = new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(ctx.controlPlane, { modelProfileRegistry, agentOrchestrator,
+            resolveResearchContext: current => compiler.gate(current, promotion) });
+          return new TopicSelectionV1cN4DelegatedPromotionDecisionService({ controlPlane: ctx.controlPlane, runtime,
+            admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(runtime), gateService: gateProvider, humanPromotionDecisionService: humanWriter });
+        };
+        const input = { promotion_gate_check_id: gate.promotion_gate_check_id, workflow_run_id: key, node_attempt_id: `${key}_candidate`, execution_spec: { execution_mode: 'codex_cli' as const } };
+        const record = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane); let interrupted = false;
+        ctx.controlPlane.recordArtifactRef = async value => {
+          if (!interrupted && value.stable_key?.startsWith('v1c-cli-delegated:')) { interrupted = true; throw new Error('qualification candidate receipt interruption'); }
+          return record(value);
+        };
+        await assert.rejects(service().generateDelegatedPromotionCandidate(input), error => {
+          if (error instanceof QualificationPreviewComplete) throw error;
+          assert.match(String(error), /qualification candidate receipt interruption/); return true;
+        });
+        const count = budget?.snapshot().attempts.length;
+        const result = await service().generateDelegatedPromotionCandidate(input); save('candidate', result);
+        assert.deepEqual(await service().generateDelegatedPromotionCandidate(input), result);
+        const accept = { promotion_gate_check_id: input.promotion_gate_check_id, workflow_run_id: key, node_attempt_id: input.node_attempt_id,
+          human_actor: { actor_type: 'human' as const, actor_id: 'controlled-qualification-human' },
+          candidate_receipt_ref: result.candidate_receipt_ref, confirmed_candidate_hash: result.candidate_hash, promote_reconfirmed: true,
+          condition_owners: result.candidate.conditions.map(condition => ({ condition_id: condition.condition_id,
+            owner: { actor_type: 'human' as const, actor_id: 'controlled-condition-owner' } })) };
+        await assert.rejects(service().recordDelegatedPromotionDecision({ ...accept, confirmed_candidate_hash: 'wrong' }), /changed/);
+        const accepted = await service().recordDelegatedPromotionDecision(accept); save('human-acceptance', accepted);
+        assert.deepEqual(await service().recordDelegatedPromotionDecision(accept), accepted);
+        assert.equal(budget?.snapshot().attempts.length, count);
+      } else {
+        const { TopicSelectionV1cPaperProjectBridgeService } = await import('./topic-selection-v1c-paper-project-bridge-service.js');
+        const { InMemoryTopicSelectionV1cPaperProjectBridgeRepository } = await import('../repositories/in-memory-topic-selection-v1c-paper-project-bridge-repository.js');
+        const { TopicSelectionV1cDownstreamFeedbackRecheckService } = await import('./topic-selection-v1c-downstream-feedback-recheck-service.js');
+        const { InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository } = await import('../repositories/in-memory-topic-selection-v1c-downstream-feedback-recheck-repository.js');
+        const { TopicSelectionV1cN6FeedbackNormalizationRuntimeService } = await import('./topic-selection-v1c-n6-feedback-normalization-runtime-service.js');
+        const human = await humanWriter.recordHumanPromotionDecision({ promotion_gate_check_id: gate.promotion_gate_check_id,
+          decision: 'promote_to_paper_project', human_actor: { actor_type: 'human', actor_id: 'controlled-qualification-human' },
+          rationale: 'Controlled Human decision for downstream ingress qualification only; no real scientific or investment approval.',
+          confirmed_snapshot_hash: gate.promotion_input_snapshot_hash });
+        const bridgeService = new TopicSelectionV1cPaperProjectBridgeService({ repository: new InMemoryTopicSelectionV1cPaperProjectBridgeRepository(),
+          humanPromotionDecisionService: humanWriter, checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture() });
+        const bridge = await bridgeService.createPaperProjectBridge({ promotion_decision_id: human.promotion_decision.promotion_decision_id });
+        save('controlled-bridge', bridge);
+        const raw = slot === 'feedback_no_recheck'
+          ? 'Reviewer report: Only spelling and formatting were corrected in the historical replication draft. Its historical claim ceiling, ANCE/TAS-B/BM25 comparisons, BioASQ and Touché-2020 scope, evaluation, evidence and commitments are unchanged. No new evidence or upstream issue was observed. This is not a report of new experimental results.'
+          : 'Reviewer report: The draft now asserts that all modern neural retrievers fail across every domain and that the historical ANCE/TAS-B versus BM25 replication establishes a novel causal mechanism. No new experiment or evidence supports these additions. This exceeds the frozen historical replication claim ceiling; revise those unsupported claims before continuing. Do not claim that archive or judgment checks have been completed.';
+        const rawRecord = await ctx.controlPlane.recordArtifactRef({ workflow_run_id: key, title_card_id: TITLE_CARD_ID,
+          artifact_kind: 'diagnostic', storage_kind: 'inline', payload: { raw_feedback_text: raw, controlled_downstream_report: true },
+          checksum: canonicalHash({ raw_feedback_text: raw, controlled_downstream_report: true }), created_by: 'system' });
+        const rawRef = ref('artifact_ref', rawRecord.artifact_ref_id, TITLE_CARD_ID);
+        const { TopicSelectionRecheckRiskMemoryService } = await import('./topic-selection-recheck-risk-memory-service.js');
+        const recheckService = new TopicSelectionRecheckRiskMemoryService(ctx.recheckRepository, ctx.controlPlane, ctx.searchRepository, ctx.needRepository);
+        const feedback = new TopicSelectionV1cDownstreamFeedbackRecheckService({ repository: new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository(),
+          paperProjectBridgeService: bridgeService, recheckRiskMemoryService: recheckService, controlPlane: ctx.controlPlane,
+          feedbackRuntime: new TopicSelectionV1cN6FeedbackNormalizationRuntimeService(ctx.controlPlane, { agentOrchestrator, modelProfileRegistry }) });
+        const input = { paper_project_bridge_id: bridge.handoff.paper_project_bridge_id, workflow_run_id: key, node_attempt_id: `${key}_feedback`,
+          execution_spec: { execution_mode: 'codex_cli' as const }, downstream_source_kind: 'reviewer_check' as const,
+          downstream_source_ref: rawRef, source_feedback_refs: [rawRef], observed_blocker_refs: [], artifact_refs: [rawRef], raw_feedback_text: raw };
+        save('feedback-input', input);
+        const result = await feedback.normalizeDownstreamTopicFeedback(input); save('result', result);
+        const count = budget?.snapshot().attempts.length;
+        assert.deepEqual(await feedback.normalizeDownstreamTopicFeedback(input), result);
+        assert.equal(budget?.snapshot().attempts.length, count);
+        assert.equal(result.downstream_topic_feedback.feedback_signal, slot === 'feedback_no_recheck' ? 'no_recheck_needed' : 'overclaim');
+        assert.equal(result.classification.requires_recheck, slot === 'feedback');
+        assert.deepEqual(await bridgeService.getPaperProjectBridgeHandoff(bridge.handoff.paper_project_bridge_id), bridge.handoff);
+      }
+    } catch (error) { if (!(error instanceof QualificationPreviewComplete) || live) throw error; }
+    finally { save('artifacts', await ctx.controlPlane.listArtifactRefsByWorkflowRunId(key)); }
+    return;
+  }
   const constraint = qualificationConstraint(true);
   const { n1, n2, n3 } = await runReadyN3(ctx, constraint, key);
   const outcome: { final_message: string } = JSON.parse(readFileSync(n4Outcome, 'utf8'));

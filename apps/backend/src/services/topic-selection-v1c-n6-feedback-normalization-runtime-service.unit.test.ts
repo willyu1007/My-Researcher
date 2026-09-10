@@ -210,7 +210,7 @@ test('v1c N6 runtime emits record-only candidate and admission prepares determin
     created_by: 'system',
   });
 
-  assert.equal(generated.status, 'succeeded');
+  assert.equal(generated.status, 'succeeded', JSON.stringify(generated.invocation_result.blocker_codes));
   if (generated.status !== 'succeeded') {
     throw new Error('Expected N6 feedback normalization candidate generation to succeed.');
   }
@@ -277,7 +277,7 @@ test('v1c N6 admission blocks forbidden authority fields carried inside feedback
     created_by: 'system',
   });
 
-  assert.equal(generated.status, 'succeeded');
+  assert.equal(generated.status, 'succeeded', JSON.stringify(generated.invocation_result.blocker_codes));
   if (generated.status !== 'succeeded') {
     throw new Error('Expected schema-valid forbidden-payload candidate generation to succeed before admission.');
   }
@@ -315,7 +315,7 @@ test('v1c N6 admission blocks source mismatch and missing no-upstream-mutation b
     created_by: 'system',
   });
 
-  assert.equal(generated.status, 'succeeded');
+  assert.equal(generated.status, 'succeeded', JSON.stringify(generated.invocation_result.blocker_codes));
   if (generated.status !== 'succeeded') {
     throw new Error('Expected schema-valid source-mismatch candidate generation to succeed before admission.');
   }
@@ -393,7 +393,7 @@ test('v1c N6 admission shares downstream policy and blocks missing affected line
     created_by: 'system',
   });
 
-  assert.equal(generated.status, 'succeeded');
+  assert.equal(generated.status, 'succeeded', JSON.stringify(generated.invocation_result.blocker_codes));
   if (generated.status !== 'succeeded') {
     throw new Error('Expected schema-valid missing-affected-lineage candidate to reach admission.');
   }
@@ -460,7 +460,7 @@ test('v1c N6 runtime compression quality gate blocks dropped feedback facts befo
 });
 
 const DOWNSTREAM_FEEDBACK_NORMALIZATION_SYSTEM_BODY_GOLDEN =
-  '49e23cc74b392c837ee70b09ef8a587209d8ed1d7b45024d884aa276e3ed65ba';
+  'd7b2f52ad438be815b4b3c824aab8cd6b182aaf34bbfcacf820ef81d0fe84f27';
 
 test('v1c N6 downstream-feedback-normalization system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cN6FeedbackNormalizationSystemContent();
@@ -487,4 +487,61 @@ test('v1c N6 downstream-feedback-normalization system prompt is product-grade an
   assert.match(body, /Do not create downstream_topic_feedback, recheck_request, recheck_event/);
 
   assert.match(body, /never inventing refs or hashes/);
+});
+
+
+test('CLI feedback recovers model output, records once, and blocks ambiguous domain retries without upstream mutation', async t => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
+  const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
+  const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
+  const home = mkdtempSync(join(tmpdir(), 'feedback-cli-')); t.after(() => rmSync(home, { recursive: true, force: true }));
+  const { bridge, bridgeService, controlPlane } = await makeSubject();
+  const source = makeSource(bridge.handoff);
+  const output = candidateOutput(bridge.handoff, source, { feedback_payload: {} });
+  const before = structuredClone(bridge.handoff);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(row => row.profile_id === 'topic-selection.v1c.downstream-feedback-normalization.v1')!;
+  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    assert.ok(options.stdin.includes(bridge.handoff.working_copy_payload.problem_statement));
+    assert.match(options.stdin, /Reviewer check invalidates/);
+    calls += 1;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `feedback-${calls}` }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  }); t.after(() => runner.shutdown());
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
+  const repository = new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository();
+  const sink = new RecordingRecheckSink();
+  const service = () => new TopicSelectionV1cDownstreamFeedbackRecheckService({ repository, paperProjectBridgeService: bridgeService,
+    recheckRiskMemoryService: sink, controlPlane,
+    feedbackRuntime: new TopicSelectionV1cN6FeedbackNormalizationRuntimeService(controlPlane, { agentOrchestrator, modelProfileRegistry }) });
+  const input = { ...source, workflow_run_id: 'cli-feedback', node_attempt_id: 'normalize', execution_spec: { execution_mode: 'codex_cli' as const } };
+  const record = controlPlane.recordArtifactRef.bind(controlPlane); let interrupt = true;
+  controlPlane.recordArtifactRef = async value => {
+    if (interrupt && value.stable_key?.startsWith('n6-cli-feedback-output:')) { interrupt = false; throw new Error('candidate output interruption'); }
+    return record(value);
+  };
+  await assert.rejects(service().normalizeDownstreamTopicFeedback(input), /candidate output interruption/);
+  assert.equal(calls, 1); assert.equal(sink.calls.length, 0);
+  const result = await service().normalizeDownstreamTopicFeedback(input);
+  assert.equal(result.classification.loopback_target, 'validated_need');
+  assert.equal(sink.calls.length, 1); assert.equal(calls, 1);
+  assert.deepEqual(await service().normalizeDownstreamTopicFeedback(input), result);
+  assert.equal(sink.calls.length, 1); assert.equal(calls, 1);
+  await assert.rejects(service().normalizeDownstreamTopicFeedback({ ...input, raw_feedback_text: 'Changed report' }), /changed|different|conflict|already|checksum/i);
+  assert.equal(calls, 1);
+  output.summary += ' New observation.';
+  repository.createFeedback = async () => { throw new Error('ambiguous feedback commit'); };
+  const retry = { ...input, node_attempt_id: 'partial' };
+  await assert.rejects(service().normalizeDownstreamTopicFeedback(retry), /ambiguous feedback commit/);
+  assert.equal(sink.calls.length, 2); assert.equal(calls, 2);
+  await assert.rejects(service().normalizeDownstreamTopicFeedback(retry), /running or interrupted/);
+  assert.equal(sink.calls.length, 2); assert.equal(calls, 2);
+  assert.deepEqual(await bridgeService.getPaperProjectBridgeHandoff(bridge.handoff.paper_project_bridge_id), before);
 });

@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
@@ -23,6 +24,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import {
   topicSelectionV1cDelegatedPromotionDecisionCandidateSchema,
+  topicSelectionV1cDelegatedPromotionDecisionCliCandidateSchema,
   type TopicSelectionV1cDelegatedPromotionDecisionCandidate,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
 import { AppError } from '../errors/app-error.js';
@@ -65,6 +67,7 @@ import type {
 
 export interface TopicSelectionV1cN4DelegatedPromotionDecisionContextPacket {
   schema_version: 'TopicSelectionV1cN4DelegatedPromotionDecisionContextPacket@v1';
+  research_context?: Record<string, unknown>;
   node_id: typeof NODE_ID;
   workflow_run_id: string;
   node_attempt_id: string;
@@ -195,7 +198,8 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
-    options: {
+    private readonly options: {
+      resolveResearchContext?: (handoff: TopicSelectionPromotionGateHandoff) => Promise<Record<string, unknown>>;
       agentOrchestrator?: TopicSelectionAgentOrchestratorService;
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
@@ -212,13 +216,35 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     });
   }
 
+  get cliExecutionIdentity() {
+    this.agentOrchestrator.assertProductCodexProfile(TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_PROFILE_ID);
+    return { runner: this.agentOrchestrator.codexCliExecutionIdentity, prompt: PROMPT_TEMPLATE,
+      model: this.modelProfileRegistry.resolveProfile({ profile_id: TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_PROFILE_ID,
+        execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null }).profile_hash,
+      context: this.resolveRuntimeProfile(this.slotBinding()).profile_hash };
+  }
+
+  private async resolveCliContext(handoff: TopicSelectionPromotionGateHandoff, mode: TopicSelectionAgentExecutionMode) {
+    if (mode !== 'codex_cli') return undefined;
+    if (!this.options.resolveResearchContext) throw new AppError(500, 'INTERNAL_ERROR', 'CLI delegated candidate requires its research context resolver.');
+    return this.options.resolveResearchContext(handoff);
+  }
+
   async generateCandidate(
     input: GenerateTopicSelectionV1cN4DelegatedPromotionDecisionCandidateInput,
   ): Promise<TopicSelectionV1cN4DelegatedPromotionDecisionCandidateGenerationResult> {
+    if (input.execution_mode === 'codex_cli') {
+      if (input.codex_response != null || input.mocked_output != null || input.model_option_id != null
+        || input.compression_attempt != null || input.runtime_token_budget_overrides != null
+        || (input.run_mode != null && input.run_mode !== 'product')) throw new AppError(400, 'INVALID_PAYLOAD', 'CLI delegated candidate forbids external answers and runtime overrides.');
+      this.agentOrchestrator.assertProductCodexProfile(TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_PROFILE_ID);
+    }
     this.assertGateHandoff(input.gate_handoff);
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? this.defaultRunMode(input.execution_mode);
+    const researchContext = await this.resolveCliContext(input.gate_handoff, input.execution_mode);
     const sourceHashes = this.sourceHashes(input.gate_handoff);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes);
     const contextPacket = this.buildContextPacket({
@@ -227,9 +253,11 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       runtimeProfile,
       runtimeInvocationContextHash,
       sourceHashes,
+      researchContext,
     });
     const contextPacketHash = this.hash(contextPacket);
     const contextArtifact = await this.controlPlane.recordArtifactRef({
+      ...(input.execution_mode === 'codex_cli' ? { stable_key: `n4-cli-context:${this.hash([input.workflow_run_id, input.node_attempt_id])}` } : {}),
       workspace_id: input.gate_handoff.gate_check.workspace_id ?? null,
       title_card_id: input.gate_handoff.gate_check.title_card_id,
       artifact_kind: 'diagnostic',
@@ -241,7 +269,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     });
     const contextPacketRef = this.toArtifactFunctionalRef(contextArtifact);
 
-    const baseCompressionAttempt = this.runtimeCompressionAttempt({
+    const baseCompressionAttempt = input.execution_mode === 'codex_cli' ? null : this.runtimeCompressionAttempt({
       runtimeProfile,
       contextPacket,
       compressionAttempt: input.compression_attempt ?? null,
@@ -287,6 +315,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       };
     }
 
+    if (input.execution_mode === 'codex_cli') assertV1aCodexReferences(finalInvocation.structured_output, contextPacket.allowed_refs);
     const candidateArtifact = await this.recordCandidateArtifact({
       input,
       binding,
@@ -307,7 +336,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     };
   }
 
-  buildAdmissionExpectedIdentity(input: {
+  async buildAdmissionExpectedIdentity(input: {
     gate_handoff: TopicSelectionPromotionGateHandoff;
     workflow_run_id: string;
     node_attempt_id: string;
@@ -319,9 +348,11 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     compression_report_ref?: TopicSelectionFunctionalRef | null;
     compression_report_hash?: string | null;
     compressed_context_hash?: string | null;
-  }): TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentity {
+  }): Promise<TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentity> {
     const binding = this.slotBinding();
+    const researchContext = await this.resolveCliContext(input.gate_handoff, input.execution_mode);
     const sourceHashes = this.sourceHashes(input.gate_handoff);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(binding, sourceHashes);
     const contextPacket = this.buildContextPacket({
@@ -335,6 +366,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       runtimeProfile,
       runtimeInvocationContextHash,
       sourceHashes,
+      researchContext,
     });
     const modelProfile = this.resolveModelProfile(
       binding,
@@ -414,6 +446,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       throw new AppError(500, 'INTERNAL_ERROR', 'N4 delegated decision candidate structured output hash drift detected.');
     }
     const outputArtifact = await this.controlPlane.recordArtifactRef({
+      ...(input.input.execution_mode === 'codex_cli' ? { stable_key: `n4-cli-candidate:${this.hash([input.input.workflow_run_id, input.input.node_attempt_id, outputHash])}` } : {}),
       workspace_id: input.input.gate_handoff.gate_check.workspace_id ?? null,
       title_card_id: input.input.gate_handoff.gate_check.title_card_id,
       artifact_kind: 'structured_output',
@@ -491,7 +524,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       },
       prompt_variant_key: input.binding.invocation_slot_id,
       schema_name: input.binding.output_contract,
-      schema: input.binding.schema,
+      schema: input.input.execution_mode === 'codex_cli' ? topicSelectionV1cDelegatedPromotionDecisionCliCandidateSchema : input.binding.schema,
       messages: this.messages(
         input.binding,
         input.contextPacket,
@@ -571,10 +604,12 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
+    researchContext?: Record<string, unknown>;
   }): TopicSelectionV1cN4DelegatedPromotionDecisionContextPacket {
     const handoff = input.input.gate_handoff;
     const allowedRefs = this.allowedRefs(handoff);
     return {
+      ...(input.researchContext ? { research_context: input.researchContext } : {}),
       schema_version: 'TopicSelectionV1cN4DelegatedPromotionDecisionContextPacket@v1',
       node_id: NODE_ID,
       workflow_run_id: input.input.workflow_run_id,
@@ -684,7 +719,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       context_policy_profile_hash: input.runtimeProfile.profile_hash,
       runtime_invocation_context_hash: input.runtimeInvocationContextHash,
       dynamic_material_refs: dynamicMaterialRefs,
-      context_payloads: [input.compressionApplied?.compressed_context ?? input.contextPacket],
+      context_payloads: input.contextPacket.research_context ? [] : [input.compressionApplied?.compressed_context ?? input.contextPacket],
       compression_attempt: input.compressionApplied ? null : input.compressionAttempt,
       compression_already_applied: Boolean(input.compressionApplied),
       compression_report_ref: input.compressionApplied?.compression_report_ref ?? null,
@@ -898,7 +933,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
   }
 
   private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'mocked_llm' ? 'test' : executionMode === 'codex_cli' ? 'product' : 'acceptance';
   }
 
   private executorKind(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionExecutorKind {

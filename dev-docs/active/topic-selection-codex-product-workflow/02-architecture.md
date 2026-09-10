@@ -423,6 +423,22 @@ The v1c context owner verifies admitted frozen package/draft bodies, handoff ref
 identity, reads original selected EvidenceUnits and actual accepted-risk/material-finding records,
 and preserves unresolved legacy obligation refs explicitly. Scientific bodies are included once;
 context accounting does not count the serialized packet twice. N10 bounds final display titles
-while retaining the full slice statement in the frozen package. Profiles remain closed until final
-qualification; the next two consumers must preserve separate model preview/Human acceptance and
-record-only feedback boundaries.
+while retaining the full slice statement in the frozen package. Profiles remain closed until final qualification and activation. Ordinary CLI emits only its six
+advisory fields; the existing deterministic owner compiles its ordinary N3 semantic layer.
+
+N4 CLI uses `/promotion-decisions/delegated/candidates` for generation and the existing delegated
+endpoint for acceptance. A protected receipt binds the exact workflow/attempt, gate, prompt/profile,
+runner and candidate hash. Source/decision validation precedes preview. Human acceptance supplies the
+receipt, exact candidate hash, actor and condition-owner map; a promote-class decision requires
+reconfirmation. Admission rereads scientific/evidence context before the existing Human writer records
+its immutable decision. Receipt interruption reuses completed model output. CLI cannot fall back to
+ref-only compression or invent a Human authorizer or condition owner.
+
+N6 CLI uses `/downstream-feedback/normalize`, accepting original report text and source refs rather than
+model-authored answers. Runtime context carries complete working-copy scientific text, commitment scope
+and Human allowed/stop/reopen boundaries once, while hashing the full bridge handoff. Output references
+are exact and the deterministic normalization admission chooses the canonical feedback create input.
+The service preserves raw text and verified provenance and reuses the existing persistent submission
+guard around the canonical feedback/recheck writes. Completed calls replay; ambiguous partial domain
+writes require inspection and cannot auto-repeat. No code advances or loops back into upstream stages.
+Caller observations and unresolved source refs are not independently verified evidence.

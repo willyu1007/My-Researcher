@@ -6276,6 +6276,75 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /topic-selection/v1c/promotion-decisions/delegated/candidates:
+    post:
+      operationId: generateTopicSelectionV1cDelegatedCandidate
+      summary: Generate a reviewable Codex CLI candidate without recording a Human decision.
+      tags: [topic-selection-v1c]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1cDelegatedCandidateRequest'
+      responses:
+        '201':
+          description: Persisted result with execution provenance; exact attempts replay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1cRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /topic-selection/v1c/promotion-decisions/delegated:
+    post:
+      operationId: recordTopicSelectionV1cDelegatedDecision
+      summary: Accept the exact reviewed CLI candidate or an explicit assisted candidate through Human authority.
+      tags: [topic-selection-v1c]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1cDelegatedDecisionRequest'
+      responses:
+        '201':
+          description: Persisted result with execution provenance; exact attempts replay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1cRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /topic-selection/v1c/downstream-feedback/normalize:
+    post:
+      operationId: normalizeTopicSelectionV1cDownstreamFeedback
+      summary: Normalize raw feedback with Codex CLI and record it without advancing or looping back automatically.
+      tags: [topic-selection-v1c]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1cCliFeedbackRequest'
+      responses:
+        '201':
+          description: Persisted result with execution provenance; exact attempts replay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1cRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /topic-selection/v1c/promotion-decisions:
     post:
       operationId: recordTopicSelectionV1cHumanPromotionDecision
@@ -12384,6 +12453,83 @@ components:
         workspace_id: { type: string, nullable: true }
         created_by: { type: string, enum: [human, llm, system, hybrid] }
         policy_version_id: { type: string, nullable: true }
+
+    TopicSelectionV1cDelegatedCandidateRequest:
+      type: object
+      additionalProperties: false
+      required: [promotion_gate_check_id, workflow_run_id, node_attempt_id, execution_spec]
+      properties:
+        promotion_gate_check_id: { type: string, minLength: 1 }
+        workflow_run_id: { type: string, minLength: 1 }
+        node_attempt_id: { type: string, minLength: 1 }
+        policy_version_id: { type: string, nullable: true }
+        execution_spec:
+          $ref: '#/components/schemas/TopicSelectionV1cCodexExecutionSpec'
+
+    TopicSelectionV1cDelegatedDecisionRequest:
+      type: object
+      additionalProperties: true
+      required: [promotion_gate_check_id, workflow_run_id, node_attempt_id, human_actor]
+      oneOf:
+        - required: [candidate_receipt_ref, confirmed_candidate_hash]
+          not: { required: [codex_response] }
+        - required: [codex_response]
+          not: { required: [candidate_receipt_ref] }
+      properties:
+        promotion_gate_check_id: { type: string, minLength: 1 }
+        workflow_run_id: { type: string, minLength: 1 }
+        node_attempt_id: { type: string, minLength: 1 }
+        policy_version_id: { type: string, nullable: true }
+        workspace_id: { type: string, nullable: true }
+        human_actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        candidate_receipt_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        confirmed_candidate_hash: { type: string, minLength: 1 }
+        promote_reconfirmed: { type: boolean }
+        condition_owners:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [condition_id, owner]
+            properties:
+              condition_id: { type: string, minLength: 1 }
+              owner:
+                $ref: '#/components/schemas/TopicSelectionActorRef'
+        codex_response: { type: object, additionalProperties: true }
+
+    TopicSelectionV1cCliFeedbackRequest:
+      type: object
+      additionalProperties: false
+      required: [paper_project_bridge_id, downstream_source_kind, downstream_source_ref, raw_feedback_text, workflow_run_id, node_attempt_id, execution_spec]
+      properties:
+        paper_project_bridge_id: { type: string, minLength: 1 }
+        workspace_id: { type: string, nullable: true }
+        workflow_run_id: { type: string, minLength: 1 }
+        node_attempt_id: { type: string, minLength: 1 }
+        execution_spec:
+          $ref: '#/components/schemas/TopicSelectionV1cCodexExecutionSpec'
+        downstream_source_kind:
+          type: string
+          enum: [paper_project, paper_implementation, writing, research_argument, reviewer_check, manual]
+        downstream_source_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        raw_feedback_text: { type: string, minLength: 1 }
+        source_feedback_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        observed_blocker_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        artifact_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        policy_version_id: { type: string, nullable: true }
+        created_by: { type: string, enum: [human, llm, system, hybrid] }
 
     TopicSelectionV1cCodexExecutionSpec:
       type: object

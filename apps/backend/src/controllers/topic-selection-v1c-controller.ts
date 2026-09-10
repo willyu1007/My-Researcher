@@ -196,10 +196,16 @@ export class TopicSelectionV1cController {
     }
   };
 
-  // T-128 W-13: delegated promotion decision (an agent drafts the content; a human still authorizes via human_actor
-  // from the request; promote-class requires promote_reconfirmed:true). A DISTINCT endpoint from the default pure-human
-  // POST /promotion-decisions (unchanged). Not access-gated today (no RBAC infra) — gating is a tracked follow-up; the
-  // authority boundary (human actor + admission) holds regardless.
+  // Preview records a candidate; the separate acceptance route authorizes the exact reviewed result.
+  generateDelegatedPromotionCandidate = async (
+    request: BodyRequest<Parameters<TopicSelectionV1cN4DelegatedPromotionDecisionService['generateDelegatedPromotionCandidate']>[0]>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.status(201).send(await this.n4DelegatedPromotionDecision.generateDelegatedPromotionCandidate(request.body));
+    } catch (error) { return handleError(reply, error); }
+  };
+
   recordDelegatedPromotionDecision = async (
     request: BodyRequest<DelegatedPromotionDecisionBody>,
     reply: FastifyReply,
@@ -303,6 +309,14 @@ export class TopicSelectionV1cController {
     } catch (error) {
       return handleError(reply, error);
     }
+  };
+
+  normalizeDownstreamTopicFeedback = async (
+    request: BodyRequest<Parameters<TopicSelectionV1cDownstreamFeedbackRecheckService['normalizeDownstreamTopicFeedback']>[0]>,
+    reply: FastifyReply,
+  ) => {
+    try { return reply.status(201).send(await this.downstreamFeedbackRecheck.normalizeDownstreamTopicFeedback(request.body)); }
+    catch (error) { return handleError(reply, error); }
   };
 
   recordDownstreamTopicFeedback = async (

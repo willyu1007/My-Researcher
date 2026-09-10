@@ -336,14 +336,14 @@ function makeCandidateArtifact(
   };
 }
 
-test('v1c N4 admission admits a runtime-verified candidate and prepares the human decision input without authority write', () => {
+test('v1c N4 admission admits a runtime-verified candidate and prepares the human decision input without authority write', async () => {
   const handoff = makeGateHandoff();
   const candidate = candidateOutput(handoff);
   const service = new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(
     makeExpectedIdentityBuilder(candidate),
   );
 
-  const result = service.admit({
+  const result = await service.admit({
     gate_handoff: handoff,
     candidate_artifact: makeCandidateArtifact(candidate),
     candidate,
@@ -378,14 +378,14 @@ test('v1c N4 admission admits a runtime-verified candidate and prepares the huma
   assert.equal(result.admission_identity_hash, hash(result.admission_identity));
 });
 
-test('v1c N4 admission rejects a candidate artifact that is not runtime_verified provenance class', () => {
+test('v1c N4 admission rejects a candidate artifact that is not runtime_verified provenance class', async () => {
   const handoff = makeGateHandoff();
   const candidate = candidateOutput(handoff);
   const service = new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(
     makeExpectedIdentityBuilder(candidate),
   );
 
-  const result = service.admit({
+  const result = await service.admit({
     gate_handoff: handoff,
     candidate_artifact: makeCandidateArtifact(candidate, {
       // Forge the provenance class to something other than runtime_verified.
@@ -402,14 +402,14 @@ test('v1c N4 admission rejects a candidate artifact that is not runtime_verified
   assert.equal(result.blocker.code, 'N4_DELEGATED_DECISION_ARTIFACT_RUNTIME_CONTEXT_DRIFT');
 });
 
-test('v1c N4 admission rejects a candidate artifact whose payload hash drifts from the normalized output', () => {
+test('v1c N4 admission rejects a candidate artifact whose payload hash drifts from the normalized output', async () => {
   const handoff = makeGateHandoff();
   const candidate = candidateOutput(handoff);
   const service = new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(
     makeExpectedIdentityBuilder(candidate),
   );
 
-  const result = service.admit({
+  const result = await service.admit({
     gate_handoff: handoff,
     candidate_artifact: makeCandidateArtifact(candidate, {
       candidate_artifact_hash: '0'.repeat(64),
@@ -425,7 +425,7 @@ test('v1c N4 admission rejects a candidate artifact whose payload hash drifts fr
   assert.equal(result.blocker.code, 'N4_DELEGATED_DECISION_ARTIFACT_PAYLOAD_HASH_MISMATCH');
 });
 
-test('v1c N4 admission rejects a candidate that smuggles a forbidden authority/bridge field', () => {
+test('v1c N4 admission rejects a candidate that smuggles a forbidden authority/bridge field', async () => {
   const handoff = makeGateHandoff();
   const candidate = candidateOutput(handoff, {
     // A delegated candidate must never carry authority/bridge/automation fields.
@@ -435,7 +435,7 @@ test('v1c N4 admission rejects a candidate that smuggles a forbidden authority/b
     makeExpectedIdentityBuilder(candidate),
   );
 
-  const result = service.admit({
+  const result = await service.admit({
     gate_handoff: handoff,
     candidate_artifact: makeCandidateArtifact(candidate),
     candidate,
@@ -450,14 +450,14 @@ test('v1c N4 admission rejects a candidate that smuggles a forbidden authority/b
   assert.equal(result.blocker.details?.forbidden_key, 'paper_project_bridge_id');
 });
 
-test('v1c N4 admission rejects a non-human actor supplied outside the candidate', () => {
+test('v1c N4 admission rejects a non-human actor supplied outside the candidate', async () => {
   const handoff = makeGateHandoff();
   const candidate = candidateOutput(handoff);
   const service = new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(
     makeExpectedIdentityBuilder(candidate),
   );
 
-  const result = service.admit({
+  const result = await service.admit({
     gate_handoff: handoff,
     candidate_artifact: makeCandidateArtifact(candidate),
     candidate,
@@ -469,4 +469,26 @@ test('v1c N4 admission rejects a non-human actor supplied outside the candidate'
     throw new Error('Expected a non-human actor to be rejected.');
   }
   assert.equal(result.blocker.code, 'N4_DELEGATED_DECISION_HUMAN_BOUNDARY_MISSING');
+});
+
+
+test('CLI N4 admission accepts only exact Human-assigned condition owners', async () => {
+  const gate_handoff = makeGateHandoff();
+  const candidate = candidateOutput(gate_handoff);
+  candidate.conditions = candidate.conditions.map(({ owner: _owner, ...condition }) => condition);
+  const service = new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(makeExpectedIdentityBuilder(candidate));
+  const input = { gate_handoff, candidate, candidate_artifact: makeCandidateArtifact(candidate, { execution_mode: 'codex_cli', run_mode: 'product' }),
+    human_actor: { actor_type: 'human' as const, actor_id: 'reviewer' } };
+  const row = { condition_id: candidate.conditions[0]!.condition_id, owner: { actor_type: 'human' as const, actor_id: 'assigned-researcher' } };
+  for (const condition_owners of [undefined, [], [row, row], [{ ...row, condition_id: 'unknown' }], [{ ...row, owner: { ...row.owner, actor_id: ' ' } }]]) {
+    await assert.rejects(service.admit({ ...input, condition_owners }), /owner/i);
+  }
+  const result = await service.admit({ ...input, condition_owners: [row] });
+  assert.equal(result.admitted, true);
+  if (!result.admitted) throw new Error('Expected admission.');
+  assert.deepEqual(result.create_input.conditions?.[0]?.owner, row.owner);
+  assert.equal(candidate.conditions[0]?.owner, undefined);
+  const forged = { ...candidate, conditions: candidate.conditions.map(condition => ({ ...condition, owner: row.owner })) };
+  await assert.rejects(service.admit({ ...input, candidate: forged,
+    candidate_artifact: makeCandidateArtifact(forged, { execution_mode: 'codex_cli', run_mode: 'product' }), condition_owners: [row] }), /owner/i);
 });

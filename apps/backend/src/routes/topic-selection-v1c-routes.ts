@@ -1,7 +1,10 @@
+import { topicSelectionCliFeedbackBodySchema } from '../services/topic-selection-v1c-downstream-feedback-recheck-service.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER } from '../services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import {
   TOPIC_SELECTION_ACTOR_TYPES,
+  topicSelectionActorRefSchema,
+  topicSelectionFunctionalRefSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_SOURCES,
@@ -120,23 +123,30 @@ const promotionDecisionSupportBoundedDebateBody = bodySchema(
   },
 );
 
-// T-128 W-13: delegated promotion decision — a DISTINCT endpoint from the default pure-human POST
-// /promotion-decisions (which is unchanged). NOTE: this is NOT access-gated today (the backend has no auth/RBAC
-// infrastructure); "operator-only" is by convention, not enforcement — hard env/RBAC gating is a tracked follow-up.
-// The authority boundary IS enforced regardless: human_actor (from the request) must be human, admission validates
-// the candidate, and promote_reconfirmed gates promote-class. human_actor + codex_response are passthrough objects.
+// The client supplies the Human authorizer separately from the reviewed candidate. The backend
+// does not authenticate that identity; candidate admission and promote reconfirmation remain mandatory.
 const delegatedPromotionDecisionBody = bodySchema(
-  ['promotion_gate_check_id', 'workflow_run_id', 'node_attempt_id', 'human_actor', 'codex_response'],
+  ['promotion_gate_check_id', 'workflow_run_id', 'node_attempt_id', 'human_actor'],
   {
     promotion_gate_check_id: stringId,
     workflow_run_id: stringId,
     node_attempt_id: stringId,
-    human_actor: recordPayload,
+    human_actor: topicSelectionHumanActorRefSchema,
+    candidate_receipt_ref: topicSelectionFunctionalRefSchema,
+    confirmed_candidate_hash: stringId,
+    condition_owners: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['condition_id', 'owner'],
+      properties: { condition_id: stringId, owner: topicSelectionActorRefSchema } } },
     codex_response: recordPayload,
     workspace_id: nullableStringId,
     policy_version_id: nullableStringId,
     promote_reconfirmed: { type: 'boolean' },
   },
+);
+
+const delegatedPromotionCandidateBody = bodySchema(
+  ['promotion_gate_check_id', 'workflow_run_id', 'node_attempt_id', 'execution_spec'],
+  { promotion_gate_check_id: stringId, workflow_run_id: stringId, node_attempt_id: stringId,
+    execution_spec: codexExecutionSpecSchema, policy_version_id: nullableStringId },
 );
 
 const promotionGateCheckBody = {
@@ -363,6 +373,11 @@ export async function registerTopicSelectionV1cRoutes(
     controller.recordHumanPromotionDecision,
   );
   fastify.post(
+    '/topic-selection/v1c/promotion-decisions/delegated/candidates',
+    { schema: delegatedPromotionCandidateBody },
+    controller.generateDelegatedPromotionCandidate,
+  );
+  fastify.post(
     '/topic-selection/v1c/promotion-decisions/delegated',
     { schema: delegatedPromotionDecisionBody },
     controller.recordDelegatedPromotionDecision,
@@ -402,6 +417,9 @@ export async function registerTopicSelectionV1cRoutes(
     { schema: paperProjectBridgeIntakeBody },
     controller.createPaperProjectIntakeFromBridge,
   );
+  fastify.post('/topic-selection/v1c/downstream-feedback/normalize',
+    // Preserve unknown fields for service rejection; Fastify otherwise silently removes them.
+    { schema: { body: { ...topicSelectionCliFeedbackBodySchema, additionalProperties: true } } }, controller.normalizeDownstreamTopicFeedback);
   fastify.post(
     '/topic-selection/v1c/downstream-feedback',
     { schema: downstreamFeedbackBody },

@@ -1,3 +1,4 @@
+import { AppError } from '../errors/app-error.js';
 import type {
   TopicSelectionActorRef,
   TopicSelectionFunctionalRef,
@@ -11,6 +12,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import type {
   TopicSelectionHumanPromotionDecisionKind,
+  TopicSelectionPromotionCondition,
   TopicSelectionPromotionLoopbackTarget,
   TopicSelectionV1cDelegatedPromotionDecisionCandidate,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
@@ -91,7 +93,7 @@ export type TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdenti
     compression_report_ref?: TopicSelectionFunctionalRef | null;
     compression_report_hash?: string | null;
     compressed_context_hash?: string | null;
-  }): TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentity;
+  }): TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentity | Promise<TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentity>;
 };
 
 export type TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionBlockerCode =
@@ -161,6 +163,7 @@ export interface TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionInput {
   gate_handoff: TopicSelectionPromotionGateHandoff;
   candidate_artifact: TopicSelectionV1cN4DelegatedPromotionDecisionCandidateArtifact;
   candidate: TopicSelectionV1cDelegatedPromotionDecisionCandidate;
+  condition_owners?: Array<{ condition_id: string; owner: TopicSelectionActorRef }>;
   human_actor: TopicSelectionActorRef;
   workspace_id?: string | null;
   policy_version_id?: string | null;
@@ -216,10 +219,10 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService {
       TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentityBuilder,
   ) {}
 
-  admit(
+  async admit(
     input: TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionInput,
-  ): TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionResult {
-    const expected = this.expectedIdentityBuilder.buildAdmissionExpectedIdentity({
+  ): Promise<TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionResult> {
+    const expected = await this.expectedIdentityBuilder.buildAdmissionExpectedIdentity({
       gate_handoff: input.gate_handoff,
       workflow_run_id: input.candidate_artifact.workflow_run_id,
       node_attempt_id: input.candidate_artifact.node_attempt_id,
@@ -236,10 +239,29 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService {
     if (artifactCheck) {
       return artifactCheck;
     }
-    const candidateCheck = this.validateCandidate(input);
+    const candidateCheck = this.validateCandidateForReview(input);
     if (candidateCheck) {
       return candidateCheck;
     }
+
+    if (input.human_actor.actor_type !== 'human' || !this.nonEmptyString(input.human_actor.actor_id)) {
+      return this.block(
+        'N4_DELEGATED_DECISION_HUMAN_BOUNDARY_MISSING',
+        'N4 delegated decision admission requires an explicit human actor supplied outside the LLM candidate.',
+      );
+    }
+    const owners = new Map((input.condition_owners ?? []).map(row => [row.condition_id, row.owner]));
+    const cli = input.candidate_artifact.execution_mode === 'codex_cli';
+    if ((cli && (owners.size !== (input.condition_owners ?? []).length || owners.size !== input.candidate.conditions.length
+      || input.candidate.conditions.some(condition => condition.owner != null || !owners.has(condition.condition_id))))
+      || (!cli && input.condition_owners != null)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Human acceptance must assign one exact owner for every CLI condition.');
+    }
+    const conditions: TopicSelectionPromotionCondition[] = input.candidate.conditions.map(condition => {
+      const owner = cli ? owners.get(condition.condition_id) : condition.owner;
+      if (!owner?.actor_id?.trim()) throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Promotion conditions require a Human-assigned owner identity.');
+      return { ...condition, owner };
+    });
 
     const admissionIdentity: TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionIdentity = {
       schema_version: 'topic-selection-v1c-n4-delegated-promotion-decision-admission-identity-v1',
@@ -279,7 +301,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService {
         confirmed_snapshot_hash: input.gate_handoff.promotion_input_snapshot_hash,
         workspace_id: input.workspace_id ?? input.candidate.workspace_id ?? input.gate_handoff.gate_check.workspace_id ?? null,
         policy_version_id: input.policy_version_id ?? null,
-        conditions: input.candidate.conditions,
+        conditions,
         required_actions: input.candidate.required_actions,
         loopback_target: input.candidate.loopback_target,
         allowed_refinements: input.candidate.allowed_refinements,
@@ -354,8 +376,8 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService {
     return null;
   }
 
-  private validateCandidate(
-    input: TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionInput,
+  validateCandidateForReview(
+    input: Pick<TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionInput, 'gate_handoff' | 'candidate'>,
   ): TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionResult | null {
     const candidate = input.candidate;
     const handoff = input.gate_handoff;
@@ -395,12 +417,6 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService {
       return this.block(
         'N4_DELEGATED_DECISION_HUMAN_BOUNDARY_MISSING',
         'N4 delegated decision candidate must explicitly preserve human authority and no-bridge boundaries.',
-      );
-    }
-    if (input.human_actor.actor_type !== 'human' || !this.nonEmptyString(input.human_actor.actor_id)) {
-      return this.block(
-        'N4_DELEGATED_DECISION_HUMAN_BOUNDARY_MISSING',
-        'N4 delegated decision admission requires an explicit human actor supplied outside the LLM candidate.',
       );
     }
     const forbiddenKey = this.findForbiddenAuthorityKey(candidate);

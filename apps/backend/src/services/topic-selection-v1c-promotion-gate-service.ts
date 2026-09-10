@@ -199,6 +199,14 @@ export function buildV1cPromotionDecisionSupportSystemContent(): string {
   return PROMPT_TEMPLATE.system;
 }
 
+// Ordinary support owns these six advisory fields; its N3 layer is built from frozen inputs below.
+const ordinaryCliDraftSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['summary', 'reviewer_questions', 'risk_notes', 'recheck_notes', 'dossier_markdown', 'condition_candidates'],
+  properties: Object.fromEntries(Object.entries(topicSelectionPromotionDecisionSupportLlmDraftSchema.properties)
+    .filter(([key]) => key !== 'n3_semantic_layer')),
+};
+
 export class TopicSelectionV1cPromotionGateService {
   private readonly controlPlane: TopicSelectionControlPlaneService | undefined;
   private readonly resolveResearchContext: TopicSelectionV1cPromotionGateServiceOptions['resolveResearchContext'];
@@ -290,7 +298,7 @@ export class TopicSelectionV1cPromotionGateService {
         profile_id: WORKFLOW_PROFILE_KEY, model_option_id: null, output_contract: 'TopicSelectionPromotionDecisionSupportLlmDraft@v1',
         prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: DEFAULT_PROMPT_TEMPLATE_VERSION },
         prompt_variant_key: TOPIC_SELECTION_V1C_N2_INVOCATION_SLOT_IDS.promotion_support_llm_draft,
-        schema_name: 'TopicSelectionPromotionDecisionSupportLlmDraft', schema: topicSelectionPromotionDecisionSupportLlmDraftSchema,
+        schema_name: 'TopicSelectionPromotionDecisionSupportLlmDraft', schema: ordinaryCliDraftSchema,
         messages: [{ role: 'system', content: buildV1cPromotionDecisionSupportSystemContent() }, { role: 'user', content: stableStringify(context) }],
         input_refs: this.compileSourceRefs(handoff),
         runtime_token_budget: { context_policy_profile: runtimeProfile.profile, context_policy_profile_hash: runtimeProfile.profile_hash,
