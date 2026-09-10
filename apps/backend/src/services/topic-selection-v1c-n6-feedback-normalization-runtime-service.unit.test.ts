@@ -504,7 +504,8 @@ test('CLI feedback recovers model output, records once, and blocks ambiguous dom
   const before = structuredClone(bridge.handoff);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   const profile = registry.profiles.find(row => row.profile_id === 'topic-selection.v1c.downstream-feedback-normalization.v1')!;
-  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  assert.ok(profile.allowed_execution_modes.includes('codex_cli'));
+  assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {

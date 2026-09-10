@@ -799,11 +799,6 @@ async function makeV1cRouteHarness(
   });
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const profiles = createDefaultTopicSelectionModelProfileRegistry();
-  if (codexCliRunner) for (const id of ['topic-selection.v1c.delegated-promotion-decision.v1', 'topic-selection.v1c.downstream-feedback-normalization.v1']) {
-    const profile = profiles.profiles.find(row => row.profile_id === id)!;
-    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
-    profile.run_mode_eligibility.codex_cli = ['product'];
-  }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry: profiles });
   const cliOptions = codexCliRunner ? { modelProfileRegistry,
     agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner, codexCliModelId: 'gpt-6-astra' }) } : undefined;

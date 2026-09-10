@@ -4,7 +4,7 @@ Inventory established at `a5263023`, reconciled with the current Phase 4 impleme
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), Phase 4 opens N4 (#15), optional N2/N3/N5 support (#18–20), N6 triage and N7 grouping/synthesis (#21–23), leaving four v1c profiles closed (32 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation; all 36 now admit `codex_cli/product`. Phase 2 qualified profiles 16, 17 and 24–32; Phase 3 qualified sampling, extraction, need discovery, adjudication/confirmation, convergence and optional Arena (1–14). Phase 4 qualified N4 and six optional v1b support profiles (15, 18–23), then all four v1c profiles (33–36). Default-registry admission, qualified profile hashes and canonical consumer checks agree. “External” below denotes an explicit compatibility path accepting operator-authored outputs, not product-driven CLI execution.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
@@ -42,8 +42,8 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 32 | `topic-selection.v1b.n6-refinement-delta-debate.arbiter.v1` | Support-only refinement verdict; cannot replace the Human question | Phase 2 / CX-02 |
 | 33 | `topic-selection-promotion-decision-support` | Product CLI qualified/enabled with all nine original paragraphs, N3 and support commit recovery (207) | Phase 4 / CX-05 |
 | 34 | `topic-selection.v1c.promotion-support.bounded-micro-debate.v1` | Four CLI roles qualified/enabled with all original evidence, actual prior outputs, material risk, grouped conditions and recovery (208–211) | Phase 4 / CX-05 |
-| 35 | `topic-selection.v1c.delegated-promotion-decision.v1` | Generates decision candidates/support; does not grant CLI strict-human authority | Phase 4 / CX-05 |
-| 36 | `topic-selection.v1c.downstream-feedback-normalization.v1` | Normalize feedback through existing admission and recheck owner | Phase 4 / CX-05 |
+| 35 | `topic-selection.v1c.delegated-promotion-decision.v1` | Product CLI qualified/enabled with original context, interrupted receipt recovery, exact Human acceptance and non-promote outcome (216); CLI has no Human authority | Phase 4 / CX-05 |
+| 36 | `topic-selection.v1c.downstream-feedback-normalization.v1` | Product CLI qualified/enabled with complete bridge and raw report, existing deterministic recheck/no-recheck owner and exact replay (213/215) | Phase 4 / CX-05 |
 
 ## Workflow operations beyond the profile count
 

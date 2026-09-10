@@ -5,7 +5,7 @@
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
 | Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 4 on 2026-09-10 after Phase 3 closeout | confirmed through Phase 4 | Phase 5 remains required and outside current authorization; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | 11 Phase 2, nine upstream, three evidence-convergence and two optional Arena profiles plus N4 and all six optional v1b supports admit product CLI (34 total with ordinary promotion and risk Debate); delegated decision/feedback remain closed. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | All 36 topic-selection profiles admit product CLI, including all four v1c profiles; stage-level qualifications and public consumer references are recorded below. Whole-flow Phase 5 remains required. |
 | CX-03 / Phase 3 closeout | Sampling/recovery, extraction/discovery, adjudication/confirmation, convergence and Arena checks; repaired Debate 169–174 and checkpoint-bound source-to-v1b 175–178 | passed with independent semantic, artifact and replay review | Actual model outputs, exact product checkpoint owners and unique frozen lineage; retrieval/readiness and Human inputs remain controlled, JSON/in-memory persistence is not full CLI relational recovery. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
@@ -15,7 +15,7 @@
 | Exact Human delta / CX-02 | Coordinator/harness/refinement tests | 196 passed before final timeout fix; coordinator then 68 passed; directed final recovery 3 passed | Three CLI role calls preserve the exact current contract, produce a separately audited deterministic admission, and reopen pending Human confirmation. Interrupted derivation write reuses completed attempts. No real Human decisions. |
 | Timeout and no-op recovery | Delayed refinement runtime test and directed coordinator cases | passed | Whole review plus final N7 gate shares timeout; node_timeout→node_in_flight→settled recovery executes once. Canonical no-op is mechanical. Joint review finding corrected and re-reviewed. |
 | Critic objections / prompt contracts | N6/refinement admission evidence, N8 admission/runtime suites and Prompt v2 review | passed | N6 requires unique finding codes and substantive repairs. N8 repair and final synthesis must both retain unique nonempty resolutions; malformed/ambiguous/unresolved findings block. Exact-delta Arbiter cannot drop/downgrade material Critic findings. A resolution label is not proof of scientific correctness. |
-| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. Prompt catalog/scenario versions align; 34 profiles admit product CLI and two stay closed; individual qualification boundaries are recorded below. |
+| Code/config consistency | Backend no-emit typecheck, llm:config:check, workflow matrix script | passed; config 5 passed | No build or dev server started. Prompt catalog/scenario versions align; all 36 topic-selection profiles admit product CLI; individual qualification boundaries are recorded below. |
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
 | Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This earlier preparation used no model calls and did not itself qualify or activate profiles. |
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
@@ -23,8 +23,8 @@
 
 ## Phase 4 — v1c qualification and recovery
 
-All four v1c consumers are implemented; ordinary support and risk Debate are enabled; remaining activation awaits delegated and no-recheck
-feedback checks. Ordinary support v4 has exactly six advisory fields; its existing deterministic
+All four v1c consumers are implemented, qualified and enabled in the default registry. Tests and
+qualification use those shipped defaults without v1c eligibility overrides. Ordinary support v4 has exactly six advisory fields; its existing deterministic
 owner compiles the ordinary N3 semantic layer. Risk Debate retains its explicit final semantic schema.
 N4 compiles original scientific/evidence and actual gate/support/dossier bodies, generates a protected
 reviewable candidate, validates its source/decision shape, then accepts only the exact candidate hash
@@ -33,22 +33,28 @@ reconfirmation. CLI never uses the old ref-only compression fallback. N6 reads t
 copy, commitment scope, Human controls and submitted raw report. Its deterministic admission feeds the
 existing record-only feedback/recheck owner under the existing persistent domain submission guard.
 
-| Final or pending real check | Attempt / reported tokens | Result |
+| Final real check | Attempt / reported tokens | Result |
 |---|---|---|
 | Ordinary promotion support v4 | 207 / 35,929 | Passed full nine-paragraph original context, support commit interruption/recovery, exact replay and N3. Historical replication, unverified resource assumptions, missing investment value and judgment bias remain explicit. |
 | Four-role material-risk Debate v4 | 208–211 / 37,835 + 38,531 + 40,564 + 46,269 | Passed full source, actual prior bodies, critic repairs, exact risk condition group, N3 and support commit recovery without another call. The warning remains unresolved; proposed checks/strata are advisory and not executed observations. |
-| Delegated decision v3 | 214 pending | Candidate/acceptance qualification in progress against the actual ordinary support/gate from 207. |
+| Delegated decision v4 | 216 / 54,903 | Against the actual support/gate from 207, correctly recommends reassess_value: structural passage is not scientific investment evidence; archive identity remains unverified. Candidate receipt interruption/recovery, exact replay, wrong-hash refusal and controlled Human non-promote acceptance pass with one paid call. No bridge/commitment is created. |
 | Feedback normalization v2 — overclaim | 213 / 24,136 | Correctly classifies unsupported universal/causal claims as overclaim, explicitly treats the report as unverified, records a deterministic recheck, preserves the bridge and replays without another model call. |
-| Feedback normalization v2 — no recheck | pending | Format-only report must not manufacture an upstream recheck. |
+| Feedback normalization v2 — no recheck | 215 / 23,807 | Correctly records a format-only report as no_recheck_needed, explicitly retains its unverified status, creates no recheck, preserves the bridge and replays without another paid call. |
 
-Through 213: 4,811,505 reported tokens, 13 unknown-use attempts and no aggregate ceiling; each call
+Through 216: 4,890,215 reported tokens, 14 unknown-use attempts, no pending attempt and no aggregate ceiling; each call
 retains the original 600-second timeout. Attempts 205/206 stopped at the same optional open-object
 field after producing the six prose fields, followed by long whitespace streams until timeout.
 The six-field ordinary CLI schema/prompt v4 fixes the reproduced boundary and passes 207. No incomplete
 JSON is salvaged as success. Attempt 212 (54,907 tokens) substantively recommends reassess_value but
 omits mandatory gate/snapshot refs from decision_support_refs (they were present only in cited_refs);
 Human admission refuses it without a decision. Prompt v3 names that field rule, and the same semantic
-validation now runs before a preview receipt is returned. Earlier 200–204 successes used only one
+validation now runs before a preview receipt is returned. Attempt 214 timed out while generating the
+first reference object before the open nullable legacy_ref branch, followed by whitespace; usage is
+unknown and no decision was written. For an allowed manifest containing only absent/null legacy aliases,
+CLI now restricts that field to null (prompt v4); nonempty legacy identities retain the original schema
+and exact admission. Both schema branches pass focused checks, and the null-only case passes real 216.
+The timeout pattern supports the bounded schema repair; it does not establish a general model root cause.
+Earlier 200–204 successes used only one
 original paragraph mapped to multiple roles and remain preliminary evidence.
 
 Seventeen N4 checks pass, including owner mapping, prompt/source/ref rejection, receipt interruption,
@@ -57,9 +63,20 @@ checks pass, including candidate persistence recovery, exact record replay and r
 partial recheck write. HTTP composes CLI preview → Human acceptance → deterministic bridge → CLI feedback
 with exact replay, and rejects external answers. Independent read-only review found and verified fixes
 for N4 lossy compression and duplicate token counting; no open N4/N6 finding remains. Saved ordinary,
-Debate and overclaim artifacts (35 / 68 / 13) all have matching canonical payload checksums. Actual model
+Debate, delegated, overclaim and no-recheck artifacts (35 / 68 / 11 / 13 / 13) all have matching canonical payload checksums. Actual model
 outputs were semantically inspected; upstream/retrieval and Human decisions remain controlled fixtures.
-The complete v1c unit/HTTP suite also passes (196 reported test events, including environment skips); backend no-emit, five LLM config checks and matrix consistency pass. These checks do not establish scientific readiness, investment approval or whole-flow relational recovery.
+The final default-registry plus complete v1c unit/HTTP run passes 208 checks, with one environment skip;
+five LLM config checks and matrix consistency pass. Backend no-emit and the focused full-context harness
+check also pass. These checks do not establish scientific readiness, investment approval or whole-flow
+relational recovery. N4 prompt v4 has real non-promote evidence; promote/condition-owner/reconfirmation
+behavior is covered by controlled offline/HTTP checks, not a genuine Human investment decision.
+
+Qualified final profile hashes match the shipped defaults: N4 delegated
+`4dc9c6ac030dd16b74ad57aa61525a75d3aa67fa4c0174b79ee106049e2e7784`; N6 feedback
+`e12769e83ffbc33b7d125f0376be73c6905937955ec3b6fbbf0fc987d3161af9` (both cases).
+Final local evidence lives under `/tmp/my-researcher-t153-phase2/live/v1c_` with run IDs
+`ordinary_full_v4_live1`, `debate_full_live1`, `delegated_v4_live1`, `feedback_live1` and
+`feedback_norecheck_live1`; these are local qualification artifacts, not shipped runtime data.
 
 ## Phase 4 — N6 triage and N7 trial support
 
@@ -119,8 +136,8 @@ public OpenAPI field drift is fixed. Backend no-emit typecheck, config (five che
 checks pass. No build/server, database migration or temporary runtime instrumentation was introduced.
 
 Through 199: **4,397,676 reported tokens**, eleven unknown-usage attempts (4, 8, 9, 20, 63, 83, 95,
-102, 130, 160, 168), no pending attempt and no aggregate ceiling. Phase 4 continues with four v1c
-profiles; Phase 5 remains outside the current implementation authorization.
+102, 130, 160, 168), no pending attempt and no aggregate ceiling. At that checkpoint four v1c profiles remained; the final qualification above now closes Phase 4.
+Phase 5 remains outside the current implementation authorization.
 
 ## Phase 4 — optional N2/N3/N5 support
 
@@ -158,8 +175,8 @@ All six final cases reconstruct the service and replay without another model cal
 profile hashes exactly equal shipped defaults: N2 `4cbc6409226daa0ddfd3bd1e27e0e18df27ae75eebb069880e794f60a8a59cc9`,
 N3 `43a72a8f6c8236da88c52e4103a0c4d7aa9ad93751d4ca1c7c199fd69314550d`,
 N5 `64083211371735647a181c37049354c7b2da7ae9bc3dc4d7612442bf0770d6f6`.
-The local fixture no longer changes profile eligibility. The registry admits 29 profiles; seven
-remain closed. The existing separate provider generation path is unchanged.
+The local fixture no longer changes profile eligibility. That checkpoint admitted 29 profiles and
+left seven closed; later qualifications above bring the current total to 36. The existing separate provider generation path is unchanged.
 
 Independent read-only review passed the final code, six qualification audits and eight repeated
 CLI tests against shipped defaults. Review caught and corrected missing recheck/risk bodies and N5 selection risks outside the snapshot.
@@ -228,7 +245,7 @@ exclusion. No model-created option is automatically selected: the next node rema
 
 Independent review covers the source/model semantics, actual persisted receipts, complete references,
 N5 Human stop and the trace correction. Full CLI relational restart and actual research acceptance
-remain outside these in-memory/JSON and controlled-Human qualifications. The remaining Phase 4 profiles stay closed until their own consumer and model checks pass;
+remain outside these in-memory/JSON and controlled-Human qualifications. At that checkpoint the other Phase 4 profiles were still closed; the later qualifications above supersede that activation state;
 the early-support qualification below opens three more.
 
 ## Implementation quality review

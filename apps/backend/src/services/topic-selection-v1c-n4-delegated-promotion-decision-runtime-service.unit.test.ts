@@ -439,7 +439,7 @@ test('v1c N4 admission blocks out-of-bounds candidate refs before human authorit
 });
 
 const DELEGATED_PROMOTION_DECISION_SYSTEM_BODY_GOLDEN =
-  '7eb4719a6ce7099e2e6ba55af263c5bf1f0b105fe97a3462317dc5b330273c0b';
+  '45a43e99348338b06974546799f4c5555b2fee4ab738dfabe7f9f9b0e676b9e7';
 
 test('v1c N4 delegated-promotion-decision system prompt is product-grade and byte-stable (golden anchor)', async () => {
   const body = buildV1cN4DelegatedPromotionDecisionSystemContent();
@@ -471,7 +471,7 @@ test('v1c N4 delegated-promotion-decision system prompt is product-grade and byt
 
 
 test('CLI N4 preserves original context and replays receipt interruption before exact Human acceptance', async t => {
-  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { mkdtempSync, rmSync, readFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
   const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
@@ -486,12 +486,18 @@ test('CLI N4 preserves original context and replays receipt interruption before 
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   const profile = registry.profiles.find(row => row.profile_id === 'topic-selection.v1c.delegated-promotion-decision.v1')!;
-  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  assert.ok(profile.allowed_execution_modes.includes('codex_cli'));
+  assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
     if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
     assert.match(options.stdin, /Original evidence limits the promotion claim/);
+    const schemaFile = args[args.indexOf('--output-schema') + 1]!;
+    const outputSchema = JSON.parse(readFileSync(schemaFile, 'utf8'));
+    const legacySchema = outputSchema.properties.cited_refs.items.properties.legacy_ref;
+    if (handoff.promotion_gate_check_ref.legacy_ref != null) assert.ok(legacySchema.anyOf);
+    else assert.deepEqual(legacySchema, { type: 'null' });
     calls += 1;
     return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `delegated-${calls}` }),
       JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
@@ -541,4 +547,10 @@ test('CLI N4 preserves original context and replays receipt interruption before 
   context = 'Original evidence limits the promotion claim. '.repeat(25000);
   await assert.rejects(service().generateDelegatedPromotionCandidate({ ...input, node_attempt_id: 'oversized' }), /did not succeed/);
   assert.equal(calls, 2, 'Full-context overflow stops before a paid call; it cannot fall back to ref-only compression.');
+  context = 'Original evidence limits the promotion claim';
+  handoff.promotion_gate_check_ref.legacy_ref = { ref_id: 'legacy-gate' };
+  output.decision_support_refs = [handoff.promotion_gate_check_ref, handoff.promotion_input_snapshot_ref];
+  const legacy = await service().generateDelegatedPromotionCandidate({ ...input, node_attempt_id: 'legacy-identity' });
+  assert.deepEqual(legacy.candidate.decision_support_refs[0]?.legacy_ref, { ref_id: 'legacy-gate' });
+  assert.equal(repository.writes.length, 1); assert.equal(calls, 3);
 });

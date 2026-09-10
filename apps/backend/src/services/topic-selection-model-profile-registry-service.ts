@@ -1006,7 +1006,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_n3_gate_handoff_and_snapshot_lineage',
         'prepare_human_review_input_without_bridge_or_recheck_side_effects',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_PROFILE_ID).map(
         (option) => ({
@@ -1029,7 +1030,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_bridge_and_feedback_source_refs',
         'prepare_deterministic_recheck_admission',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1cDownstreamFeedbackCandidate@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1C_DOWNSTREAM_FEEDBACK_NORMALIZATION_PROFILE_ID).map(
         (option) => ({

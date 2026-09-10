@@ -423,7 +423,7 @@ The v1c context owner verifies admitted frozen package/draft bodies, handoff ref
 identity, reads original selected EvidenceUnits and actual accepted-risk/material-finding records,
 and preserves unresolved legacy obligation refs explicitly. Scientific bodies are included once;
 context accounting does not count the serialized packet twice. N10 bounds final display titles
-while retaining the full slice statement in the frozen package. Ordinary support and risk Debate profiles are qualified/enabled; delegated decision and feedback activation awaits final qualification. Ordinary CLI emits only its six
+while retaining the full slice statement in the frozen package. All four v1c profiles are qualified and enabled for product CLI. Ordinary CLI emits only its six
 advisory fields; the existing deterministic owner compiles its ordinary N3 semantic layer.
 
 N4 CLI uses `/promotion-decisions/delegated/candidates` for generation and the existing delegated
@@ -432,7 +432,7 @@ runner and candidate hash. Source/decision validation precedes preview. Human ac
 receipt, exact candidate hash, actor and condition-owner map; a promote-class decision requires
 reconfirmation. Admission rereads scientific/evidence context before the existing Human writer records
 its immutable decision. Receipt interruption reuses completed model output. CLI cannot fall back to
-ref-only compression or invent a Human authorizer or condition owner.
+ref-only compression or invent a Human authorizer or condition owner. For a manifest with no nonempty legacy aliases, the CLI output schema narrows `legacy_ref` to null; otherwise the original legacy schema and complete exact-reference admission remain in effect.
 
 N6 CLI uses `/downstream-feedback/normalize`, accepting original report text and source refs rather than
 model-authored answers. Runtime context carries complete working-copy scientific text, commitment scope

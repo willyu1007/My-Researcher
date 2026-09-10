@@ -8,9 +8,9 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
 
 ## Current runtime truth
 
-- The default registry admits product CLI for 34 qualified topic-selection profiles, covering sampling, evidence/need discovery and convergence, optional Arena, all v1b roles, ordinary promotion support and required risk Debate. Delegated decision and downstream feedback activation remain pending.
+- The default registry admits product CLI for all 36 qualified topic-selection profiles, covering sampling, evidence/need discovery and convergence, optional Arena, all v1b roles, ordinary promotion support, required risk Debate, delegated decision candidates and downstream feedback.
   Canonical consumers compile their inputs, execute roles and preserve the deterministic gates;
-  other topic-selection profiles remain closed. See `codex-assisted-operator.md` for supported
+  Human decisions remain explicit. See `codex-assisted-operator.md` for supported
   requests, Human stops and recovery. The separate `provider_llm` Debate dormancy gate and its
   historical `calibration_gate_release` scope remain deferred.
 - Provenance carries an authoritative runner identity, not a metered gateway identity:

@@ -9564,8 +9564,8 @@ test('Codex v1c qualification reads published evidence and recovers promotion su
     const registry = createDefaultTopicSelectionModelProfileRegistry();
     const id = slot === 'delegated' ? 'topic-selection.v1c.delegated-promotion-decision.v1' : 'topic-selection.v1c.downstream-feedback-normalization.v1';
     const profile = registry.profiles.find(row => row.profile_id === id)!;
-    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
-    profile.run_mode_eligibility.codex_cli = ['product'];
+    assert.ok(profile.allowed_execution_modes.includes('codex_cli'));
+    assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
     const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
     const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: model });
     const { TopicSelectionV1cHumanPromotionDecisionService } = await import('./topic-selection-v1c-human-promotion-decision-service.js');

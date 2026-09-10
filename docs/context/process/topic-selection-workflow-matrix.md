@@ -147,8 +147,8 @@ SO-02/DMP-11 锁定 model-like 调用槽位清单。未列入本表的节点是 
 | `topic-selection.v1c.generate-promotion-support.v1` | `n2_bounded_micro_debate.reviewer_critic_review` | support_only (bounded debate role) | codex_cli; codex_assisted; provider_llm; mocked_llm | codex_cli | `TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1` | CLI product qualified (T-153) |
 | `topic-selection.v1c.generate-promotion-support.v1` | `n2_bounded_micro_debate.promotion_supporter_repair` | support_only (bounded debate role) | codex_cli; codex_assisted; provider_llm; mocked_llm | codex_cli | `TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1` | CLI product qualified (T-153) |
 | `topic-selection.v1c.generate-promotion-support.v1` | `n2_bounded_micro_debate.synthesizer_final` | support_only (bounded debate final port) | codex_cli; codex_assisted; provider_llm; mocked_llm | codex_cli | `TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1` | CLI product qualified (T-153) |
-| `topic-selection.v1c.record-human-promotion-decision.v1` | `n4_delegated_promotion_decision_candidate` | delegated_promotion_decision_candidate_only | codex_assisted; provider_llm; mocked_llm | codex_assisted | `TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1` | implemented |
-| `topic-selection.v1c.downstream-feedback-recheck.v1` | `downstream_feedback_normalization` | feedback_candidate_only | codex_assisted; provider_llm; mocked_llm | codex_assisted | `TopicSelectionV1cDownstreamFeedbackCandidate@v1` | implemented |
+| `topic-selection.v1c.record-human-promotion-decision.v1` | `n4_delegated_promotion_decision_candidate` | delegated_promotion_decision_candidate_only | codex_cli; codex_assisted; provider_llm; mocked_llm | codex_cli | `TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1` | implemented; full-context CLI preview, exact Human acceptance and receipt recovery qualified (T-153) |
+| `topic-selection.v1c.downstream-feedback-recheck.v1` | `downstream_feedback_normalization` | feedback_candidate_only | codex_cli; codex_assisted; provider_llm; mocked_llm | codex_cli | `TopicSelectionV1cDownstreamFeedbackCandidate@v1` | implemented; full bridge/report context, record-only recheck/no-recheck and exact replay qualified (T-153) |
 
 ### Slot-map rules
 - Single-agent slots use `execution_spec` and never use instance-level overrides.
@@ -172,7 +172,7 @@ Record node-specific rationale here only after the matrix row exists.
 ### Human Surface Decisions
 - **v1b N2 / N5（human surfaces, T-115 done）**: `human_delegated` 经 harness 单写入口；产品默认人驱动（N2 研究者撰写约束档案、N5 真人选切片），codex 路径并存（验收/批跑）。
 - **v1b N7（contract-capable but product-mechanical, T-115 verified）**: 契约允许 `human_delegated`，但 `runN7MaterializeTopicQuestionContract` 用 `chooseN7Candidate` 算法机械物化，Initial frozen-input 无人审决策内容 → 产品不开人审面，UI 保持只读。本行登记契约能力，产品决策以本注记为准。
-- **v1a N8 / v1c N4（hard human gates）**: 产品要求人审决定才能推进；v1a N8 附带 bounded semantic review（codex 可在人授权边界内执行）；v1c N4 另有 delegated candidate runtime（候选产物，最终决定权在人）。
+- **v1a N8 / v1c N4（hard human gates）**: 产品要求人审决定才能推进；v1a N8 附带 bounded semantic review（codex 可在人授权边界内执行）；v1c N4 的 product CLI 先生成受保护候选回执，再以精确 candidate hash、显式 Human actor 和条件 owner 映射接受；promote 类另需 Human reconfirmation。候选与回执重放不写人类决策；最终决定权在人。v1c N6 CLI 只归一化并记录完整 bridge 上的原始反馈，确定性 owner 决定是否创建 recheck，不自动回流推进。
 
 ### Provider Required Reasons
 - No node is provider-required. Provider execution is scenario-driven or explicit override until a future node policy updates this matrix.（唯一例外语义：v1a `arbiter.final_synthesis` 在 real run 中必须 provider_llm，见 slot map。）

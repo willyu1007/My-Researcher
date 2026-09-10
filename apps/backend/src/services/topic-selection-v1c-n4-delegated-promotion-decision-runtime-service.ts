@@ -524,7 +524,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       },
       prompt_variant_key: input.binding.invocation_slot_id,
       schema_name: input.binding.output_contract,
-      schema: input.input.execution_mode === 'codex_cli' ? topicSelectionV1cDelegatedPromotionDecisionCliCandidateSchema : input.binding.schema,
+      schema: input.input.execution_mode === 'codex_cli' ? this.cliCandidateSchema(input.contextPacket.allowed_refs) : input.binding.schema,
       messages: this.messages(
         input.binding,
         input.contextPacket,
@@ -905,6 +905,20 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       run_mode: runMode,
       model_option_id: modelOptionId,
     });
+  }
+
+  private cliCandidateSchema(refs: TopicSelectionFunctionalRef[]): Record<string, unknown> {
+    const schema = topicSelectionV1cDelegatedPromotionDecisionCliCandidateSchema;
+    if (refs.some(ref => ref.legacy_ref != null)) return schema;
+    // A null-only manifest needs no open legacy object grammar. Keep nonempty legacy identities
+    // on their existing schema; complete runtime reference admission remains mandatory in both cases.
+    const narrow = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(narrow);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(Object.entries(value).map(([key, child]) => [key,
+        key === 'legacy_ref' ? { type: 'null' } : narrow(child)]));
+    };
+    return narrow(schema) as Record<string, unknown>;
   }
 
   private slotBinding(): N4RuntimeSlotBinding {

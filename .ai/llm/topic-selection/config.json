@@ -142,7 +142,7 @@
       "system": "prompts/v1c/n3-promotion-decision-support/system.md"
     },
     "topic-selection-v1c-delegated-promotion-decision": {
-      "version": "3",
+      "version": "4",
       "system": "prompts/v1c/n4-delegated-promotion-decision/system.md"
     },
     "topic-selection-v1c-downstream-feedback-normalization": {

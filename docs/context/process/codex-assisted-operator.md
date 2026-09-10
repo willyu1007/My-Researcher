@@ -10,7 +10,7 @@ separates externally authored operation from product-driven CLI execution.
   workflow, attempt, hash, approval, and reuse provenance.
 - The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
   execution traces. Its qualified sampling, extraction, need-discovery, N2/N3/N5 support, N4/N6/N7-support/N8 and exact-delta profiles admit product mode.
-  Delegated decision and downstream feedback profiles remain closed; `codex_assisted` still means external output.
+  Delegated decision candidates and downstream feedback are also qualified; `codex_assisted` still means external output.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
   path.
@@ -23,7 +23,7 @@ N3-support/N4/N6/N7-support/N8 canonical harness `invocations` and coordinator `
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
 remain reserved. The default registry admits the 16 profiles used by this coordinator slice; no registry override
 is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
-below; three evidence-convergence, two optional Arena roles and N2/N5 Human-input support bring the total to 32. Ordinary promotion and risk Debate add two (34 total); delegated decision and feedback activation remain pending.
+below; three evidence-convergence, two optional Arena roles and N2/N5 Human-input support bring the total to 32. Ordinary promotion, risk Debate, delegated decision candidates and feedback complete all 36 topic-selection profiles.
 
 N4 accepts the same CLI execution spec on its frozen `N3ToN4Handoff@v1` request. The runtime loads
 N1 intake, Human constraints, N3 readiness and the original role-bound evidence. Its model draft
@@ -325,6 +325,95 @@ exact Human decision. Correct rejected role output before retrying; never infer 
 admitted support. New N3 checks also reject missing/inconsistent condition coverage; regenerate support
 under a new attempt after a legacy support refusal. Completed gate replay stays historical.
 Other generation providers remain outside this Codex rollout.
+
+## Codex promotion candidate and Human acceptance
+
+After N3, generate a reviewable candidate with
+`POST /topic-selection/v1c/promotion-decisions/delegated/candidates`:
+
+```json
+{
+  "promotion_gate_check_id": "<returned gate ID>",
+  "workflow_run_id": "<stable workflow ID>",
+  "node_attempt_id": "<stable candidate attempt ID>",
+  "execution_spec": { "execution_mode": "codex_cli" }
+}
+```
+
+The backend reads the frozen scientific/evidence context and actual gate, support and dossier.
+The response contains `candidate`, `candidate_receipt_ref`, `candidate_hash`, `candidate_artifact`
+and `human_review_required: true`. Generating or replaying it does not write a Human decision.
+Review its rationale, decision, required actions and conditions. The model cannot assign a Human
+condition owner or establish that research resources, novelty or scientific value are verified.
+
+After explicit Human review, submit to
+`POST /topic-selection/v1c/promotion-decisions/delegated`:
+
+```json
+{
+  "promotion_gate_check_id": "<same gate ID>",
+  "workflow_run_id": "<same workflow ID>",
+  "node_attempt_id": "<same candidate attempt ID>",
+  "candidate_receipt_ref": { "ref_type": "artifact_ref", "ref_id": "<returned receipt ID>", "title_card_id": "<returned title ID>" },
+  "confirmed_candidate_hash": "<exact returned candidate_hash>",
+  "human_actor": { "actor_type": "human", "actor_id": "<explicit Human ID>" },
+  "condition_owners": [],
+  "promote_reconfirmed": true
+}
+```
+
+Copy the complete returned receipt ref, including any additional identity fields. For a candidate
+with conditions, replace the empty array with exactly one `{ "condition_id": "<candidate ID>",
+"owner": { "actor_type": "human", "actor_id": "<assigned Human ID>" } }` per condition.
+A promote-class decision requires `promote_reconfirmed: true` from that Human; it is not inferred
+from the candidate. For a non-promote decision the field may be omitted. The actor is an explicit
+local API assertion, not an authenticated identity provided by this endpoint.
+
+Acceptance consumes the reviewed candidate unchanged. If the Human changes the substantive decision
+or conditions, use the existing direct Human decision endpoint with the exact gate/snapshot and
+complete decision input. Do not edit the candidate receipt or hash. Accepted non-promote decisions
+remain non-promoting; only an eligible Human decision can feed the existing PaperProject bridge.
+Neither CLI endpoint accepts an externally authored `codex_response`.
+
+Retry an interrupted candidate-receipt write with identical generation input: completed model output
+is reused. Completed acceptance replays the same Human authority. Changed gate, context, prompt/runtime
+or request identity under the same attempt returns conflict. An unfinished model claim requires
+inspection before an explicit new attempt. Oversized full context blocks before model execution;
+the CLI path cannot compress away scientific bodies into references alone.
+
+## Codex downstream feedback
+
+With an existing PaperProject bridge, send the raw downstream report to
+`POST /topic-selection/v1c/downstream-feedback/normalize`:
+
+```json
+{
+  "paper_project_bridge_id": "<existing bridge ID>",
+  "workflow_run_id": "<stable workflow ID>",
+  "node_attempt_id": "<stable feedback attempt ID>",
+  "execution_spec": { "execution_mode": "codex_cli" },
+  "downstream_source_kind": "reviewer_check",
+  "downstream_source_ref": { "ref_type": "artifact_ref", "ref_id": "<report artifact ID>" },
+  "source_feedback_refs": [],
+  "observed_blocker_refs": [],
+  "artifact_refs": [],
+  "raw_feedback_text": "<original report text>"
+}
+```
+
+Use complete current source refs and include supporting report/blocker artifacts in the appropriate
+arrays. The runtime reads the bridge's full working copy, commitments and Human controls, then
+normalizes the submitted report. Caller observations are not independently verified facts.
+The existing deterministic owner records feedback and creates a recheck only when required.
+The response includes `classification`, `recheck_request`, `impact_summary`, candidate provenance
+and the feedback record. A `no_recheck_needed` result records feedback without creating a recheck.
+The endpoint does not advance the workflow or automatically execute its suggested loopback.
+
+Exact completed requests replay without another paid call or duplicate feedback. An interrupted
+candidate artifact write reuses completed model output; an ambiguous partial feedback/recheck write
+fails closed. Inspect existing feedback and recheck authorities before deciding recovery; do not
+bypass a pending submission by inventing another attempt. Changed inputs require an explicit new
+execution once prior state is resolved. External answers and caller-supplied classification are rejected.
 
 ## Current rehearsal
 
