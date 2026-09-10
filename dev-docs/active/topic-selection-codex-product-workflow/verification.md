@@ -21,6 +21,48 @@
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
 | CX-09 / T-129 transfer | Roadmap obligation table, 36-profile inventory, qualified prompts, runtime gate wording and maintained scenarios/operator docs | reconciled | Codex obligations complete under approved replacement qualification. Original corpus C-2 and provider C-3 are not retroactively completed; other generation providers remain deferred. T-129 physical archival separately awaits worktree reconciliation. |
 
+## Completion re-review and implementation cleanup
+
+The user's follow-up requested implementation review/fixes, task-scoped cleanup, progress sync and
+commit/push to main. The review basis is the previously verified Phase 4 checkpoint f4d8866a through
+Phase 5 HEAD f49cb838, with adjacent source/admission/persistence owners inspected and the broader
+T-153 touched tests rerun. Independent review ran 34 targeted offline checks and found no new
+material functional defect. The task regression covers 48 test files: 806 passed, 17 explicit
+live/database opt-in skips, zero failures (823 total). Root pnpm typecheck passes shared, backend,
+Prisma context alignment and desktop checks. Five LLM config checks, workflow matrix consistency
+and whitespace validation pass. No new paid model run or PostgreSQL verification was performed;
+the Phase 5 persisted evidence and earlier real-model qualification retain their stated limits.
+
+Cleanup used the 46 linked T-153 commits (166 changed paths) as its task boundary and searched
+2,233 tracked/unignored non-task-record files for references and exact duplicates. The current
+scenario registry still advertised a removed v1a replay command, its obsolete generated filename
+and retired document paths. Those references now point to the maintained tests, typed contracts and
+existing operator guide; matrix consistency passes. Two empty owned debug directories,
+.ai/.tmp/debug-mode/t153-n8-qualification and .ai/.tmp/debug-mode/t153-n8-stream, were removed after
+confirming they contained no files. No task runtime source, schema, test, dependency or data was
+removed. There are no untracked task files or remaining task debug artifacts.
+
+Retained contracts and cleanup boundaries:
+
+- v1a/v1b/v1c names are distinct supported lifecycle stages. Assisted/provider/mocked paths are
+  explicit compatibility/test contracts; product codex_cli has its own provenance. No unanchored
+  parallel execution path was identified inside the task boundary.
+- Live/database tests remain opt-in because they protect paid execution and relational contracts;
+  a skip is not counted as a pass. Historical isolated CLI canaries retain transport/audit coverage
+  and are explicitly distinct from product role qualification.
+- Repository-wide dependency/name checks identify desktop-only concurrently and wait-on as unused
+  candidates. cross-env remains referenced by dev:electron. No desktop dependency was removed in
+  this task-scoped cleanup. The sole nontrivial exact duplicate pair is
+  .codex/environments/local.toml and .codex/environments/environment.toml; these are convention-loaded
+  application configuration outside T-153, with no established canonical copy, so both are retained.
+- The existing app.ts TODO belongs to the explicit T-132 PaperImplementation environment follow-up.
+  It is outside T-153 and was not converted into a new task requirement.
+- Deep cleanup was limited to T-153 changed paths and relevant owners. Unswept directories include
+  .claude/, .codex/, .githooks/, .github/, apps/desktop/, artifacts/, ci/, config/, env/, prisma/,
+  research-varify/, ui/, workloads/, and unrelated files under .ai/, apps/backend/, docs/ and packages/.
+  These received only the applicable global shallow/dependency/duplicate signals. dev-docs task
+  records/archives and ignored data were excluded from deletion; .ai/.tmp was inspected explicitly.
+
 ## Phase 5 — complete HTTP composition and persistent recovery
 
 The user authorized Phase 5 on 2026-09-10. CX-06/CX-07/CX-08/CX-09 now hold together with the

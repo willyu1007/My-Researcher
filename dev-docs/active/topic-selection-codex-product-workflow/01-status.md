@@ -5,9 +5,9 @@ Align the existing topic-selection agent execution policies and make the complet
 
 ## Progress
 - State: done
-- Current phase: Phase 5 complete — all five phases closed
+- Current phase: Phase 5 complete — all five phases closed; completion re-review and task cleanup passed
 - Next step: No in-scope implementation remains. Use the canonical API/operator guide for a real research workflow with explicit Human decisions. Task archival is a separate action.
-- Blocker: None for T-153 completion. All 36 topic-selection profiles are qualified and enabled for product CLI; the advancing HTTP chain and PostgreSQL reconstruction pass, with no unresolved material review finding. Through 216: 4,890,215 reported tokens, 14 unknown-usage calls and no pending attempt; Phase 5 added no live model call. Controlled source/readiness and Human fixtures do not establish actual research approval. Ambiguous partial domain writes remain fail-closed; other-provider activation and downstream paper execution remain outside scope. T-129 physical archival separately awaits worktree reconciliation.
+- Blocker: None for T-153 completion. All 36 topic-selection profiles are qualified and enabled for product CLI; the advancing HTTP chain and PostgreSQL reconstruction pass. Completion re-review found no new material functional defect; the 48-file task regression passes 806 checks with 17 explicit opt-in skips, and stale scenario guidance plus empty task debug directories are cleaned. Through 216: 4,890,215 reported tokens, 14 unknown-usage calls and no pending attempt; Phase 5 added no live model call. Controlled source/readiness and Human fixtures do not establish actual research approval. Ambiguous partial domain writes remain fail-closed; other-provider activation and downstream paper execution remain outside scope. T-129 physical archival separately awaits worktree reconciliation.
 
 ## Done when
 - [x] CX-01: Every existing topic-selection model/support role across resource sampling, v1a, v1b, v1c and downstream feedback has an explicit Codex execution disposition in the existing policy/matrix authorities, with a product entry point and verification reference. Deterministic steps and human decisions are identified separately; required model roles cannot remain dependent on manually supplied `codex_response` or another generation provider.

@@ -3,7 +3,7 @@
 > Maintained scenario registry migrated from the historical T-089 bundle during T-145. Task paths and `.ai/scripts` registration rules in historical prose are provenance only; current executable checks live under `apps/backend/scripts/`.
 
 ## Purpose
-This file is the maintained acceptance-scenario registry, originally established by T-089. Scenarios describe acceptance orchestration only. Business semantics come from the SSOT matrix `docs/context/process/topic-selection-workflow-matrix.md`（原 `06-workflow-matrix.md`，已迁移）and `07-node-policies.md`.
+This file is the maintained acceptance-scenario registry, originally established by T-089. Scenarios describe acceptance orchestration only. Business semantics come from `docs/context/process/topic-selection-workflow-matrix.md` and its linked typed contracts in `packages/shared/src/research-lifecycle/`. The old T-089 filenames are historical provenance, not current document paths.
 
 Machine-checked（T-089 ③，2026-07-05 起）: `apps/backend/scripts/topic-selection-workflow-matrix-consistency.mjs`（进 backend 默认套件）双向校验本注册表——矩阵 `covered_scenarios` 引用的 scenario 必须在此注册、此处注册的 scenario 必须被矩阵引用、每个 scenario 的 `covered_nodes` 与矩阵行集合**相等**、covered_nodes 必须是契约已知 node id。
 
@@ -79,7 +79,7 @@ covered_nodes:
 fixtures_or_data_source: real resource pool sample such as ai-rag-finetuning-2022-2026 plus human decision fixtures where required
 assertion_scope: happy-path authority creation, handoff refs, bridge intake idempotency, hash stability, and artifact generation
 artifact_expectations: real-e2e summary with scenario_id, harness run summary for generate-need-candidate, node traces, redacted prompt/response packets where model-like execution occurs, authority refs, and selected evidence refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 ```
 
 ### `topic-selection.v1a.replay-idempotency.real-db-smoke.v1`
@@ -96,9 +96,12 @@ covered_nodes:
   - topic-selection.v1a.publish-v1b-input-bundle.v1
 fixtures_or_data_source: v1a harness run over a local real DB and existing or newly created ResourceSampleSet
 assertion_scope: same `workflow_run_id + node_attempt_id + input_hash` returns replay provenance with no authority writes and no model invocation; changed input hash blocks with `REPLAY_INPUT_HASH_MISMATCH` and no authority writes
-artifact_expectations: `03-v1a-replay-smoke.json` plus summary fields showing exact replay counts, LLM call count stability, drift blocker codes, and artifact deltas
-business_semantics_source: 07-node-policies.md Current v1a Replay / Idempotency Matrix
-runner: `pnpm topic-selection:v1a-harness-replay-smoke`
+artifact_expectations: maintained test results asserting exact replay, model call count stability, drift blockers and unchanged authority refs; persisted CLI context and completion receipts in the opt-in database case
+business_semantics_source: packages/shared/src/research-lifecycle/topic-selection-v1a-workflow-harness-contracts.ts and the canonical WorkflowHarness replay guards
+verification_sources:
+  - apps/backend/src/services/topic-selection-workflow-harness-service.unit.test.ts (N6-N9 replay, input drift and partial-write refusal)
+  - apps/backend/src/routes/topic-selection-v1b-routes.integration.test.ts (T-153 CLI product HTTP, including upstream replay after application reconstruction)
+implementation_note: The historical v1a-harness-replay-smoke command is retired. Run the maintained tests; the Codex operator guide documents the isolated PostgreSQL setup for the composed HTTP case.
 ```
 
 ### `topic-selection.real-e2e.scale-quality.v1`
@@ -139,7 +142,7 @@ covered_nodes:
 fixtures_or_data_source: expanded real resource sample set
 assertion_scope: sampling stability, role-count stability, selected-set stability, quality degradation checks, and downstream intake invariants
 artifact_expectations: quality summary from topic-selection-workflow-scenario-runner, sampled-resource audit table, node traces, selected evidence refs, covered child scenario ids, and comparison metrics
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 ```
 
 ### `topic-selection.v1b.non-advance-negative.v1`
@@ -171,7 +174,7 @@ covered_nodes:
 fixtures_or_data_source: controlled weak-value v1b input or real-flow fork with low value outcome
 assertion_scope: non-advance disposition, package_draft_input=null, output_topic_package_id=null, no v1c bundle, no promotion, no bridge, no PaperProject intake
 artifact_expectations: scenario summary from topic-selection-workflow-scenario-runner, stop-node trace, non-advance disposition artifact, absence assertions for downstream authority refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 ```
 
 ### `topic-selection.provider-stability.v1`
@@ -193,7 +196,7 @@ covered_nodes:
 fixtures_or_data_source: real or deterministic resource sample plus provider credentials from local environment
 assertion_scope: structured output validity, retry/escalation behavior, provider telemetry capture, provenance separation, and guardrail consistency
 artifact_expectations: provider prompt/response packet refs, telemetry summaries, schema validation reports, and node-level audit refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 current_runner_coverage:
   - v1a harness canary covers provider-backed `generate-need-candidate` and `validate-need-adjudication`.
   - v1b/v1c provider-backed nodes remain planned coverage and must not be inferred from the v1a canary.
@@ -213,7 +216,7 @@ covered_nodes:
 fixtures_or_data_source: active PaperProjectBridge and controlled downstream feedback payloads
 assertion_scope: feedback source lineage, typed loopback target, recheck request creation, append-only feedback, and upstream immutability
 artifact_expectations: feedback trace, recheck request refs, bridge hash comparison, and upstream immutability assertion evidence
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 implementation_note: T-153 product Codex reads the complete bridge and raw report, produces a validated normalization candidate and calls the existing record-only feedback/recheck owner. Real overclaim and no-recheck cases, full HTTP composition and persisted replay pass; ambiguous partial recheck writes remain fail-closed.
 ```
 
@@ -229,7 +232,7 @@ covered_nodes:
 fixtures_or_data_source: controlled candidate pool with evidence-polarity ambiguity
 assertion_scope: debate trigger, arbiter issue framing, explorer expansion, deep critic pressure test, terminal exit, no automatic re-entry, deterministic guardrail application, and sample-set status
 artifact_expectations: role agent provenance, role-level summaries, arbiter final structured output, trigger codes, terminal reason codes, validation report, and final selected item refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 ```
 
 ### `topic-selection.debate.v1a-need-discovery.v1`
@@ -244,7 +247,7 @@ covered_nodes:
 fixtures_or_data_source: controlled evidence map with multiple plausible need framings, support/challenge tension, and prior-art risk
 assertion_scope: D-25 implementation slice coverage, deterministic-before-LLM verification order, mocked-before-provider/codex staged verification, GenerateNeedCandidateNodeInput validation, stable GenerateNeedCandidateNodeResult shape across execution modes, status versus terminal_result mapping, debate trigger, exploration_context versus arbiter_context separation, evidence signal extraction, candidate framing expansion, optional arbiter-scoped supplemental rounds up to 3 total rounds, SupplementalRoundRoutingDecision production, supplementable versus non-supplementable reason handling, no broad re-exploration, ranked candidate draft batch minimum schema validation, CandidateDraftAdmissionReport production, admission gate decisions, PersistNeedCandidateBatchCommand validation, idempotent all-or-none NeedCandidate persistence, candidate-pool projection refs/hash, downstream handoff refs only, candidate-pool comparison, draft-to-NeedCandidate mapping, bounded NeedCandidate persistence, per-candidate validation, rejected alternative artifacts, no raw debate transcript handoff, no NeedCandidateSet authority, no SearchPlan mutation, and no ValidatedNeed creation
 artifact_expectations: D-25 implementation slice evidence, GenerateNeedCandidateNodeResult, context packet refs/hashes, shared context envelope, exploration_context digest, arbiter_context digest, cache hit/miss provenance, memory admission summary, role agent provenance, role-level summaries, SupplementalRoundRoutingDecision and supplemental-round requests when used, ranked candidate draft batch artifact, minimum schema validation report, CandidateDraftAdmissionReport, PersistNeedCandidateBatchCommand redacted snapshot, arbiter candidate batch synthesis, rejected/merged framing rationale, unresolved points, batch ranking, draft-to-record mapping report, candidate-pool projection refs/hash, validation report, persisted NeedCandidate refs, and candidate discovery audit refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 implementation_note: The canonical WorkflowHarness executes two Explorers, DeepCritic, Arbiter framing and final synthesis through product Codex, validates complete role refs and persists admitted batches with exact replay. T-153 real-model cases cover insufficient evidence, disagreement and non-advance. Supplemental routing and successor/linked-round owners retain their existing boundaries; generic scenario-wrapper coverage is separate.
 ```
 
@@ -260,7 +263,7 @@ covered_nodes:
 fixtures_or_data_source: controlled frozen N5 selection for regular initial review, plus candidate-quality failure fixtures for conditional n6_debate_escalation recovery
 assertion_scope: required initial-path Debate in coordinator and Codex product HTTP, exact receipt replay and drift rejection, conditional recovery via deterministic gate codes, caller-side runtime execution, divergent loop `v1b_n6_divergent_candidate_debate` role fan-out, deterministic admission, arbiter draft funnel into the existing N6 gate, no unreviewed initial product admission, and loopback re-entry projection attachment
 artifact_expectations: four role outputs/audits, arbiter draft batch, input-bound Debate receipt with admission/transcript/gate draft, conditional gate-failure retry-context projection refs, and harness trace refs
-business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 implementation_note: T-153 qualifies and enables regular, gate-failure regeneration and N7-loopback Codex Debate through canonical product callers, with four actual role outputs and a deterministic Arbiter-to-N6 bridge. T-129 C-2 corpus gating is superseded for Codex by approved role-specific qualification; other-provider activation remains deferred under its separate dormancy gate.
 ```
 
@@ -276,7 +279,7 @@ covered_nodes:
 fixtures_or_data_source: controlled TopicQuestionContract and value input with novelty/feasibility disagreement
 assertion_scope: ordinary assessment and signal/operator-triggered Debate, N7 admission, four ordered assessor/value_critic/assessor_repair/synthesizer_final outputs, actual prior bodies, Critic finding resolution, deterministic value disposition, non-advance, exact replay and drift rejection
 artifact_expectations: four role outputs and CLI audits, assessment draft, input-bound completion receipt, exact citations, Critic resolutions, validation report and value assessment refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md and its linked typed node/slot contracts
 implementation_note: T-153 qualifies ordinary N8 and the four-role Codex sequence (assessor/value_critic/assessor_repair/synthesizer_final). Actual trigger feedback flows through N7 admission and the same bounded loopback guards. Both repair and final synthesis must resolve Critic findings; research deficits remain explicit. T-129 prompt obligations are superseded for Codex by role-specific qualification; other-provider activation remains deferred.
 ```
 
