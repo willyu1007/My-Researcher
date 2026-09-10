@@ -21,6 +21,30 @@
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
 | CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
 
+## Phase 4 — v1c support implementation checkpoint
+
+Ordinary promotion and required four-role risk Debate consumers are implemented; their default
+profiles remain closed pending final nine-paragraph qualification. New original-context, recovery
+and first-role ref-refusal checks pass. The v1c service/runtime/admission/HTTP/cross-node union
+passed 94 checks with one Prisma environment skip and one stale prompt golden; the deliberate v3
+prompt golden was then updated and passed. The three focused context/title/golden checks pass,
+including corrupted material-finding body refusal and Unicode title expansion. Backend no-emit
+typecheck, LLM config (5) and matrix consistency pass. Final activation will rerun affected checks.
+
+Preliminary real qualification: ordinary support 200 (23,158 reported tokens) and Debate 201–204
+(25,668 / 26,475 / 27,401 / 32,956) passed canonical support, N3 and interrupted support-commit
+recovery without another model call. These used one original paragraph mapped to several evidence
+roles, which the model correctly flagged; they are not the final nine-paragraph qualification.
+Controlled N4 output 183 is rematerialized; N6 candidates, N8 value and upstream Human choices
+remain fixtures. The final fixture maps all nine original paragraphs by their proper evidence roles
+and uses a research-specific falsification condition. Full-source preview passes. Attempt 205
+(`v1c_ordinary_full_live1`) is pending under the uncapped shared ledger and 600s per-call deadline.
+
+Independent read-only review found and verified fixes for pre-admission role-ref propagation and
+legacy-ref drift; the final-title Unicode expansion edge is fixed and covered. Live preparation
+exposed N10's legitimate long slice statement exceeding its title bound; the permanent title
+derivation now bounds the two final display variants while preserving scientific input.
+
 ## Phase 4 — N6 triage and N7 trial support
 
 The three remaining v1b support profiles are enabled for product CLI. Canonical invocations and

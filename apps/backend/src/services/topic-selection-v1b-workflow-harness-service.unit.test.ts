@@ -9499,6 +9499,223 @@ test(`v1b workflow harness N9 refine_question prevents package creation and emit
 });
 }
 
+
+
+test('N10 derives bounded titles from a long admitted slice without changing the scientific description', async () => {
+  const { n10Narrative, n10NarrativeQualityCodes } = await import('./topic-selection-v1b-harness-node-misc.js');
+  const ctx = await seedHarnessV1aBundle();
+  const { n9 } = await runReadyN9(ctx);
+  const decision = await ctx.valueAssessmentRepository.findDispositionDecisionById(n9.authority_ref!.ref_id);
+  const input = structuredClone(decision!.package_draft_input!);
+  const statement = 'Reproduce the historical ANCE and TAS-B versus BM25 metric differences separately on BioASQ and Touché-2020 using fixed archived rankings and qrels, with a companion judgment-coverage audit.';
+  input.research_slice_snapshot.slice_statement = statement;
+  const narrative = n10Narrative(input);
+  assert.ok(narrative.titleCandidates.every(title => title.length <= 180));
+  assert.deepEqual(n10NarrativeQualityCodes(input, narrative), []);
+  assert.equal(input.research_slice_snapshot.slice_statement, statement);
+  input.research_slice_snapshot.slice_statement = `İ${'a'.repeat(168)}`;
+  assert.ok(n10Narrative(input).titleCandidates.every(title => title.length <= 180));
+});
+
+test('Codex v1c qualification reads published evidence and recovers promotion support', {
+  skip: !['prepare', 'live'].includes(process.env.TOPIC_SELECTION_CODEX_V1C_QUALIFICATION ?? ''),
+}, async t => {
+  const { qualificationBeirParagraphs } = await import('./test-fixtures/topic-selection-codex-qualification-sources.js');
+  const { qualificationRunner, QualificationPreviewComplete } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const { TopicSelectionV1cPromotionInputService } = await import('./topic-selection-v1c-promotion-input-service.js');
+  const { TopicSelectionV1cPromotionGateService } = await import('./topic-selection-v1c-promotion-gate-service.js');
+  const { TopicSelectionV1cCodexContextService } = await import('./topic-selection-v1c-codex-context-service.js');
+  const { InMemoryTopicSelectionV1cPromotionInputRepository } = await import('../repositories/in-memory-topic-selection-v1c-promotion-input-repository.js');
+  const { InMemoryTopicSelectionV1cPromotionGateRepository } = await import('../repositories/in-memory-topic-selection-v1c-promotion-gate-repository.js');
+  const { TopicSelectionV1cN2BoundedDebateRuntimeService } = await import('./topic-selection-v1c-n2-bounded-debate-runtime-service.js');
+  const { TopicSelectionV1cN2BoundedDebateAdmissionService } = await import('./topic-selection-v1c-n2-bounded-debate-admission-service.js');
+  const { TopicSelectionV1cN2BoundedDebateCoordinatorService } = await import('./topic-selection-v1c-n2-bounded-debate-coordinator-service.js');
+  const source = process.env.TOPIC_SELECTION_QUALIFICATION_ALTERNATIVE_FULLTEXT;
+  const output = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  const slot = process.env.TOPIC_SELECTION_QUALIFICATION_SLOT;
+  const n4Outcome = process.env.TOPIC_SELECTION_QUALIFICATION_N4_OUTCOME;
+  if (!source || !output || !model || !home || !n4Outcome || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || !['ordinary', 'debate'].includes(slot ?? '') || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit v1c qualification configuration is required.');
+  const live = process.env.TOPIC_SELECTION_CODEX_V1C_QUALIFICATION === 'live';
+  const limits = live ? { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, output, limits);
+  t.after(() => runner.shutdown()); t.after(() => budget?.close());
+  const key = `v1c_${runId}`;
+  const save = (name: string, value: unknown) => writeFileSync(join(directory, `${key}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600, flag: 'wx' });
+  save('manifest', { slot, model, limits, original_paragraphs: true, actual_research_approval: false,
+    controlled_upstream: 'Actual N4 output rematerialized. N6 candidates, N8 value and all upstream Human decisions are controlled fixtures for downstream qualification; no scientific readiness or investment approval is claimed.' });
+  const sources = await qualificationBeirParagraphs(source, TITLE_CARD_ID);
+  const ctx = await seedHarnessV1aBundle({ evidenceUnits: sources.units,
+    needStatement: 'Bounded historical BEIR replication; incomplete judgments and unestablished novelty must remain explicit.' });
+  const constraint = qualificationConstraint(true);
+  const { n1, n2, n3 } = await runReadyN3(ctx, constraint, key);
+  const outcome: { final_message: string } = JSON.parse(readFileSync(n4Outcome, 'utf8'));
+  assert.equal(sha256Text(outcome.final_message), '24546627a94fd84183536c3bf12f84ce554624f71b61c0c0fd64509af898812d');
+  const n4Input = n4Request(n1, n2, n3);
+  const n4 = await ctx.service.invokeNode({ ...n4Input,
+    semantic_artifacts: [await generateN4RuntimeDraftArtifact(ctx, n4Input, JSON.parse(outcome.final_message))] });
+  assert.equal(n4.route_decision, 'invoke_next', JSON.stringify(n4));
+  const n5Input = earlyCliRequest(n5Request(n4, acceptedSliceSelectionPayload(await selectedN4Option(ctx, n4))), key);
+  const n5 = await ctx.service.invokeNode({ ...n5Input, execution_spec: null, run_mode: null }); // Controlled exact Human selection.
+  assert.equal(n5.route_decision, 'invoke_next', JSON.stringify(n5));
+  const n6Input = await n6Request(ctx, n5, { workflow_run_id: key, node_attempt_id: `${key}_n6` });
+  const draft = await n6Draft(ctx, n6Input);
+  draft.question_frame = { ...draft.question_frame, target_setting: 'Fixed historical BEIR BioASQ and Touché-2020 rankings',
+    target_community: 'Information retrieval researchers', object_scope: 'Archived ANCE, TAS-B and BM25 rankings with original qrels',
+    task_scope: 'Historical nDCG@10 metric replication', intervention_or_approach: 'Rescore fixed historical rankings without retrieval or training',
+    comparison_baseline: 'BM25', observable_outcome: 'Query-level nDCG@10 differences and uncertainty; not a new measured outcome',
+    frame_payload: { controlled_predecessor_fixture: true } };
+  draft.candidates = ['ANCE', 'TAS-B'].map((retriever, index) => ({ ...structuredClone(draft.candidates[0]!),
+    candidate_key: `historical_${index}`, main_question: `Historical ${retriever}/BM25 nDCG@10 replication on BioASQ and Touché-2020?`,
+    sub_questions: ['How do incomplete judgments limit interpretation of the historical differences?'],
+    question_type: 'analysis', contribution_hypothesis: 'analysis',
+    expected_claim: 'Historical metric replication only; neither novelty nor current-model behavior is established.',
+    fallback_claim: 'Unreproduced or uncertain differences require reporting unresolved inputs and limitations.',
+    max_claim_strength: constraint.claim_ceiling,
+    answerability_plan: { datasets_or_resources: constraint.available_assets, metrics: ['Query-level nDCG@10 with judged-status reporting and uncertainty'],
+      baselines: ['BM25 on matching historical corpus/query IDs'], ablations_or_comparisons: ['Report each source-tested dataset separately'],
+      evaluation_setting: 'Reproduce fixed historical scores; no new retrieval, training or qrel construction.',
+      dependency_risks: ['Availability is a controlled Human fixture, not independently inspected.'], open_dependencies: [],
+      known_gaps: ['The original paper already reports this comparison; no new scientific contribution is established.'],
+      required_evidence_refs: draft.question_frame.evidence_refs },
+    answerability_verdict: 'answerable_with_risk',
+    objections: ['Repeating reported results does not establish scientific novelty.'],
+    risk_notes: ['Historical incomplete relevance judgments constrain interpretation.'],
+    human_review_triggers: ['A real researcher must assess whether replication warrants investment.'],
+  }));
+  draft.recommended_candidate_keys = draft.candidates.map(candidate => candidate.candidate_key);
+  const originalRefs = sources.units.map(unit => ref('evidence_unit', unit.evidence_unit_id, TITLE_CARD_ID));
+  draft.question_frame.evidence_refs = originalRefs;
+  for (const candidate of draft.candidates) {
+    candidate.traceability_check = { ...candidate.traceability_check, mapped_evidence_refs: originalRefs,
+      support_evidence_refs: [originalRefs[1]!], baseline_evidence_refs: [originalRefs[0]!],
+      challenge_evidence_refs: [originalRefs[2]!, originalRefs[5]!, originalRefs[7]!, originalRefs[8]!],
+      context_evidence_refs: [originalRefs[3]!, originalRefs[4]!, originalRefs[6]!],
+      unmapped_assumptions: ['Actual archive availability and investment value require Human verification.'] };
+    candidate.answerability_plan.required_evidence_refs = originalRefs;
+    candidate.falsification_conditions = [{ ...candidate.falsification_conditions[0]!, condition_type: 'data_unavailable',
+      statement: 'If archived ranking and qrels identities cannot be verified, report an unsuccessful replication without a retrieval performance conclusion.',
+      trigger_evidence_refs: [], trigger_source_refs: n6Input.frozen_input.source_refs.filter(ref => ref.ref_type === 'research_slice'), related_contract_fields: ['answerability_plan.datasets_or_resources'], expected_action: 'park' }];
+  }
+  draft.generation_notes = ['Controlled candidate proposals for isolated support-role qualification, not live N6 model output.'];
+  save('controlled-candidates', draft);
+
+  const n6 = await ctx.service.invokeNode({ ...n6Input, semantic_artifacts: [await recordN6DraftArtifact(ctx, n6Input, draft)] });
+  assert.ok(n6.authority_ref, JSON.stringify(await ctx.controlPlane.getTraceSnapshot(n6.trace_snapshot_ref!.ref_id)));
+  const n7 = await ctx.service.invokeNode(await n7Request(ctx, n6));
+  assert.ok(n7.authority_ref, JSON.stringify(n7));
+  const valueInput = await n8Request(ctx, n7, { workflow_run_id: key, node_attempt_id: `${key}_controlled_value` });
+  const value = n8ValueDraft(valueInput);
+  value.strongest_claim_if_success = 'Historical nDCG@10 replication only; no new superiority, novelty or causal mechanism.';
+  value.fallback_claim_if_success = 'Report unreproduced historical differences and missing inputs.';
+  value.value_summary = 'Controlled advancement for product qualification; a real researcher must assess investment value.';
+  value.ceiling_case = value.strongest_claim_if_success; value.base_case = value.value_summary; value.floor_case = value.fallback_claim_if_success;
+  value.risk_notes = slot === 'debate' ? ['Incomplete relevance judgments can distort the historical ANCE/TAS-B comparison against BM25; verification must report judged-status sensitivity.'] : [];
+  value.reviewer_objections = []; value.risk_penalty = {};
+  for (const gate of value.hard_gates) gate.rationale = 'Controlled upstream pass to exercise promotion support; this is not scientific readiness evidence.';
+  for (const score of value.dimension_scores) score.rationale = 'Controlled packaging score; actual scientific value and novelty remain unverified.';
+  for (const field of ['value_thesis', 'significance', 'originality', 'claim_leverage', 'effort_to_value', 'strategic_fit', 'negative_memory_check', 'evidence_backed_rationale', 'uncertainty', 'disposition_bridge'] as const) {
+    value.reasoning_memo[field] = value.value_summary;
+  }
+  value.reasoning_memo.reviewer_risks = []; value.reasoning_memo.top_objections = [];
+  const n8 = await ctx.service.invokeNode({ ...valueInput, semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, valueInput, value)] });
+  assert.equal(n8.route_decision, 'invoke_next', JSON.stringify(n8));
+  const n9 = await ctx.service.invokeNode(await n9Request(ctx, n8));
+  assert.equal(n9.route_decision, 'invoke_next', JSON.stringify(n9));
+  const n10 = await ctx.service.invokeNode(await n10Request(ctx, n9));
+  assert.equal(n10.route_decision, 'invoke_next', JSON.stringify(n10));
+  const n11 = await ctx.service.invokeNode(await n11Request(ctx, n10));
+  assert.equal(n11.route_decision, 'stop_v1b_complete', JSON.stringify(n11));
+  const promotionInputService = new TopicSelectionV1cPromotionInputService({ repository: new InMemoryTopicSelectionV1cPromotionInputRepository(), topicPackageRepository: ctx.topicPackageRepository });
+  const snapshot = await promotionInputService.createPromotionInputSnapshot({ v1b_to_v1c_input_bundle_id: n11.authority_ref!.ref_id });
+  const handoff = await promotionInputService.getPromotionInputHandoff(snapshot.promotion_input_snapshot_id);
+  save('handoff', handoff);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  for (const id of ['topic-selection-promotion-decision-support', 'topic-selection.v1c.promotion-support.bounded-micro-debate.v1']) {
+    const profile = registry.profiles.find(row => row.profile_id === id)!;
+    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
+    profile.run_mode_eligibility.codex_cli = ['product'];
+  }
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: model });
+  const compiler = new TopicSelectionV1cCodexContextService({ controlPlane: ctx.controlPlane, acceptedRisks: ctx.recheckRepository, researchEvidence: sources.resolver(ctx.evidenceRepository) });
+  const research = await compiler.promotion(handoff);
+  assert.equal(handoff.snapshot.package_snapshot.selected_evidence_refs.length, 9);
+  save('research', research);
+  const repository = new InMemoryTopicSelectionV1cPromotionGateRepository();
+  const gateService = new TopicSelectionV1cPromotionGateService({ repository, controlPlane: ctx.controlPlane, modelProfileRegistry, agentOrchestrator,
+    promotionInputService, resolveResearchContext: input => compiler.promotion(input) });
+  const input = { promotion_input_snapshot_id: snapshot.promotion_input_snapshot_id, workflow_run_id: key, node_attempt_id: `${key}_support`, execution_spec: { execution_mode: 'codex_cli' as const } };
+  const invoke = () => {
+    if (slot === 'ordinary') return gateService.createPromotionDecisionSupport(input);
+    const runtime = new TopicSelectionV1cN2BoundedDebateRuntimeService(ctx.controlPlane, { agentOrchestrator, modelProfileRegistry, resolveResearchContext: current => compiler.promotion(current) });
+    return new TopicSelectionV1cN2BoundedDebateCoordinatorService({ runtime, admission: new TopicSelectionV1cN2BoundedDebateAdmissionService(runtime), gateService, promotionInputService }).createPromotionDecisionSupportFromBoundedDebate(input);
+  };
+  const create = repository.createSupportBundle.bind(repository);
+  let interrupted = false;
+  repository.createSupportBundle = async bundle => { if (!interrupted) { interrupted = true; throw new Error('qualification support commit interruption'); } return create(bundle); };
+  try {
+    await assert.rejects(invoke(), error => {
+      if (error instanceof QualificationPreviewComplete) throw error;
+      assert.match(String(error), /qualification support commit interruption/); return true;
+    });
+    const count = budget?.snapshot().attempts.length;
+    const result = await invoke(); save('result', result);
+    assert.deepEqual(await invoke(), result);
+    assert.equal(budget?.snapshot().attempts.length, count);
+    const gate = await gateService.createPromotionGateCheckFromSupport({ promotion_decision_support_id: result.promotion_decision_support.promotion_decision_support_id });
+    save('gate', gate);
+    assert.equal(gate.promotion_gate_check.promotion_input_snapshot_id, snapshot.promotion_input_snapshot_id);
+  } catch (error) { if (!(error instanceof QualificationPreviewComplete) || live) throw error; }
+  finally { save('artifacts', await ctx.controlPlane.listArtifactRefsByWorkflowRunId(key)); }
+});
+test('v1c CLI context reads the published package and refuses frozen body drift', async () => {
+  const { TopicSelectionV1cPromotionInputService } = await import('./topic-selection-v1c-promotion-input-service.js');
+  const { TopicSelectionV1cCodexContextService } = await import('./topic-selection-v1c-codex-context-service.js');
+  const { InMemoryTopicSelectionV1cPromotionInputRepository } = await import('../repositories/in-memory-topic-selection-v1c-promotion-input-repository.js');
+  const ctx = await seedHarnessV1aBundle();
+  const { n11 } = await runReadyN11(ctx);
+  const service = new TopicSelectionV1cPromotionInputService({ repository: new InMemoryTopicSelectionV1cPromotionInputRepository(),
+    topicPackageRepository: ctx.topicPackageRepository });
+  const snapshot = await service.createPromotionInputSnapshot({ v1b_to_v1c_input_bundle_id: n11.authority_ref!.ref_id });
+  const handoff = await service.getPromotionInputHandoff(snapshot.promotion_input_snapshot_id);
+  let evidenceReads = 0;
+  const context = new TopicSelectionV1cCodexContextService({ controlPlane: ctx.controlPlane, acceptedRisks: ctx.recheckRepository,
+    researchEvidence: { resolve: async request => {
+      evidenceReads += 1;
+      assert.equal(request.title_card_id, TITLE_CARD_ID);
+      assert.deepEqual(request.evidence_unit_refs, [handoff.evidence_refs[0]!.evidence_ref]);
+      return { schema_version: 'TopicSelectionResearchEvidencePacket@v1', title_card_id: request.title_card_id,
+        participant_role: request.participant_role, query_intent: request.query_intent, items: [],
+        source_refs: request.evidence_unit_refs, total_excerpt_chars: 0, packet_hash: 'controlled-resolver-output' };
+    } },
+  });
+  const output = await context.promotion(handoff);
+  const domain = output.frozen_domain as { package_draft_input: { question_contract: { main_question: string } } };
+  assert.equal(domain.package_draft_input.question_contract.main_question, handoff.snapshot.package_draft_input_snapshot.question_contract.main_question);
+  assert.ok(domain.package_draft_input.question_contract.main_question.length > 0);
+  assert.equal(evidenceReads, 1);
+  const findings = output.material_findings as Array<{ ref: TopicSelectionFunctionalRef; finding: { summary: string } }>;
+  assert.ok(findings.length >= 4);
+  assert.ok(findings.every(row => row.finding.summary.length > 0));
+  const readArtifact = ctx.controlPlane.getArtifactRef.bind(ctx.controlPlane);
+  ctx.controlPlane.getArtifactRef = async id => {
+    const record = await readArtifact(id);
+    return id === findings[0]!.ref.ref_id && record ? { ...record, payload: { ...record.payload, summary: 'Corrupted risk body' } } : record;
+  };
+  await assert.rejects(context.promotion(handoff), /material finding/);
+  ctx.controlPlane.getArtifactRef = readArtifact;
+  assert.equal(evidenceReads, 2);
+  handoff.snapshot.package_draft_input_snapshot.question_contract.main_question = 'Changed after publication';
+  await assert.rejects(context.promotion(handoff), /frozen package|draft bodies/i);
+  assert.equal(evidenceReads, 2);
+});
+
 test('v1b workflow harness N11 publishes v1c input bundle and closes N1-N11 service-level E2E', async () => {
   const ctx = await seedHarnessV1aBundle();
   const { n10, n11 } = await runReadyN11(ctx);

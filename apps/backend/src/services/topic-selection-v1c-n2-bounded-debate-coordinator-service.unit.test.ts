@@ -392,3 +392,65 @@ test('FIND-028: invalid, ambiguous and incomplete condition proposals never publ
     });
   }
 });
+
+
+test('CLI promotion Debate reads prior bodies and recovers all four turns after a failed support commit', async t => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
+  const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
+  const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
+  const home = mkdtempSync(join(tmpdir(), 'promotion-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const handoff = makeHandoff();
+  const outputs = allRoleOutputs(handoff);
+  (outputs['n2_bounded_micro_debate.synthesizer_final'].n3_semantic_layer as Record<string, unknown>).material_risk_acknowledgements = { status: 'none', risk_refs: [] };
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(row => row.profile_id === 'topic-selection.v1c.promotion-support.bounded-micro-debate.v1')!;
+  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const slots = Object.keys(outputs) as TopicSelectionV1cN2BoundedDebateRoleSlotId[];
+  let calls = 0;
+  let corruptRef = false;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    assert.match(options.stdin, /Original evidence contradicts broad superiority/);
+    if (!corruptRef && calls % 4 > 0) assert.match(options.stdin, /Support draft preserves bounded claim/);
+    const output = structuredClone(outputs[corruptRef ? slots[0]! : slots[calls % 4]!]);
+    calls += 1;
+    if (corruptRef) {
+      const points = output.support_points as Array<{ source_refs: TopicSelectionFunctionalRef[] }>;
+      points[0]!.source_refs[0]!.legacy_ref = { ref_id: 'foreign-legacy-object' };
+    }
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `promotion-debate-${calls}` }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const repository = new InMemoryTopicSelectionV1cPromotionGateRepository();
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
+  const promotionInputService = new StubPromotionInputService(handoff);
+  const gateService = new TopicSelectionV1cPromotionGateService({ repository, promotionInputService, modelProfileRegistry });
+  const coordinator = () => {
+    const runtime = new TopicSelectionV1cN2BoundedDebateRuntimeService(controlPlane, { modelProfileRegistry, agentOrchestrator,
+      resolveResearchContext: async () => ({ original_evidence: 'Original evidence contradicts broad superiority.' }) });
+    return new TopicSelectionV1cN2BoundedDebateCoordinatorService({ runtime, admission: new TopicSelectionV1cN2BoundedDebateAdmissionService(runtime), gateService, promotionInputService });
+  };
+  const input = { promotion_input_snapshot_id: handoff.promotion_input_snapshot_id, workflow_run_id: 'cli-debate', node_attempt_id: 'n2',
+    execution_spec: { execution_mode: 'codex_cli' as const } };
+  const create = repository.createSupportBundle.bind(repository);
+  let interrupt = true;
+  repository.createSupportBundle = async bundle => { if (interrupt) { interrupt = false; throw new Error('interrupted before support commit'); } return create(bundle); };
+  await assert.rejects(coordinator().createPromotionDecisionSupportFromBoundedDebate(input), /interrupted before support commit/);
+  assert.equal(calls, 4);
+  const recovered = await coordinator().createPromotionDecisionSupportFromBoundedDebate(input);
+  assert.equal(recovered.promotion_decision_support.support_generation_mode, 'llm_draft');
+  assert.deepEqual(await coordinator().createPromotionDecisionSupportFromBoundedDebate(input), recovered);
+  await assert.rejects(coordinator().createPromotionDecisionSupportFromBoundedDebate({ ...input, debate_role_outputs: outputs }), /external|supplied|CLI/i);
+  await assert.rejects(coordinator().createPromotionDecisionSupportFromBoundedDebate({ ...input, policy_version_id: 'changed' }), /changed|different|drift/i);
+  assert.equal(calls, 4);
+  corruptRef = true;
+  await assert.rejects(coordinator().createPromotionDecisionSupportFromBoundedDebate({ ...input, node_attempt_id: 'bad-first-role' }), /CLI reference/);
+  assert.equal(calls, 5, 'Invalid first-role refs stop before paying for later roles.');
+});

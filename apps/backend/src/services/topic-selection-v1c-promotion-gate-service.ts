@@ -1,5 +1,8 @@
 import { deterministicPromotionConditionCandidates, validatePromotionConditionCandidates } from './topic-selection-v1c-promotion-condition-support.js';
 import crypto from 'node:crypto';
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
+import type { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { PROMOTION_SUPPORT_DEBATE_POLICY, promotionSupportDebateRequired, promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 
 import {
@@ -99,6 +102,9 @@ export type CreatePromotionGateSupportInput = {
   workflow_profile_version?: string | null;
   prompt_template_version?: string | null;
   model?: LlmModelRef | null;
+  execution_spec?: { execution_mode: 'codex_cli'; model_option_id?: null } | null;
+  workflow_run_id?: string;
+  node_attempt_id?: string;
 };
 
 export type CreatePromotionDecisionSupportInput = CreatePromotionGateSupportInput;
@@ -152,6 +158,8 @@ export type TopicSelectionV1cPromotionGateServiceOptions = {
   promotionInputService: TopicSelectionPromotionInputHandoffProvider;
   llmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'> | null;
   agentOrchestrator?: TopicSelectionAgentOrchestratorService | null;
+  controlPlane?: TopicSelectionControlPlaneService;
+  resolveResearchContext?: (handoff: TopicSelectionPromotionInputSnapshotHandoff) => Promise<Record<string, unknown>>;
   contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
   modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
   idFactory?: IdFactory;
@@ -175,6 +183,7 @@ type GateEvaluation = {
 };
 
 type LlmDraftResult = {
+  cliExecution?: { support_run_key: string; request_hash: string; handoff_hash: string };
   execution?: CreatePromotionDecisionSupportFromVerifiedRuntimeDraftInput['verified_runtime_draft']['execution'];
   draft: TopicSelectionPromotionDecisionSupportLlmDraft | null;
   raw: Record<string, unknown> | null;
@@ -191,6 +200,8 @@ export function buildV1cPromotionDecisionSupportSystemContent(): string {
 }
 
 export class TopicSelectionV1cPromotionGateService {
+  private readonly controlPlane: TopicSelectionControlPlaneService | undefined;
+  private readonly resolveResearchContext: TopicSelectionV1cPromotionGateServiceOptions['resolveResearchContext'];
   private readonly repository: TopicSelectionV1cPromotionGateRepository;
   private readonly promotionInputService: TopicSelectionPromotionInputHandoffProvider;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService | null;
@@ -200,6 +211,8 @@ export class TopicSelectionV1cPromotionGateService {
   private readonly now: () => string;
 
   constructor(options: TopicSelectionV1cPromotionGateServiceOptions) {
+    this.controlPlane = options.controlPlane;
+    this.resolveResearchContext = options.resolveResearchContext;
     this.repository = options.repository;
     this.promotionInputService = options.promotionInputService;
     const modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -220,7 +233,92 @@ export class TopicSelectionV1cPromotionGateService {
   async createPromotionDecisionSupport(
     input: CreatePromotionDecisionSupportInput,
   ): Promise<TopicSelectionV1cPromotionDecisionSupportCreationResult> {
+    if (input.execution_spec != null) return this.createCliPromotionSupport(input);
     return this.createPromotionDecisionSupportInternal(input, null);
+  }
+
+  private async createCliPromotionSupport(input: CreatePromotionDecisionSupportInput): Promise<TopicSelectionV1cPromotionSupportRecordBundle> {
+    input = structuredClone(input);
+    if (input.execution_spec?.execution_mode !== 'codex_cli' || input.execution_spec.model_option_id != null
+      || input.model != null || !input.workflow_run_id?.trim() || !input.node_attempt_id?.trim()
+      || (input.support_generation_mode != null && input.support_generation_mode !== 'llm_draft')
+      || (input.prompt_template_version != null && input.prompt_template_version !== DEFAULT_PROMPT_TEMPLATE_VERSION)
+      || (input.workflow_profile_version != null && input.workflow_profile_version !== DEFAULT_WORKFLOW_PROFILE_VERSION)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'CLI promotion support requires stable workflow/attempt IDs and configured profiles, without gateway model options.');
+    }
+    if (!this.controlPlane || !this.resolveResearchContext || !this.agentOrchestrator) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI promotion support requires product context, persistence and runner configuration.');
+    }
+    const handoff = structuredClone(await this.promotionInputService.getPromotionInputHandoff(input.promotion_input_snapshot_id));
+    this.assertWorkspace(input.workspace_id ?? null, handoff);
+    if (promotionSupportDebateRequired(handoff)) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Material-risk promotion requires the four-role Debate.');
+    this.agentOrchestrator.assertProductCodexProfile(WORKFLOW_PROFILE_KEY);
+    const runtimeProfile = this.contextPolicyProfileRegistry.resolveProfile({
+      context_policy_profile_id: TOPIC_SELECTION_V1C_N2_CONTEXT_RUNTIME_PROFILE_IDS.promotion_support_llm_draft,
+      invocation_slot_id: TOPIC_SELECTION_V1C_N2_INVOCATION_SLOT_IDS.promotion_support_llm_draft,
+    });
+    const modelProfile = this.modelProfileRegistry.resolveProfile({ profile_id: WORKFLOW_PROFILE_KEY,
+      execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null });
+    const key = `v1c-cli-promotion:${canonicalHash([input.workflow_run_id, input.node_attempt_id])}`;
+    const requestHash = canonicalHash({ input, handoff, prompt: PROMPT_TEMPLATE, model: modelProfile.profile_hash,
+      context: runtimeProfile.profile_hash, runner: this.agentOrchestrator.codexCliExecutionIdentity });
+    const existing = await this.repository.findSupportBundleBySupportRunKey(key);
+    if (existing) {
+      this.assertCliSupportReplay(existing, requestHash);
+      return existing;
+    }
+    const researchContext = await this.resolveResearchContext(handoff);
+    const { snapshot: _snapshot, ...handoffIdentity } = handoff;
+    const context = { promotion_input_handoff_json: handoffIdentity, research_context: researchContext };
+    const contextHash = canonicalHash(context);
+    const receiptKey = `${key}:generation`;
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+    let generated: LlmDraftResult;
+    if (receipt) {
+      if (receipt.checksum !== canonicalHash(receipt.payload) || receipt.payload?.request_hash !== requestHash
+        || receipt.payload?.context_hash !== contextHash || !receipt.payload?.result) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'CLI promotion support input, context or runtime changed.');
+      }
+      generated = receipt.payload.result as LlmDraftResult;
+    } else {
+      const response = await this.agentOrchestrator.invokeStructuredOutput<TopicSelectionPromotionDecisionSupportLlmDraft>({
+        workspace_id: handoff.snapshot.workspace_id ?? null, title_card_id: handoff.snapshot.title_card_id,
+        workflow_run_id: input.workflow_run_id, node_attempt_id: input.node_attempt_id,
+        node_id: TOPIC_SELECTION_V1C_NODE_ID.n2_generate_promotion_support,
+        invocation_attempt_id: `${input.node_attempt_id}.promotion_support_generation.cli`,
+        execution_mode: 'codex_cli', executor_kind: 'single_agent', run_mode: 'product',
+        profile_id: WORKFLOW_PROFILE_KEY, model_option_id: null, output_contract: 'TopicSelectionPromotionDecisionSupportLlmDraft@v1',
+        prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: DEFAULT_PROMPT_TEMPLATE_VERSION },
+        prompt_variant_key: TOPIC_SELECTION_V1C_N2_INVOCATION_SLOT_IDS.promotion_support_llm_draft,
+        schema_name: 'TopicSelectionPromotionDecisionSupportLlmDraft', schema: topicSelectionPromotionDecisionSupportLlmDraftSchema,
+        messages: [{ role: 'system', content: buildV1cPromotionDecisionSupportSystemContent() }, { role: 'user', content: stableStringify(context) }],
+        input_refs: this.compileSourceRefs(handoff),
+        runtime_token_budget: { context_policy_profile: runtimeProfile.profile, context_policy_profile_hash: runtimeProfile.profile_hash,
+          runtime_invocation_context_hash: canonicalHash({ requestHash, contextHash }), context_payloads: [] },
+        created_by: 'system',
+      });
+      if (response.status !== 'succeeded' || !response.structured_output) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI promotion support did not succeed.', {
+        blocker_codes: response.blocker_codes, token_budget_gate_result: response.token_budget_gate_result,
+      });
+      assertV1aCodexReferences(response.structured_output, context);
+      this.assertConditionCandidates(response.structured_output.condition_candidates, handoff);
+      generated = { draft: response.structured_output, raw: null, telemetry: response.provenance.telemetry,
+        provenance: response.provenance, auditSnapshot: response.audit_snapshot, runtimeIdentity: null, runtimeIdentityHash: null,
+        fallbackWarning: null, cliExecution: { support_run_key: key, request_hash: requestHash, handoff_hash: canonicalHash(handoff) } };
+      const payload = { request_hash: requestHash, context_hash: contextHash, result: generated };
+      const saved = await this.controlPlane.recordArtifactRef({ stable_key: receiptKey,
+        workspace_id: handoff.snapshot.workspace_id ?? null, title_card_id: handoff.snapshot.title_card_id,
+        workflow_run_id: input.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+        payload, checksum: canonicalHash(payload), created_by: 'system' });
+      if (saved.checksum !== canonicalHash(payload)) throw new AppError(409, 'VERSION_CONFLICT', 'CLI promotion generation receipt changed.');
+    }
+    return this.createPromotionDecisionSupportInternal({ ...input, support_generation_mode: 'llm_draft' }, generated);
+  }
+
+  private assertCliSupportReplay(bundle: TopicSelectionV1cPromotionSupportRecordBundle, requestHash: string): void {
+    if (this.asRecord(bundle.promotion_dossier.dossier_payload.cli_execution).request_hash !== requestHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'CLI promotion support request or runtime changed for this attempt.');
+    }
   }
 
   async createPromotionDecisionSupportFromVerifiedRuntimeDraft(
@@ -257,7 +355,10 @@ export class TopicSelectionV1cPromotionGateService {
     );
     this.assertWorkspace(input.workspace_id ?? null, handoff);
 
-    if (promotionSupportDebateRequired(handoff) && !verifiedRuntimeDraft) {
+    if (verifiedRuntimeDraft?.cliExecution && verifiedRuntimeDraft.cliExecution.handoff_hash !== canonicalHash(handoff)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'CLI promotion input changed before support persistence.');
+    }
+    if (promotionSupportDebateRequired(handoff) && !verifiedRuntimeDraft?.runtimeIdentity) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
         'Promotion input carries material risk; submit the four bounded-Debate role outputs before N3.', {
           blocker_code: 'PROMOTION_SUPPORT_DEBATE_REQUIRED',
@@ -276,8 +377,8 @@ export class TopicSelectionV1cPromotionGateService {
     const mode = input.support_generation_mode ?? 'deterministic';
     const promptTemplateVersion = input.prompt_template_version ?? DEFAULT_PROMPT_TEMPLATE_VERSION;
     const workflowProfileVersion = input.workflow_profile_version ?? DEFAULT_WORKFLOW_PROFILE_VERSION;
-    const model = input.model ?? this.defaultPromotionSupportModel();
-    const supportRunKey = verifiedRuntimeDraft?.execution?.support_run_key ?? this.computeSupportRunKey({
+    const model = verifiedRuntimeDraft?.cliExecution ? null : input.model ?? this.defaultPromotionSupportModel();
+    const supportRunKey = verifiedRuntimeDraft?.cliExecution?.support_run_key ?? verifiedRuntimeDraft?.execution?.support_run_key ?? this.computeSupportRunKey({
       promotionInputSnapshotId: handoff.promotion_input_snapshot_id,
       promotionInputSnapshotHash: handoff.snapshot_hashes.promotion_input_snapshot_hash,
       policyVersionId: input.policy_version_id ?? null,
@@ -289,6 +390,7 @@ export class TopicSelectionV1cPromotionGateService {
     });
     const existing = await this.repository.findSupportBundleBySupportRunKey(supportRunKey);
     if (existing) {
+      if (verifiedRuntimeDraft?.cliExecution) this.assertCliSupportReplay(existing, verifiedRuntimeDraft.cliExecution.request_hash);
       if (verifiedRuntimeDraft?.execution) {
         this.assertDebateReplay(existing, verifiedRuntimeDraft.execution.request_hash);
       }
@@ -304,7 +406,7 @@ export class TopicSelectionV1cPromotionGateService {
     const supportArtifactId = this.idFactory('artifact_ref');
     const dossierArtifactId = this.idFactory('artifact_ref');
     const llmDraft = verifiedRuntimeDraft ?? (mode === 'llm_draft'
-      ? await this.createLlmDraft({ handoff, model, promptTemplateVersion, supportRunKey, workflowRunId })
+      ? await this.createLlmDraft({ handoff, model: model ?? this.defaultPromotionSupportModel(), promptTemplateVersion, supportRunKey, workflowRunId })
 	      : {
 	          draft: null,
 	          raw: null,
@@ -375,6 +477,7 @@ export class TopicSelectionV1cPromotionGateService {
           admission_identity_hash: llmDraft.runtimeIdentityHash,
         },
         ...(llmDraft.execution ? { debate_execution: llmDraft.execution } : {}),
+        ...(llmDraft.cliExecution ? { cli_execution: llmDraft.cliExecution } : {}),
       },
       source_refs: sourceRefs,
       risk_finding_refs: riskFindingRefs,
@@ -406,6 +509,7 @@ export class TopicSelectionV1cPromotionGateService {
       control_plane: controlPlane,
     });
     if (llmDraft.execution) this.assertDebateReplay(persisted, llmDraft.execution.request_hash);
+    if (llmDraft.cliExecution) this.assertCliSupportReplay(persisted, llmDraft.cliExecution.request_hash);
     return persisted;
   }
 
@@ -1171,7 +1275,7 @@ export class TopicSelectionV1cPromotionGateService {
     policyVersionId: string | null;
     promptTemplateVersion: string;
     workflowProfileVersion: string;
-    model: LlmModelRef;
+    model: LlmModelRef | null;
     mode: TopicSelectionPromotionSupportGenerationMode;
     llmDraft: LlmDraftResult;
     createdBy: TopicSelectionActorType;

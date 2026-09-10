@@ -365,7 +365,7 @@ test('v1c N2 bounded debate runtime emits runtime-verified role artifacts admitt
   assert.ok(final!.artifact.runtime_audit_ref);
   assert.ok(final!.artifact.runtime_audit_hash);
 
-  const admitted = admission.admit({ handoff, role_results: candidates });
+  const admitted = await admission.admit({ handoff, role_results: candidates });
   assert.equal(admitted.admitted, true);
   if (!admitted.admitted) {
     throw new Error('Expected admission to pass.');
@@ -388,7 +388,7 @@ test('v1c N2 bounded debate (W-09 S3): an Option-A empty execution_plan is byte-
   const noPlan = makeSubject();
   const noPlanHandoff = makeHandoff();
   const noPlanCandidates = await generateCandidates({ runtime: noPlan.runtime, handoff: noPlanHandoff });
-  const noPlanAdmitted = noPlan.admission.admit({ handoff: noPlanHandoff, role_results: noPlanCandidates });
+  const noPlanAdmitted = await noPlan.admission.admit({ handoff: noPlanHandoff, role_results: noPlanCandidates });
 
   const emptyPlan = makeSubject();
   const emptyPlanHandoff = makeHandoff();
@@ -397,7 +397,7 @@ test('v1c N2 bounded debate (W-09 S3): an Option-A empty execution_plan is byte-
     handoff: emptyPlanHandoff,
     executionPlan: { name: 'codex_assisted' },
   });
-  const emptyPlanAdmitted = emptyPlan.admission.admit({ handoff: emptyPlanHandoff, role_results: emptyPlanCandidates });
+  const emptyPlanAdmitted = await emptyPlan.admission.admit({ handoff: emptyPlanHandoff, role_results: emptyPlanCandidates });
 
   assert.equal(noPlanAdmitted.admitted, true);
   assert.equal(emptyPlanAdmitted.admitted, true);
@@ -433,7 +433,7 @@ test('v1c N2 bounded debate (W-09 S4): a concrete provider_diverse plan is DORMA
   const noPlan = makeSubject();
   const noPlanHandoff = makeHandoff();
   const noPlanCandidates = await generateCandidates({ runtime: noPlan.runtime, handoff: noPlanHandoff });
-  const noPlanAdmitted = noPlan.admission.admit({ handoff: noPlanHandoff, role_results: noPlanCandidates });
+  const noPlanAdmitted = await noPlan.admission.admit({ handoff: noPlanHandoff, role_results: noPlanCandidates });
 
   const diverse = makeSubject();
   const diverseHandoff = makeHandoff();
@@ -442,7 +442,7 @@ test('v1c N2 bounded debate (W-09 S4): a concrete provider_diverse plan is DORMA
     handoff: diverseHandoff,
     executionPlan: selectV1cN2DebateExecutionPlan('provider_diverse'),
   });
-  const diverseAdmitted = diverse.admission.admit({ handoff: diverseHandoff, role_results: diverseCandidates });
+  const diverseAdmitted = await diverse.admission.admit({ handoff: diverseHandoff, role_results: diverseCandidates });
 
   assert.equal(noPlanAdmitted.admitted, true);
   assert.equal(diverseAdmitted.admitted, true);
@@ -467,7 +467,7 @@ test('v1c N2 bounded debate admission blocks non-canonical role order', async ()
   const candidates = await generateCandidates({ runtime, handoff });
   const reordered = [candidates[1]!, candidates[0]!, ...candidates.slice(2)];
 
-  const admitted = admission.admit({ handoff, role_results: reordered });
+  const admitted = await admission.admit({ handoff, role_results: reordered });
   assert.equal(admitted.admitted, false);
   if (admitted.admitted) {
     throw new Error('Expected admission to block reordered roles.');
@@ -490,7 +490,7 @@ test('v1c N2 bounded debate admission blocks prior-role hash drift', async () =>
     },
   };
 
-  const admitted = admission.admit({ handoff, role_results: candidates });
+  const admitted = await admission.admit({ handoff, role_results: candidates });
   assert.equal(admitted.admitted, false);
   if (admitted.admitted) {
     throw new Error('Expected admission to block prior-role drift.');
@@ -512,7 +512,7 @@ test('v1c N2 bounded debate admission blocks forbidden authority fields and out-
       'n2_bounded_micro_debate.synthesizer_final': forbiddenFinal,
     },
   });
-  const forbidden = admission.admit({ handoff, role_results: forbiddenCandidates });
+  const forbidden = await admission.admit({ handoff, role_results: forbiddenCandidates });
   assert.equal(forbidden.admitted, false);
   if (forbidden.admitted) {
     throw new Error('Expected forbidden authority field to block.');
@@ -530,7 +530,7 @@ test('v1c N2 bounded debate admission blocks forbidden authority fields and out-
       'n2_bounded_micro_debate.synthesizer_final': outOfBoundsFinal,
     },
   });
-  const outOfBounds = admission.admit({ handoff, role_results: outOfBoundsCandidates });
+  const outOfBounds = await admission.admit({ handoff, role_results: outOfBoundsCandidates });
   assert.equal(outOfBounds.admitted, false);
   if (outOfBounds.admitted) {
     throw new Error('Expected out-of-bounds ref to block.');
@@ -551,7 +551,7 @@ test('v1c N2 bounded debate admission blocks incomplete final semantic layer', a
     },
   });
 
-  const admitted = admission.admit({ handoff, role_results: candidates });
+  const admitted = await admission.admit({ handoff, role_results: candidates });
   assert.equal(admitted.admitted, false);
   if (admitted.admitted) {
     throw new Error('Expected incomplete semantic layer to block.');
@@ -574,7 +574,7 @@ test('v1c N2 bounded debate admission blocks dropped risk and recheck refs', asy
     },
   });
 
-  const admitted = admission.admit({ handoff, role_results: candidates });
+  const admitted = await admission.admit({ handoff, role_results: candidates });
   assert.equal(admitted.admitted, false);
   if (admitted.admitted) {
     throw new Error('Expected dropped risk/recheck refs to block.');

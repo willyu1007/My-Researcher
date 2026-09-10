@@ -405,3 +405,24 @@ Protected `early-cli-support` receipts bind generated output to request/context/
 Missing generation-receipt recovery reuses the completed orchestrator attempt; admission rechecks
 live source identity before the first domain write. Externally relabeled audits cannot supply these
 protected receipts. Existing CLI domain claims preserve exclusion and ambiguous-write refusal.
+
+## Phase 4 v1c promotion support
+
+Ordinary support accepts a product `codex_cli` execution spec with stable workflow/attempt IDs.
+It binds the request, full frozen handoff, runtime profile, prompt and runner, and persists a protected
+generation receipt before the existing atomic support-bundle writer. A failed support commit recovers
+without another model call; changed request/context or a newly risk-bearing input fails closed.
+
+Risk-bearing support uses the existing four-role coordinator and shared bounded-Debate executor.
+CLI role schemas retain each role's complete output. Each role reads verified prior output bodies,
+and complete functional refs (including legacy identity) are checked before a role artifact can feed
+the next turn. Async admission independently rebuilds the same context and identity. Final support
+uses the existing verified-runtime-draft writer, N3 and Human authority owners.
+
+The v1c context owner verifies admitted frozen package/draft bodies, handoff refs and snapshot
+identity, reads original selected EvidenceUnits and actual accepted-risk/material-finding records,
+and preserves unresolved legacy obligation refs explicitly. Scientific bodies are included once;
+context accounting does not count the serialized packet twice. N10 bounds final display titles
+while retaining the full slice statement in the frozen package. Profiles remain closed until final
+qualification; the next two consumers must preserve separate model preview/Human acceptance and
+record-only feedback boundaries.

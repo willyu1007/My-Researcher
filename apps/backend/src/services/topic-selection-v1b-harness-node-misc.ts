@@ -66,7 +66,7 @@ export function n10Narrative(
   );
   return {
     titleCandidates: title
-      ? uniqueStrings([title, `Evaluating ${lowercaseFirst(title)}`])
+      ? uniqueStrings([title, `Evaluating ${lowercaseFirst(title)}`].map(boundedTitle))
       : [],
     researchBackground: joinSentences([
       `Target setting: ${input.question_contract.target_setting}`,
@@ -119,6 +119,14 @@ export function n10Narrative(
     ]),
     nonGoals: uniqueNonGoals(input.question_contract.prohibited_claims),
   };
+}
+
+// Bound the final display titles; the full slice stays in the frozen package.
+function boundedTitle(value: string): string {
+  if (value.length <= 180) return value;
+  const prefix = value.slice(0, 179).replace(/[\uD800-\uDBFF]$/u, '');
+  const boundary = prefix.lastIndexOf(' ');
+  return `${(boundary > 84 ? prefix.slice(0, boundary) : prefix).trimEnd()}…`;
 }
 
 export function n10NarrativeQualityCodes(

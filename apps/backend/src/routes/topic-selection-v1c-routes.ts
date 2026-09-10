@@ -80,6 +80,11 @@ const promotionInputSnapshotBody = bodySchema(['v1b_to_v1c_input_bundle_id'], {
   policy_version_id: nullableStringId,
 });
 
+const codexExecutionSpecSchema = {
+  anyOf: [{ type: 'object', additionalProperties: false, required: ['execution_mode'],
+    properties: { execution_mode: { const: 'codex_cli' }, model_option_id: { type: 'null' } } }, { type: 'null' }],
+} as const;
+
 const promotionGateSupportBody = bodySchema(['promotion_input_snapshot_id'], {
   promotion_input_snapshot_id: stringId,
   workspace_id: nullableStringId,
@@ -89,11 +94,14 @@ const promotionGateSupportBody = bodySchema(['promotion_input_snapshot_id'], {
   workflow_profile_version: nullableStringId,
   prompt_template_version: nullableStringId,
   model: recordPayload,
+  execution_spec: codexExecutionSpecSchema,
+  workflow_run_id: stringId,
+  node_attempt_id: stringId,
 });
 
-// Four operator-supplied role outputs; admission owns their semantic/ref/authority checks.
+// CLI executes four ordered roles; external outputs remain an explicit assisted path.
 const promotionDecisionSupportBoundedDebateBody = bodySchema(
-  ['promotion_input_snapshot_id', 'workflow_run_id', 'node_attempt_id', 'debate_role_outputs'],
+  ['promotion_input_snapshot_id', 'workflow_run_id', 'node_attempt_id'],
   {
     promotion_input_snapshot_id: stringId,
     workspace_id: nullableStringId,
@@ -101,6 +109,7 @@ const promotionDecisionSupportBoundedDebateBody = bodySchema(
     policy_version_id: nullableStringId,
     workflow_run_id: stringId,
     node_attempt_id: stringId,
+    execution_spec: codexExecutionSpecSchema,
     operator_label: { type: 'string' },
     debate_role_outputs: {
       type: 'object',
@@ -150,6 +159,9 @@ const promotionGateCheckBody = {
       workflow_profile_version: nullableStringId,
       prompt_template_version: nullableStringId,
       model: recordPayload,
+      execution_spec: codexExecutionSpecSchema,
+      workflow_run_id: stringId,
+      node_attempt_id: stringId,
     },
   },
 } as const;

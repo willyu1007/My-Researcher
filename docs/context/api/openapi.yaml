@@ -12385,10 +12385,19 @@ components:
         created_by: { type: string, enum: [human, llm, system, hybrid] }
         policy_version_id: { type: string, nullable: true }
 
+    TopicSelectionV1cCodexExecutionSpec:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [execution_mode]
+      properties:
+        execution_mode: { type: string, enum: [codex_cli] }
+        model_option_id: { nullable: true, enum: [null] }
+
     TopicSelectionV1cPromotionSupportBoundedDebateRequest:
       type: object
       additionalProperties: true
-      required: [promotion_input_snapshot_id, workflow_run_id, node_attempt_id, debate_role_outputs]
+      required: [promotion_input_snapshot_id, workflow_run_id, node_attempt_id]
       properties:
         promotion_input_snapshot_id: { type: string, minLength: 1 }
         workspace_id: { type: string, minLength: 1, nullable: true }
@@ -12396,12 +12405,14 @@ components:
         policy_version_id: { type: string, minLength: 1, nullable: true }
         workflow_run_id: { type: string, minLength: 1 }
         node_attempt_id: { type: string, minLength: 1 }
+        execution_spec:
+          $ref: '#/components/schemas/TopicSelectionV1cCodexExecutionSpec'
         operator_label: { type: string }
         debate_role_outputs:
           type: object
           additionalProperties: false
           description: >-
-            Each object carries its matching role_slot. The first three use schema_version
+            Required when execution_spec is absent; forbidden for codex_cli. Each object carries its matching role_slot. The first three use schema_version
             topic-selection-v1c-n2-bounded-micro-debate-role.v1; synthesizer final uses
             topic-selection-v1c-n2-bounded-micro-debate-final.v1. Runtime admission validates
             the full role contract, refs, risk coverage and support-only authority boundary.
@@ -12431,6 +12442,10 @@ components:
         workspace_id: { type: string, nullable: true }
         created_by: { type: string, enum: [human, llm, system, hybrid] }
         policy_version_id: { type: string, nullable: true }
+        execution_spec:
+          $ref: '#/components/schemas/TopicSelectionV1cCodexExecutionSpec'
+        workflow_run_id: { type: string, minLength: 1 }
+        node_attempt_id: { type: string, minLength: 1 }
         support_generation_mode: { type: string, enum: [deterministic, llm_draft] }
         workflow_profile_version: { type: string, nullable: true }
         prompt_template_version: { type: string, nullable: true }
@@ -12451,6 +12466,10 @@ components:
         workspace_id: { type: string, nullable: true }
         created_by: { type: string, enum: [human, llm, system, hybrid] }
         policy_version_id: { type: string, nullable: true }
+        execution_spec:
+          $ref: '#/components/schemas/TopicSelectionV1cCodexExecutionSpec'
+        workflow_run_id: { type: string, minLength: 1 }
+        node_attempt_id: { type: string, minLength: 1 }
         support_generation_mode: { type: string, enum: [deterministic, llm_draft] }
         workflow_profile_version: { type: string, nullable: true }
         prompt_template_version: { type: string, nullable: true }

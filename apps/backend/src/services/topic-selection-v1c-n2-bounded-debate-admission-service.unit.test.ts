@@ -229,10 +229,10 @@ function tamper(
 
 // --- HAPPY PATH ---------------------------------------------------------------------------------
 
-test('v1c N2 admission admits a canonical, byte-matching 4-role chain and produces a support draft', () => {
+test('v1c N2 admission admits a canonical, byte-matching 4-role chain and produces a support draft', async () => {
   const handoff = makeHandoff();
   const candidates = makeCandidates();
-  const result = makeAdmission().admit({ handoff, role_results: candidates });
+  const result = await makeAdmission().admit({ handoff, role_results: candidates });
 
   assert.equal(result.admitted, true);
   if (!result.admitted) throw new Error('expected admit');
@@ -324,10 +324,10 @@ const negatives: Array<{
 ];
 
 for (const negative of negatives) {
-  test(`v1c N2 admission blocks: ${negative.name}`, () => {
+  test(`v1c N2 admission blocks: ${negative.name}`, async () => {
     const handoff = makeHandoff();
     const candidates = negative.mutate(makeCandidates());
-    const result = makeAdmission().admit({ handoff, role_results: candidates });
+    const result = await makeAdmission().admit({ handoff, role_results: candidates });
     assert.equal(result.admitted, false);
     if (result.admitted) throw new Error('expected block');
     assert.equal(result.blocker.code, negative.code);
@@ -477,10 +477,10 @@ const outputNegatives: Array<{
 ];
 
 for (const negative of outputNegatives) {
-  test(`v1c N2 admission blocks: ${negative.name}`, () => {
+  test(`v1c N2 admission blocks: ${negative.name}`, async () => {
     const handoff = makeHandoff();
     const candidates = makeCandidates(negative.override);
-    const result = makeAdmission().admit({ handoff, role_results: candidates });
+    const result = await makeAdmission().admit({ handoff, role_results: candidates });
     assert.equal(result.admitted, false);
     if (result.admitted) throw new Error('expected block');
     assert.equal(result.blocker.code, negative.code);

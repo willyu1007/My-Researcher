@@ -390,6 +390,7 @@ import { TopicSelectionV1cHumanPromotionDecisionService } from './services/topic
 import { TopicSelectionV1cPaperProjectBridgeService } from './services/topic-selection-v1c-paper-project-bridge-service.js';
 import { TopicSelectionV1cPromotionGateService } from './services/topic-selection-v1c-promotion-gate-service.js';
 import { TopicSelectionV1cN2BoundedDebateRuntimeService } from './services/topic-selection-v1c-n2-bounded-debate-runtime-service.js';
+import { TopicSelectionV1cCodexContextService } from './services/topic-selection-v1c-codex-context-service.js';
 import { TopicSelectionV1cN2BoundedDebateAdmissionService } from './services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from './services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
 import { TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService } from './services/topic-selection-v1c-n4-delegated-promotion-decision-runtime-service.js';
@@ -1399,15 +1400,31 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     repository: topicSelectionV1cPromotionInputRepository,
     topicPackageRepository: topicSelectionV1bTopicPackageRepository,
   });
+  const topicSelectionV1cCodexContext = new TopicSelectionV1cCodexContextService({
+    controlPlane: topicSelectionControlPlaneService, acceptedRisks: topicSelectionRecheckRiskMemoryRepository,
+    researchEvidence: topicSelectionResearchEvidencePacketService,
+  });
+  const topicSelectionV1cAgentOrchestrator = new TopicSelectionAgentOrchestratorService({
+    controlPlane: topicSelectionControlPlaneService, llmGateway: topicSelectionV1cPromotionGateLlmGateway,
+    promptPacketCache: topicSelectionPromptPacketCacheService,
+    codexCliRunner: topicSelectionCodexCli?.runner, codexCliModelId: topicSelectionCodexCli?.model_id,
+    mcpScopeStore: topicSelectionMcpScopeStore, mcpEndpointUrl: () => topicSelectionMcpEndpoint,
+  });
   const topicSelectionV1cPromotionGateService = new TopicSelectionV1cPromotionGateService({
     repository: topicSelectionV1cPromotionGateRepository,
     promotionInputService: topicSelectionV1cPromotionInputService,
     llmGateway: topicSelectionV1cPromotionGateLlmGateway,
+    controlPlane: topicSelectionControlPlaneService,
+    resolveResearchContext: handoff => topicSelectionV1cCodexContext.promotion(handoff),
+    agentOrchestrator: topicSelectionV1cAgentOrchestrator,
   });
   // T-128 W-13: v1c-N2 bounded-debate production caller. Default registries (deterministic) so the runtime/admission
   // profile hashes match the gate's verified-runtime-draft validation — proven by the coordinator unit test.
   const topicSelectionV1cN2BoundedDebateRuntime =
-    new TopicSelectionV1cN2BoundedDebateRuntimeService(topicSelectionControlPlaneService);
+    new TopicSelectionV1cN2BoundedDebateRuntimeService(topicSelectionControlPlaneService, {
+      agentOrchestrator: topicSelectionV1cAgentOrchestrator,
+      resolveResearchContext: handoff => topicSelectionV1cCodexContext.promotion(handoff),
+    });
   const topicSelectionV1cN2BoundedDebateCoordinator = new TopicSelectionV1cN2BoundedDebateCoordinatorService({
     runtime: topicSelectionV1cN2BoundedDebateRuntime,
     admission: new TopicSelectionV1cN2BoundedDebateAdmissionService(topicSelectionV1cN2BoundedDebateRuntime),

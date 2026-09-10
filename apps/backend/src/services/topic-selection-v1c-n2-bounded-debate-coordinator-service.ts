@@ -31,8 +31,9 @@ export interface CreatePromotionDecisionSupportFromBoundedDebateInput {
   workflow_run_id: string;
   node_attempt_id: string;
   /** Operator-supplied (codex_assisted) structured output per role slot, keyed by the 4 slot ids. */
-  debate_role_outputs: Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionV1cN2BoundedDebateRoleOutput>;
+  debate_role_outputs?: Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionV1cN2BoundedDebateRoleOutput>;
   operator_label?: string;
+  execution_spec?: { execution_mode: 'codex_cli'; model_option_id?: null } | null;
 }
 
 export interface TopicSelectionV1cN2BoundedDebateCoordinatorDeps {
@@ -67,9 +68,17 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
     if (input.workspace_id && input.workspace_id !== handoff.snapshot.workspace_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Promotion Debate workspace does not match its input snapshot.');
     }
-    const slots = Object.keys(input.debate_role_outputs);
-    if (slots.length !== TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.length
-      || TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.some((slot) => !input.debate_role_outputs[slot])) {
+    const cli = input.execution_spec != null;
+    if (cli && (input.execution_spec?.execution_mode !== 'codex_cli' || input.execution_spec.model_option_id != null
+      || input.debate_role_outputs != null || input.operator_label != null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'CLI Debate forbids external role outputs, operator labels and model overrides.');
+    }
+    if (!input.workflow_run_id?.trim() || !input.node_attempt_id?.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Promotion Debate requires stable workflow and attempt IDs.');
+    }
+    const slots = Object.keys(input.debate_role_outputs ?? {});
+    if (!cli && (slots.length !== TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.length
+      || TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.some((slot) => !input.debate_role_outputs?.[slot]))) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Promotion Debate requires exactly the four role outputs.');
     }
     const supportRunKey = canonicalHash(['v1c-n2-bounded-debate-v1', input.promotion_input_snapshot_id,
@@ -81,6 +90,7 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
       created_by: input.created_by ?? 'system',
       operator_label: input.operator_label ?? 'operator-supplied-bounded-debate',
       handoff,
+      ...(cli ? { cli_runtime: this.deps.runtime.cliExecutionIdentity } : {}),
     });
     let active = activeDebates.get(this.deps.gateService);
     if (!active) {
@@ -117,17 +127,17 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
     let finalGeneration: SucceededRoleGeneration | null = null;
 
     for (const slot of TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER) {
-      const output = input.debate_role_outputs[slot];
+      const output = input.debate_role_outputs?.[slot];
       const generated = await this.deps.runtime.generateRoleArtifact({
         handoff,
         slot_id: slot,
         prior_role_artifacts: priorArtifacts,
         workflow_run_id: input.workflow_run_id,
         node_attempt_id: input.node_attempt_id,
-        execution_mode: 'codex_assisted',
+        execution_mode: input.execution_spec ? 'codex_cli' : 'codex_assisted',
         run_mode: 'product',
         model_option_id: null,
-        codex_response: { output, operator_label: operatorLabel },
+        codex_response: output ? { output, operator_label: operatorLabel } : null,
         created_by: 'system',
       });
       if (generated.status !== 'succeeded') {
@@ -146,7 +156,7 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
 
     // LOAD-BEARING: every role MUST pass through admit (the canary skipped this; the schema_version pin + the
     // forbidden-authority / ref-bounds / critic-resolution / final-semantic-layer checks live ONLY here).
-    const admitted = this.deps.admission.admit({ handoff, role_results: candidates });
+    const admitted = await this.deps.admission.admit({ handoff, role_results: candidates });
     if (!admitted.admitted) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', admitted.blocker.message, {
         blocker_code: admitted.blocker.code,
@@ -155,6 +165,10 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
     }
     if (!finalGeneration) {
       throw new AppError(422, 'INVALID_PAYLOAD', 'N2 bounded-debate produced no synthesizer_final turn.');
+    }
+
+    if (input.execution_spec && canonicalHash(await this.deps.promotionInputService.getPromotionInputHandoff(input.promotion_input_snapshot_id)) !== canonicalHash(handoff)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Promotion Debate handoff changed before support commit.');
     }
 
     // Feed the EXISTING verified-runtime-draft gate entry — the final artifact's provenance/audit_snapshot match

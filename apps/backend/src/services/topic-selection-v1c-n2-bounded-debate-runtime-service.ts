@@ -1,3 +1,6 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
+import { promotionDebateCliRoleSchema } from './topic-selection-v1c-promotion-debate-cli-schema.js';
+import { resolveDebatePriorOutputs } from './topic-selection-debate-role-context.js';
 import { topicSelectionPromotionConditionCandidateSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import { promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 import type {
@@ -171,6 +174,7 @@ type V1cN2InvocationInputs = {
   overrides: TopicSelectionV1cN2RuntimeTokenBudgetOverrides | null;
   codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1cN2BoundedDebateRoleOutput> | null;
   mocked_output: TopicSelectionMockedAgentOutput<TopicSelectionV1cN2BoundedDebateRoleOutput> | null;
+  research_context?: Record<string, unknown>;
 };
 
 type V1cN2RoleContext = BoundedDebateRoleContext<
@@ -228,6 +232,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
     private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService,
     private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService,
     private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService,
+    private readonly controlPlane: TopicSelectionControlPlaneService,
   ) {}
 
   // ---------------------------------------------------------------- shared-core hooks
@@ -237,21 +242,22 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
   }
 
   sourceHashes(ctx: V1cN2RoleContext): Record<string, string> {
-    return this.sourceHashesFor(ctx.handoff, ctx.priorRoleArtifactHashes);
+    return { ...this.sourceHashesFor(ctx.handoff, ctx.priorRoleArtifactHashes),
+      ...(ctx.invocationInputs.research_context ? { research_context_hash: this.hash(ctx.invocationInputs.research_context) } : {}) };
   }
 
   runtimeInvocationContextObject(ctx: V1cN2RoleContext, sourceHashes: Record<string, string>): unknown {
     return this.runtimeInvocationContextObjectFor(this.slotBinding(ctx.slotId), sourceHashes, ctx.priorRoleArtifactHashes);
   }
 
-  buildContextPacket(args: {
+  async buildContextPacket(args: {
     ctx: V1cN2RoleContext;
     runtimeInvocationContextHash: string;
     sourceHashes: Record<string, string>;
-  }): Record<string, unknown> {
+  }): Promise<Record<string, unknown>> {
     const binding = this.slotBinding(args.ctx.slotId);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
-    return this.buildContextPacketFor({
+    const packet = this.buildContextPacketFor({
       handoff: args.ctx.handoff,
       workflowRunId: args.ctx.workflowRunId,
       nodeAttemptId: args.ctx.nodeAttemptId,
@@ -260,7 +266,12 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       runtimeProfile,
       sourceHashes: args.sourceHashes,
       priorRoleArtifactHashes: args.ctx.priorRoleArtifactHashes,
-    }) as unknown as Record<string, unknown>;
+    });
+    return { ...packet, ...(args.ctx.executionMode === 'codex_cli' ? {
+      research_context: args.ctx.invocationInputs.research_context,
+      prior_role_outputs: await resolveDebatePriorOutputs(this.controlPlane,
+        { workflow_run_id: args.ctx.workflowRunId, title_card_id: args.ctx.handoff.snapshot.title_card_id }, args.ctx.priorRoleArtifacts),
+    } : {}) };
   }
 
   contextArtifactScope(ctx: V1cN2RoleContext): { workspace_id: string | null; title_card_id: string | null } {
@@ -311,7 +322,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       },
       prompt_variant_key: binding.invocation_slot_id,
       schema_name: binding.output_contract,
-      schema: binding.schema,
+      schema: args.ctx.executionMode === 'codex_cli' ? promotionDebateCliRoleSchema(args.ctx.slotId) : binding.schema,
       created_by: args.ctx.createdBy,
     };
   }
@@ -324,7 +335,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
     const binding = this.slotBinding(args.ctx.slotId);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const dynamicMaterialRefs = this.dynamicMaterialRefs(args.ctx.priorRoleArtifacts);
-    return this.runtimeTokenBudgetFor({
+    const budget = this.runtimeTokenBudgetFor({
       runtimeProfile,
       runtimeInvocationContextHash: args.runtimeInvocationContextHash,
       contextPacket: args.contextPacket as unknown as TopicSelectionV1cN2BoundedDebateContextPacket,
@@ -332,6 +343,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       compressionAttempt: args.ctx.invocationInputs.compression_attempt,
       overrides: args.ctx.invocationInputs.overrides,
     });
+    return args.ctx.executionMode === 'codex_cli' ? { ...budget, context_payloads: [] } : budget;
   }
 
   invocationPassthrough(ctx: V1cN2RoleContext): {
@@ -342,6 +354,11 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       codex_response: ctx.invocationInputs.codex_response ?? null,
       mocked_output: ctx.invocationInputs.mocked_output ?? null,
     };
+  }
+
+  outputBlockerCodes(ctx: V1cN2RoleContext, output: TopicSelectionV1cN2BoundedDebateRoleOutput): string[] {
+    if (ctx.executionMode === 'codex_cli') assertV1aCodexReferences(output, this.allowedRefs(ctx.handoff));
+    return [];
   }
 
   assembleRoleArtifact(args: {
@@ -400,7 +417,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
 
   // ---------------------------------------------------------------- admission identity (v1c)
 
-  buildAdmissionExpectedIdentity(input: {
+  async buildAdmissionExpectedIdentity(input: {
     handoff: TopicSelectionPromotionInputSnapshotHandoff;
     slot_id: TopicSelectionV1cN2BoundedDebateRoleSlotId;
     prior_role_artifacts?: TopicSelectionV1cN2BoundedDebateRoleArtifact[];
@@ -411,15 +428,17 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
     run_mode: TopicSelectionAgentRunMode;
     model_option_id?: string | null;
     normalized_payload_hash: string;
-  }): TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity {
+    research_context?: Record<string, unknown>;
+  }): Promise<TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity> {
     const binding = this.slotBinding(input.slot_id);
     const priorRoleArtifactHashes = this.priorRoleArtifactHashes(input.prior_role_artifacts ?? []);
-    const sourceHashes = this.sourceHashesFor(input.handoff, priorRoleArtifactHashes);
+    const sourceHashes = { ...this.sourceHashesFor(input.handoff, priorRoleArtifactHashes),
+      ...(input.research_context ? { research_context_hash: this.hash(input.research_context) } : {}) };
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.hash(
       this.runtimeInvocationContextObjectFor(binding, sourceHashes, priorRoleArtifactHashes),
     );
-    const contextPacket = this.buildContextPacketFor({
+    const contextPacket = { ...this.buildContextPacketFor({
       handoff: input.handoff,
       workflowRunId: input.workflow_run_id,
       nodeAttemptId: input.node_attempt_id,
@@ -428,7 +447,11 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       runtimeProfile,
       sourceHashes,
       priorRoleArtifactHashes,
-    });
+    }), ...(input.execution_mode === 'codex_cli' ? {
+      research_context: input.research_context,
+      prior_role_outputs: await resolveDebatePriorOutputs(this.controlPlane,
+        { workflow_run_id: input.workflow_run_id, title_card_id: input.handoff.snapshot.title_card_id }, input.prior_role_artifacts ?? []),
+    } : {}) };
     const modelProfile = this.resolveModelProfile(
       binding,
       input.execution_mode,
@@ -1003,7 +1026,8 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
-    options: {
+    private readonly options: {
+      resolveResearchContext?: (handoff: TopicSelectionPromotionInputSnapshotHandoff) => Promise<Record<string, unknown>>;
       agentOrchestrator?: TopicSelectionAgentOrchestratorService;
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
@@ -1026,16 +1050,36 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
       this.contextPolicyProfileRegistry,
       this.modelProfileRegistry,
       this.promptPacketRuntime,
+      controlPlane,
     );
+  }
+
+  get cliExecutionIdentity() {
+    this.agentOrchestrator.assertProductCodexProfile(TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID);
+    return { runner: this.agentOrchestrator.codexCliExecutionIdentity, prompt: PROMPT_TEMPLATE,
+      model: this.modelProfileRegistry.resolveProfile({ profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
+        execution_mode: 'codex_cli', run_mode: 'product', model_option_id: null }).profile_hash,
+      contexts: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.map(slot => this.contextPolicyProfileRegistry.resolveProfile({
+        context_policy_profile_id: this.strategy.slotBinding(slot).context_policy_profile_id, invocation_slot_id: slot }).profile_hash) };
   }
 
   async generateRoleArtifact(
     input: GenerateTopicSelectionV1cN2BoundedDebateRoleInput,
   ): Promise<TopicSelectionV1cN2BoundedDebateRoleGenerationResult> {
-    return this.core.generateRoleArtifact(this.strategy, this.toRoleContext(input));
+    if (input.execution_mode === 'codex_cli') {
+      if (input.codex_response != null || input.mocked_output != null || input.model_option_id != null
+        || input.compression_attempt != null || input.runtime_token_budget_overrides != null
+        || (input.run_mode != null && input.run_mode !== 'product')) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'CLI Debate forbids external outputs and runtime overrides.');
+      }
+      this.agentOrchestrator.assertProductCodexProfile(TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID);
+    }
+    const ctx = this.toRoleContext(input);
+    ctx.invocationInputs.research_context = await this.resolveCliContext(input.handoff, input.execution_mode);
+    return this.core.generateRoleArtifact(this.strategy, ctx);
   }
 
-  buildAdmissionExpectedIdentity(input: {
+  async buildAdmissionExpectedIdentity(input: {
     handoff: TopicSelectionPromotionInputSnapshotHandoff;
     slot_id: TopicSelectionV1cN2BoundedDebateRoleSlotId;
     prior_role_artifacts?: TopicSelectionV1cN2BoundedDebateRoleArtifact[];
@@ -1046,8 +1090,14 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
     run_mode: TopicSelectionAgentRunMode;
     model_option_id?: string | null;
     normalized_payload_hash: string;
-  }): TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity {
-    return this.strategy.buildAdmissionExpectedIdentity(input);
+  }): Promise<TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity> {
+    return this.strategy.buildAdmissionExpectedIdentity({ ...input, research_context: await this.resolveCliContext(input.handoff, input.execution_mode) });
+  }
+
+  private async resolveCliContext(handoff: TopicSelectionPromotionInputSnapshotHandoff, mode: TopicSelectionAgentExecutionMode) {
+    if (mode !== 'codex_cli') return undefined;
+    if (!this.options.resolveResearchContext) throw new AppError(500, 'INTERNAL_ERROR', 'CLI promotion Debate requires its research context resolver.');
+    return this.options.resolveResearchContext(handoff);
   }
 
   private toRoleContext(input: GenerateTopicSelectionV1cN2BoundedDebateRoleInput): V1cN2RoleContext {
@@ -1078,6 +1128,6 @@ export class TopicSelectionV1cN2BoundedDebateRuntimeService {
   }
 
   private defaultRunMode(executionMode: TopicSelectionAgentExecutionMode): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'mocked_llm' ? 'test' : executionMode === 'codex_cli' ? 'product' : 'acceptance';
   }
 }

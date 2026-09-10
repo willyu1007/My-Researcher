@@ -146,7 +146,7 @@ export type TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentityBuilder = {
     run_mode: TopicSelectionAgentRunMode;
     model_option_id?: string | null;
     normalized_payload_hash: string;
-  }): TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity;
+  }): TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity | Promise<TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity>;
 };
 
 export interface TopicSelectionV1cN2BoundedDebateAdmissionIdentity {
@@ -229,9 +229,9 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
       TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentityBuilder,
   ) {}
 
-  admit(
+  async admit(
     input: TopicSelectionV1cN2BoundedDebateAdmissionInput,
-  ): TopicSelectionV1cN2BoundedDebateAdmissionResult {
+  ): Promise<TopicSelectionV1cN2BoundedDebateAdmissionResult> {
     const bySlot = new Map<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionV1cN2BoundedDebateRoleAdmissionCandidate>();
     for (const result of input.role_results) {
       bySlot.set(result.artifact.slot_id, result);
@@ -259,7 +259,7 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
     const priorRoleArtifacts: TopicSelectionV1cN2BoundedDebateRoleArtifact[] = [];
     for (const slot of TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER) {
       const candidate = bySlot.get(slot)!;
-      const expected = this.expectedIdentityBuilder.buildAdmissionExpectedIdentity({
+      const expected = await this.expectedIdentityBuilder.buildAdmissionExpectedIdentity({
         handoff: input.handoff,
         slot_id: slot,
         prior_role_artifacts: priorRoleArtifacts,

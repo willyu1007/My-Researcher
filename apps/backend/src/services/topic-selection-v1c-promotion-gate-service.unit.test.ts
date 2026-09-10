@@ -611,6 +611,60 @@ test('same support run key returns existing gate support idempotently', async ()
   assert.equal(second.promotion_gate_check.promotion_gate_check_id, first.promotion_gate_check.promotion_gate_check_id);
 });
 
+test('ordinary promotion CLI generates advisory prose once and recovers its support commit', async t => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { TopicSelectionControlPlaneService } = await import('./topic-selection-control-plane-service.js');
+  const { InMemoryTopicSelectionControlPlaneRepository } = await import('../repositories/in-memory-topic-selection-control-plane-repository.js');
+  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
+  const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
+  const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
+  const home = mkdtempSync(join(tmpdir(), 'promotion-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const handoff = makeHandoff();
+  const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const profile = registry.profiles.find(row => row.profile_id === 'topic-selection-promotion-decision-support')!;
+  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const draft = { summary: 'Historical reproduction does not establish novelty; Human investment review remains pending.',
+    reviewer_questions: ['Does the controlled archive assumption hold?'], risk_notes: ['Incomplete judgments limit interpretation.'],
+    recheck_notes: [], dossier_markdown: 'Only historical replication is supported.', condition_candidates: [] };
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls += 1;
+    assert.match(options.stdin, /original comparison contradicts broad superiority/);
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'promotion-cli-thread' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
+  const repository = new InMemoryTopicSelectionV1cPromotionGateRepository();
+  const service = () => new TopicSelectionV1cPromotionGateService({ repository, controlPlane, modelProfileRegistry, agentOrchestrator,
+    promotionInputService: new StubPromotionInputService(handoff),
+    resolveResearchContext: async () => ({ original_evidence: 'The original comparison contradicts broad superiority.', frozen_domain: handoff.snapshot.package_draft_input_snapshot }),
+  });
+  const input = { promotion_input_snapshot_id: handoff.promotion_input_snapshot_id, workflow_run_id: 'promotion-cli', node_attempt_id: 'ordinary',
+    execution_spec: { execution_mode: 'codex_cli' as const } };
+  const create = repository.createSupportBundle.bind(repository);
+  let interrupt = true;
+  repository.createSupportBundle = async bundle => { if (interrupt) { interrupt = false; throw new Error('interrupted before support commit'); } return create(bundle); };
+  await assert.rejects(service().createPromotionDecisionSupport(input), /interrupted before support commit/);
+  assert.equal(calls, 1);
+  const result = await service().createPromotionDecisionSupport(input);
+  assert.equal(result.promotion_decision_support.summary, draft.summary);
+  assert.equal(result.promotion_decision_support.support_generation_mode, 'llm_draft');
+  assert.deepEqual(await service().createPromotionDecisionSupport(input), result);
+  assert.equal(calls, 1);
+  await assert.rejects(service().createPromotionDecisionSupport({ ...input, policy_version_id: 'changed' }), /changed|drift|different/i);
+  await assert.rejects(service().createPromotionDecisionSupport({ ...input, model: { providerId: 'openai', modelId: 'foreign' } }), /model|CLI/i);
+  handoff.accepted_risk_refs.push(ref('accepted_risk', 'risk-unreviewed'));
+  await assert.rejects(service().createPromotionDecisionSupport({ ...input, node_attempt_id: 'risk' }), /Debate|risk/i);
+  assert.equal(calls, 1);
+});
+
 test('risk-free LLM draft success stores prose while deterministic gate remains authoritative', async () => {
   const handoff = makeHandoff();
   const draft: TopicSelectionPromotionDecisionSupportLlmDraft = {
@@ -998,7 +1052,7 @@ class FakePromotionGatePrismaClient {
 }
 
 const PROMOTION_DECISION_SUPPORT_SYSTEM_BODY_GOLDEN =
-  '841c44c09f52c8035f4a7e4c2769a61e2bd2aacfb6f7c5e19ebb2c09ec72d475';
+  '2fe7423f82700a248d7a1d27784b9d80dc94d062b879752e6ca68069fe2b6cc6';
 
 test('v1c promotion-decision-support system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cPromotionDecisionSupportSystemContent();
