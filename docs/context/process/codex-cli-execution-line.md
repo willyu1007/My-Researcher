@@ -8,7 +8,7 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
 
 ## Current runtime truth
 
-- The default registry admits product CLI for 26 qualified profiles: nine sampling/extraction/need-discovery/adjudication/confirmation profiles, three evidence-convergence roles, two optional Arena roles 11 N6/N7-admission/N8/refinement profiles and N4 research-slice generation.
+- The default registry admits product CLI for 34 qualified topic-selection profiles, covering sampling, evidence/need discovery and convergence, optional Arena, all v1b roles, ordinary promotion support and required risk Debate. Delegated decision and downstream feedback activation remain pending.
   Canonical consumers compile their inputs, execute roles and preserve the deterministic gates;
   other topic-selection profiles remain closed. See `codex-assisted-operator.md` for supported
   requests, Human stops and recovery. The separate `provider_llm` Debate dormancy gate and its

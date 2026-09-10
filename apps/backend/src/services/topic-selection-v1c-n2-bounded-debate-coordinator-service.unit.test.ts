@@ -409,7 +409,8 @@ test('CLI promotion Debate reads prior bodies and recovers all four turns after 
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   const profile = registry.profiles.find(row => row.profile_id === 'topic-selection.v1c.promotion-support.bounded-micro-debate.v1')!;
-  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  assert.ok(profile.allowed_execution_modes.includes('codex_cli'));
+  assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   const slots = Object.keys(outputs) as TopicSelectionV1cN2BoundedDebateRoleSlotId[];
   let calls = 0;

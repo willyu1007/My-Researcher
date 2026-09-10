@@ -626,7 +626,8 @@ test('ordinary promotion CLI generates advisory prose once and recovers its supp
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   const profile = registry.profiles.find(row => row.profile_id === 'topic-selection-promotion-decision-support')!;
-  profile.allowed_execution_modes.push('codex_cli'); profile.run_mode_eligibility.codex_cli = ['product'];
+  assert.ok(profile.allowed_execution_modes.includes('codex_cli'));
+  assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   const draft = { summary: 'Historical reproduction does not establish novelty; Human investment review remains pending.',
     reviewer_questions: ['Does the controlled archive assumption hold?'], risk_notes: ['Incomplete judgments limit interpretation.'],

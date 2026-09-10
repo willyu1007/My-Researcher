@@ -10,7 +10,7 @@ separates externally authored operation from product-driven CLI execution.
   workflow, attempt, hash, approval, and reuse provenance.
 - The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
   execution traces. Its qualified sampling, extraction, need-discovery, N2/N3/N5 support, N4/N6/N7-support/N8 and exact-delta profiles admit product mode.
-  Other topic-selection profiles remain closed; `codex_assisted` still means external output.
+  Delegated decision and downstream feedback profiles remain closed; `codex_assisted` still means external output.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
   path.
@@ -23,7 +23,7 @@ N3-support/N4/N6/N7-support/N8 canonical harness `invocations` and coordinator `
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
 remain reserved. The default registry admits the 16 profiles used by this coordinator slice; no registry override
 is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
-below; three evidence-convergence, two optional Arena roles and N2/N5 Human-input support bring the total to 32. The four v1c promotion/feedback profiles remain closed.
+below; three evidence-convergence, two optional Arena roles and N2/N5 Human-input support bring the total to 32. Ordinary promotion and risk Debate add two (34 total); delegated decision and feedback activation remain pending.
 
 N4 accepts the same CLI execution spec on its frozen `N3ToN4Handoff@v1` request. The runtime loads
 N1 intake, Human constraints, N3 readiness and the original role-bound evidence. Its model draft
@@ -270,7 +270,13 @@ findings. With neither typed signal, `POST /topic-selection/v1c/promotion-decisi
 to deterministic support with no role/provider work; its optional single-agent mode remains explicit.
 
 For risk-bearing input, submit `POST /topic-selection/v1c/promotion-decision-support/bounded-debate`
-with `promotion_input_snapshot_id`, stable `workflow_run_id`, `node_attempt_id` and `debate_role_outputs`.
+with `promotion_input_snapshot_id`, stable `workflow_run_id`, `node_attempt_id` and
+`execution_spec: { execution_mode: "codex_cli", model_option_id: null }`. Do not supply external
+`debate_role_outputs`, operator labels, model options or caller budget/compression overrides. The
+product launches four fresh CLI turns over the frozen scientific input, original evidence, actual
+risk records and verified prior-role bodies. Ordinary support accepts the same CLI fields on its
+endpoint when neither typed risk signal is carried; omission preserves the deterministic fast path.
+The explicit `codex_assisted` compatibility path still accepts all four `debate_role_outputs`.
 The four keys, in execution order, are:
 
 1. `n2_bounded_micro_debate.promotion_supporter_draft`
@@ -302,13 +308,14 @@ with `UNMAPPED_PASS_WITH_RISK_FINDING`, before PromotionDecision/commitment pers
 cannot waive an unresolved recheck gate. The deterministic fast path offers mechanical memory and
 recheck proposals when these are carried; an input with no such refs returns an empty group list.
 
-The endpoint records four product `codex_assisted` role audits under existing per-role budgets,
-with zero backend provider calls and no automatic retry/fallback. External authoring cost remains
-external; a zero-provider audit does not claim that authoring was free. The dossier exposes
-`support_policy` and `debate_execution`, including the admitted identity and four role artifacts.
-Reuse exact frozen input and request for completed replay; changed input under the same attempt
-returns 409. Concurrent callers sharing the gate service share one execution; this is not a
-cross-process claim or interrupted-provider recovery protocol.
+CLI records actual runner/model/thread identity, trace, structured output and per-role admission.
+Stable IDs bind the full frozen input, original context, prompt, runtime profile and runner. A
+completed model call or four-role chain recovers an interrupted support-bundle commit without
+another paid call; exact completed requests replay the same support. A changed request or identity
+under the same attempt returns 409. An unfinished paid attempt remains blocked for inspection; a
+new attempt is an explicit new execution. The dossier exposes support policy and Debate provenance.
+No automatic model fallback or upstream progression is introduced. External authoring on the
+assisted path remains outside backend model-cost accounting.
 
 Submit the returned support ID to `POST /topic-selection/v1c/promotion-gate-checks`. Required Debate
 cannot be bypassed through ordinary support, single-agent support or the combined compatibility
@@ -317,7 +324,7 @@ existing gate replay stays historical. N3 owns deterministic readiness, and N4 s
 exact Human decision. Correct rejected role output before retrying; never infer Human consent from
 admitted support. New N3 checks also reject missing/inconsistent condition coverage; regenerate support
 under a new attempt after a legacy support refusal. Completed gate replay stays historical.
-Provider activation remains separate work.
+Other generation providers remain outside this Codex rollout.
 
 ## Current rehearsal
 

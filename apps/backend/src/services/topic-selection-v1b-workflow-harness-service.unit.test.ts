@@ -9734,11 +9734,6 @@ test('Codex v1c qualification reads published evidence and recovers promotion su
   const handoff = await promotionInputService.getPromotionInputHandoff(snapshot.promotion_input_snapshot_id);
   save('handoff', handoff);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
-  for (const id of ['topic-selection-promotion-decision-support', 'topic-selection.v1c.promotion-support.bounded-micro-debate.v1']) {
-    const profile = registry.profiles.find(row => row.profile_id === id)!;
-    if (!profile.allowed_execution_modes.includes('codex_cli')) profile.allowed_execution_modes.push('codex_cli');
-    profile.run_mode_eligibility.codex_cli = ['product'];
-  }
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: model });
   const compiler = new TopicSelectionV1cCodexContextService({ controlPlane: ctx.controlPlane, acceptedRisks: ctx.recheckRepository, researchEvidence: sources.resolver(ctx.evidenceRepository) });

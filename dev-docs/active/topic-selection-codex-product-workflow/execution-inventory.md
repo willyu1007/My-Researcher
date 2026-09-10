@@ -40,8 +40,8 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 30 | `topic-selection.v1b.n6-refinement-delta-debate.explorer.v1` | Existing exact-delta review; bind original question and Human delta | Phase 2 / CX-02 |
 | 31 | `topic-selection.v1b.n6-refinement-delta-debate.critic.v1` | Same refinement boundary; critique supplied review content | Phase 2 / CX-02 |
 | 32 | `topic-selection.v1b.n6-refinement-delta-debate.arbiter.v1` | Support-only refinement verdict; cannot replace the Human question | Phase 2 / CX-02 |
-| 33 | `topic-selection-promotion-decision-support` | CLI consumer implemented with original context/recovery; final qualification and default activation pending | Phase 4 / CX-05 |
-| 34 | `topic-selection.v1c.promotion-support.bounded-micro-debate.v1` | Four CLI role slots implemented with actual prior outputs, risk coverage, grouped conditions and recovery; final qualification/default activation pending | Phase 4 / CX-05 |
+| 33 | `topic-selection-promotion-decision-support` | Product CLI qualified/enabled with all nine original paragraphs, N3 and support commit recovery (207) | Phase 4 / CX-05 |
+| 34 | `topic-selection.v1c.promotion-support.bounded-micro-debate.v1` | Four CLI roles qualified/enabled with all original evidence, actual prior outputs, material risk, grouped conditions and recovery (208–211) | Phase 4 / CX-05 |
 | 35 | `topic-selection.v1c.delegated-promotion-decision.v1` | Generates decision candidates/support; does not grant CLI strict-human authority | Phase 4 / CX-05 |
 | 36 | `topic-selection.v1c.downstream-feedback-normalization.v1` | Normalize feedback through existing admission and recheck owner | Phase 4 / CX-05 |
 

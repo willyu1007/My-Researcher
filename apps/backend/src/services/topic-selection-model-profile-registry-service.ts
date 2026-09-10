@@ -967,8 +967,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_promotion_input_snapshot_lineage',
         'surface_risk_recheck_and_blocker_context_for_deterministic_gate',
       ],
-      allowed_execution_modes: ['provider_llm'],
-      run_mode_eligibility: PROVIDER_ONLY_RUN_MODE_ELIGIBILITY,
+      allowed_execution_modes: ['provider_llm', 'codex_cli'],
+      run_mode_eligibility: { ...PROVIDER_ONLY_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionPromotionDecisionSupportLlmDraft@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1C_PROMOTION_DECISION_SUPPORT_PROFILE_ID),
     }),
@@ -982,7 +982,8 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
         'preserve_n1_frozen_context_refs_and_prior_role_hashes',
         'prepare_synthesizer_final_for_n2_advisory_admission',
       ],
-      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted', 'codex_cli'],
+      run_mode_eligibility: { ...DEFAULT_RUN_MODE_ELIGIBILITY, codex_cli: ['product'] },
       output_contract: 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1',
       model_options: providerOptions(TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID).map(
         (option) => ({
