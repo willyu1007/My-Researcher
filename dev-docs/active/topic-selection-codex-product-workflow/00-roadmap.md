@@ -147,6 +147,10 @@ Completed Phase 2 execution order:
 ### Phase 5 — Verify the complete human-in-the-loop product workflow
 - Outcome: A recoverable, documented whole-flow Codex operating path from literature/evidence to topic promotion/bridge/intake and feedback, with all acceptance references closed by appropriate evidence.
 - Approach: Compose the canonical APIs and check the entire node/role inventory; distinguish controlled fixtures, live model results, genuine human decisions and optional calibration claims.
+- Execution order within the approved route:
+  1. Compose existing canonical HTTP entries from managed literature/resource and v1a CLI execution through exact Human checkpoints, v1b N1–N11, v1c candidate/decision, bridge/intake and feedback. Use a controlled CLI process at the external boundary for a reproducible advancing case; retain the existing real-model stage qualifications and never manufacture research approval.
+  2. Verify the same persisted authorities across application reconstruction, completed replay, changed-input refusal and ambiguous interruption. Add live CLI evidence only where the composed checks expose a gap not covered by qualified identities and traces.
+  3. Review the full enabled inventory, T-129 obligation transfer, API/operator guidance and configuration/policy consistency; fix concrete gaps, run relevant checks and reconcile the task completion contract.
 - Exit criteria: CX-01 through CX-09 and the repository completion contract hold. No remaining stage is deferred merely because N6/N8 work; no temporary competing policy or configuration authority remains.
 - Verification: Whole-flow composed execution, representative real-model stage coverage, rejection/no-topic and loopback cases, interruption/recovery, policy/schema/type checks, relevant API tests and updated operating guidance. Do not force a real research candidate to advance for coverage.
 - Recovery: Keep stage-level verified checkpoints and traces; report the exact unresolved stage instead of claiming full-flow completion from a partial canary.
@@ -154,13 +158,13 @@ Completed Phase 2 execution order:
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through phase 4
+- Authorized boundary: through phase 5
 - [x] Decisions: Full-workflow outcome, Codex-only generation rollout and N6/N8-first sequencing were confirmed by the user on 2026-09-09.
 - [x] Design: Source inventory, N6/N8 technical design and role-specific Codex qualification were approved by the user on 2026-09-09.
 - [x] Route: Five phases reach the complete workflow; later integration details are explicitly provisional rather than descoped.
 - [x] Verification: Stage coverage, real-model evidence and composed failure/recovery checks are specified in verification.md.
 
-The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09, then authorized Phase 4 on 2026-09-10. Phase 5 remains required task work outside the current implementation authorization. Live-run accounting is recorded separately; this authorization does not claim completed model verification or Human research decisions.
+The user authorized Phase 2 closeout followed by Phase 3 implementation on 2026-09-09, then authorized Phase 4 on 2026-09-10. The user authorized Phase 5 on 2026-09-10; the complete five-phase implementation route is now authorized. Live-run accounting is recorded separately; this authorization does not claim completed model verification or Human research decisions.
 
 ## Risks and recovery
 

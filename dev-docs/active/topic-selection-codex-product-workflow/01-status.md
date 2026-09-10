@@ -5,9 +5,9 @@ Align the existing topic-selection agent execution policies and make the complet
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 4 complete — all 36 topic-selection profiles qualified and enabled; Phase 5 planned
-- Next step: Obtain Phase 5 authorization, then verify the composed canonical product workflow from literature/evidence through Human stops, promotion/bridge/intake and downstream feedback, including non-advance, loopback and persistent recovery. Stage-level qualifications and operating inputs are documented; full-flow completion remains required.
-- Blocker: No unresolved Phase 4 implementation or qualification blocker. Implementation authorization currently ends at Phase 4. Through 216: 4,890,215 reported tokens, 14 unknown-usage calls and no pending attempt; aggregate ceilings remain removed and each call retains the original 600-second timeout. All 36 default profile identities match their qualified activation boundaries. Controlled Human/retrieval fixtures and JSON/in-memory persistence do not prove actual research approval or full relational recovery. Ambiguous partial feedback/recheck writes remain fail-closed. T-129 archival separately awaits its second worktree occurrence.
+- Current phase: Phase 5 — complete product composition and persistent recovery
+- Next step: Compose the existing HTTP full-flow fixture using the shipped CLI consumers, verify explicit Human stops and bridge/intake/feedback, then repeat against persisted repositories across application reconstruction. Independent read-only review checks cross-stage ownership and wiring. All Phase 1–4 role qualifications remain valid unless new evidence invalidates them.
+- Blocker: No authorization blocker; the user authorized Phase 5 on 2026-09-10. Complete HTTP composition and full relational recovery are still unverified. Through 216: 4,890,215 reported tokens, 14 unknown-usage calls, no pending attempt and no aggregate ceiling; the per-call timeout remains 600 seconds. Controlled Human/retrieval fixtures do not prove actual research approval. Ambiguous partial feedback/recheck writes remain fail-closed. T-129 archival separately awaits its second worktree occurrence.
 
 
 ## Done when

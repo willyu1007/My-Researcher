@@ -442,3 +442,13 @@ The service preserves raw text and verified provenance and reuses the existing p
 guard around the canonical feedback/recheck writes. Completed calls replay; ambiguous partial domain
 writes require inspection and cannot auto-repeat. No code advances or loops back into upstream stages.
 Caller observations and unresolved source refs are not independently verified evidence.
+
+## Phase 5 intake recovery
+
+Before an unconsumed bridge enters the PaperProject gateway, the shared control plane reserves one
+`paper-project-bridge-intake:<bridge ID>` claim bound to its hash and normalized creation input.
+Concurrent or reconstructed callers cannot repeat a partial creation. Attached intake/project refs
+are the completion authority, including completed historical bridges without a claim. A lost attach
+response rereads those refs; the service never deletes a potentially attached project. Pending claims
+without complete refs require retained project/bridge inspection. No schema migration or new execution
+engine is introduced; ordinary checkpoint guards still run before every intake and replay.

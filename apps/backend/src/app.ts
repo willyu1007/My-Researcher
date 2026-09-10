@@ -1454,12 +1454,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     humanPromotionDecisionService: topicSelectionV1cHumanPromotionDecisionService,
   });
   const topicSelectionV1cPaperProjectBridgeService = new TopicSelectionV1cPaperProjectBridgeService({
+    controlPlane: topicSelectionControlPlaneService,
     repository: topicSelectionV1cPaperProjectBridgeRepository,
     humanPromotionDecisionService: topicSelectionV1cHumanPromotionDecisionService,
     checkpointControl: topicSelectionResearchCheckpointService,
     paperProjectGateway: {
       createPaperProject: (input) => researchLifecycleService.createPaperProject(input),
-      deletePaperProject: (paperId) => researchLifecycleService.deletePaperProject(paperId),
     },
   });
   const topicSelectionV1cDownstreamFeedbackRecheckService = new TopicSelectionV1cDownstreamFeedbackRecheckService({

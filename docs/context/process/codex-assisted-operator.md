@@ -381,6 +381,20 @@ or request identity under the same attempt returns conflict. An unfinished model
 inspection before an explicit new attempt. Oversized full context blocks before model execution;
 the CLI path cannot compress away scientific bodies into references alone.
 
+## PaperProject intake recovery
+
+The existing bridge intake endpoint reserves a persistent bridge-scoped submission before creating
+its project. A completed bridge replays the attached project; it does not create another. The complete
+Human checkpoint chain is checked again before both first intake and replay.
+
+If project creation partially writes or stops before attachment, the retained claim refuses another
+creation. Inspect the bridge and its workflow artifacts together with existing PaperProjects; do not
+change the title or invent a new request to bypass the pending claim. An attachment that succeeded
+but lost its response is recovered from the existing refs. The service retains ambiguous projects
+for inspection rather than deleting potentially attached work. Selected evidence and obligations
+remain in the bridge working copy and returned handoff; generic project creation currently does not
+copy the evidence-ID array into a separate PaperProject evidence record.
+
 ## Codex downstream feedback
 
 With an existing PaperProject bridge, send the raw downstream report to

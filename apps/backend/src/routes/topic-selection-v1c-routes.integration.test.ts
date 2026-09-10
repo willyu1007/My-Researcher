@@ -821,6 +821,7 @@ async function makeV1cRouteHarness(
   });
   const paperProjectGateway = new RecordingPaperProjectGateway();
   const paperProjectBridgeService = new TopicSelectionV1cPaperProjectBridgeService({
+    controlPlane,
     repository: new InMemoryTopicSelectionV1cPaperProjectBridgeRepository(),
     humanPromotionDecisionService,
     paperProjectGateway,

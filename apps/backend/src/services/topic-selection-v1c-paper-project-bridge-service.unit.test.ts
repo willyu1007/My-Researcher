@@ -38,6 +38,88 @@ import {
   TopicSelectionV1cPaperProjectBridgeService,
 } from './topic-selection-v1c-paper-project-bridge-service.js';
 import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
+import { InMemoryResearchLifecycleRepository } from '../repositories/in-memory-research-lifecycle-repository.js';
+import { ResearchLifecycleService } from './research-lifecycle-service.js';
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+
+test('intake refuses reconstruction retry after the actual gateway partially creates a PaperProject', async () => {
+  class InterruptedPaperRepository extends InMemoryResearchLifecycleRepository {
+    interrupt = true;
+    override async upsertArtifactBundle(...args: Parameters<InMemoryResearchLifecycleRepository['upsertArtifactBundle']>) {
+      if (this.interrupt) { this.interrupt = false; throw new Error('interrupted after project creation'); }
+      return super.upsertArtifactBundle(...args);
+    }
+  }
+  const papers = new InterruptedPaperRepository();
+  const repository = new InMemoryTopicSelectionV1cPaperProjectBridgeRepository();
+  const artifacts = new InMemoryTopicSelectionControlPlaneRepository();
+  const service = () => new TopicSelectionV1cPaperProjectBridgeService({ repository,
+    humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
+    controlPlane: new TopicSelectionControlPlaneService(artifacts),
+    paperProjectGateway: new ResearchLifecycleService(papers) });
+  const { paper_project_bridge: bridge } = await service().createPaperProjectBridge({ promotion_decision_id: 'promotion_decision_001' });
+  const input = { paper_project_bridge_id: bridge.paper_project_bridge_id, bridge_payload_hash: bridge.bridge_payload_hash };
+  await assert.rejects(service().createPaperProjectIntakeFromBridge(input), /interrupted after project creation/);
+  assert.equal((await papers.listPaperIds()).length, 1);
+  await assert.rejects(service().createPaperProjectIntakeFromBridge(input), /running or interrupted/);
+  assert.equal((await papers.listPaperIds()).length, 1, 'A partial create must not spawn a second project on retry.');
+});
+
+test('intake recovers an attached project when the attachment response is lost', async () => {
+  class LostReplyRepository extends InMemoryTopicSelectionV1cPaperProjectBridgeRepository {
+    override async attachPaperProjectRefs(...args: Parameters<InMemoryTopicSelectionV1cPaperProjectBridgeRepository['attachPaperProjectRefs']>): Promise<TopicSelectionPaperProjectBridgeRecord> {
+      await super.attachPaperProjectRefs(...args);
+      throw new Error('attachment response lost');
+    }
+  }
+  const repository = new LostReplyRepository();
+  const artifacts = new InMemoryTopicSelectionControlPlaneRepository();
+  const paperProjectGateway = new RecordingPaperProjectGateway();
+  const service = () => new TopicSelectionV1cPaperProjectBridgeService({ repository, paperProjectGateway,
+    humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(), controlPlane: new TopicSelectionControlPlaneService(artifacts) });
+  const { paper_project_bridge: bridge } = await service().createPaperProjectBridge({ promotion_decision_id: 'promotion_decision_001' });
+  const input = { paper_project_bridge_id: bridge.paper_project_bridge_id, bridge_payload_hash: bridge.bridge_payload_hash };
+  const first = await service().createPaperProjectIntakeFromBridge(input);
+  const replay = await service().createPaperProjectIntakeFromBridge(input);
+  assert.equal(first.paper_project_id, replay.paper_project_id);
+  assert.equal(paperProjectGateway.createCalls.length, 1);
+  assert.deepEqual(paperProjectGateway.deleteCalls, []);
+  assert.ok(paperProjectGateway.hasPaperProject(first.paper_project_id));
+});
+
+test('concurrent intake services reserve one project creation across a shared store', { timeout: 5000 }, async () => {
+  let enter: () => void = () => assert.fail('Missing entry signal');
+  let resume: () => void = () => assert.fail('Missing release signal');
+  const entered = new Promise<void>(resolve => { enter = resolve; });
+  const release = new Promise<void>(resolve => { resume = resolve; });
+  class WaitingGateway extends RecordingPaperProjectGateway {
+    override async createPaperProject(input: CreatePaperProjectRequest) {
+      enter();
+      await release;
+      return super.createPaperProject(input);
+    }
+  }
+  const repository = new InMemoryTopicSelectionV1cPaperProjectBridgeRepository();
+  const artifacts = new InMemoryTopicSelectionControlPlaneRepository();
+  const paperProjectGateway = new WaitingGateway();
+  const service = () => new TopicSelectionV1cPaperProjectBridgeService({ repository, paperProjectGateway,
+    humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(), controlPlane: new TopicSelectionControlPlaneService(artifacts) });
+  const { paper_project_bridge: bridge } = await service().createPaperProjectBridge({ promotion_decision_id: 'promotion_decision_001' });
+  const input = { paper_project_bridge_id: bridge.paper_project_bridge_id, bridge_payload_hash: bridge.bridge_payload_hash };
+  const first = service().createPaperProjectIntakeFromBridge(input);
+  try {
+    await Promise.race([entered, first.then(() => assert.fail('Gateway did not pause'))]);
+    await assert.rejects(service().createPaperProjectIntakeFromBridge(input), /running or interrupted/);
+    await assert.rejects(service().createPaperProjectIntakeFromBridge({ ...input, title: 'changed during submission' }), /different input/);
+  } finally { resume(); }
+  const created = await first;
+  assert.equal((await service().createPaperProjectIntakeFromBridge(input)).paper_project_id, created.paper_project_id);
+  assert.equal(paperProjectGateway.createCalls.length, 1);
+});
 
 const NOW = '2026-05-15T00:00:00.000Z';
 
@@ -302,6 +384,7 @@ function makeSubject(sourceHandoff: TopicSelectionPromotionBridgeHandoff = makeS
   const paperProjectGateway = new RecordingPaperProjectGateway();
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
+    controlPlane: new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository()),
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(sourceHandoff),
     checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     paperProjectGateway,
@@ -499,7 +582,7 @@ test('paper project intake rejects stale preconditions before creating downstrea
   assert.equal(paperProjectGateway.createCalls.length, 0);
 });
 
-test('paper project intake requires gateway and rolls back PaperProject on attach conflict', async () => {
+test('paper project intake requires gateway and retains ambiguous creation on attach conflict', async () => {
   const repository = new InMemoryTopicSelectionV1cPaperProjectBridgeRepository();
   const noGatewayService = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
@@ -525,6 +608,7 @@ test('paper project intake requires gateway and rolls back PaperProject on attac
   const paperProjectGateway = new RecordingPaperProjectGateway();
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository: conflictRepository,
+    controlPlane: new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository()),
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
     checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     paperProjectGateway,
@@ -543,8 +627,14 @@ test('paper project intake requires gateway and rolls back PaperProject on attac
     }),
     (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
   );
-  assert.deepEqual(paperProjectGateway.deleteCalls, ['paper_project_001']);
-  assert.equal(paperProjectGateway.hasPaperProject('paper_project_001'), false);
+  assert.deepEqual(paperProjectGateway.deleteCalls, []);
+  assert.equal(paperProjectGateway.hasPaperProject('paper_project_001'), true);
+  await assert.rejects(service.createPaperProjectIntakeFromBridge({
+    paper_project_bridge_id: bridgeResult.paper_project_bridge.paper_project_bridge_id,
+    bridge_payload_hash: bridgeResult.paper_project_bridge.bridge_payload_hash,
+    created_by: 'hybrid',
+  }), /running or interrupted/);
+  assert.equal(paperProjectGateway.createCalls.length, 1);
 });
 
 test('non-promote, superseded, missing commitment, and workspace drift are rejected', async () => {

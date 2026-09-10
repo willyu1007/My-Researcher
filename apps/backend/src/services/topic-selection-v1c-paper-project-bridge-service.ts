@@ -43,6 +43,7 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
+import type { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 
 const WORKFLOW_KEY = 'topic-selection.v1c-paper-project-bridge';
 const GATE_KEY = 'topic-selection.v1c-paper-project-bridge-check';
@@ -64,13 +65,13 @@ export type TopicSelectionV1cPaperProjectBridgeCreationResult = {
 
 export type TopicSelectionPaperProjectIntakeGateway = {
   createPaperProject(input: CreatePaperProjectRequest): Promise<CreatePaperProjectResponse>;
-  deletePaperProject(paperId: string): Promise<void>;
 };
 
 export type TopicSelectionV1cPaperProjectBridgeServiceOptions = {
   repository: TopicSelectionV1cPaperProjectBridgeRepository;
   humanPromotionDecisionService: TopicSelectionPromotionBridgeHandoffProvider;
   paperProjectGateway?: TopicSelectionPaperProjectIntakeGateway;
+  controlPlane?: TopicSelectionControlPlaneService;
   checkpointControl: Pick<TopicSelectionResearchCheckpointService, 'assertCompleteCheckpointChain'>;
   idFactory?: IdFactory;
   now?: () => string;
@@ -80,6 +81,7 @@ export class TopicSelectionV1cPaperProjectBridgeService {
   private readonly repository: TopicSelectionV1cPaperProjectBridgeRepository;
   private readonly humanPromotionDecisionService: TopicSelectionPromotionBridgeHandoffProvider;
   private readonly paperProjectGateway: TopicSelectionPaperProjectIntakeGateway | null;
+  private readonly controlPlane: TopicSelectionControlPlaneService | null;
   private readonly checkpointControl: TopicSelectionV1cPaperProjectBridgeServiceOptions['checkpointControl'];
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
@@ -88,6 +90,7 @@ export class TopicSelectionV1cPaperProjectBridgeService {
     this.repository = options.repository;
     this.humanPromotionDecisionService = options.humanPromotionDecisionService;
     this.paperProjectGateway = options.paperProjectGateway ?? null;
+    this.controlPlane = options.controlPlane ?? null;
     this.checkpointControl = options.checkpointControl;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
@@ -292,7 +295,7 @@ export class TopicSelectionV1cPaperProjectBridgeService {
     }
 
     const createdBy = input.created_by ?? 'hybrid';
-    const paperProject = await this.paperProjectGateway.createPaperProject({
+    const createInput: CreatePaperProjectRequest = {
       title_card_id: bridge.title_card_id,
       title: input.title?.trim() || bridge.working_copy_payload.editable_title,
       research_direction: input.research_direction?.trim() || 'LLM',
@@ -300,7 +303,43 @@ export class TopicSelectionV1cPaperProjectBridgeService {
       initial_context: {
         literature_evidence_ids: carriedLiteratureEvidenceIds,
       },
-    });
+    };
+    const controlPlane = this.controlPlane;
+    if (!controlPlane) throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+      'PaperProjectBridge intake requires persistent submission storage.');
+    // The gateway can partially write before returning a project ID. Claim the bridge once;
+    // its attached refs are the completion authority, so reconstruction cannot create a duplicate.
+    const key = `paper-project-bridge-intake:${bridge.paper_project_bridge_id}`;
+    const requestHash = sha256Text(stableStringify({ bridge_payload_hash: bridge.bridge_payload_hash, createInput }));
+    const recoverClaim = async () => {
+      const claim = await controlPlane.getArtifactRefByStableKey(key);
+      if (!claim) return null;
+      if (claim.checksum !== sha256Text(stableStringify(claim.payload)) || claim.payload?.request_hash !== requestHash
+        || claim.payload?.schema_version !== 'PaperProjectBridgeIntakeClaim@v1') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'PaperProjectBridge intake identifies different input.');
+      }
+      const current = await this.getPaperProjectBridge(bridge.paper_project_bridge_id);
+      this.assertConsumableBridge(current, input);
+      if (current.paper_project_intake_ref && current.target_paper_project_ref) return this.toIntakeResult({
+        bridge: current, paperProjectCreated: false, carriedLiteratureEvidenceIds });
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+        'PaperProjectBridge intake is running or interrupted; inspect its retained project and bridge records before recovery.');
+    };
+    const prior = await recoverClaim();
+    if (prior) return prior;
+    const payload = { schema_version: 'PaperProjectBridgeIntakeClaim@v1', owner: crypto.randomUUID(),
+      request_hash: requestHash, paper_project_bridge_id: bridge.paper_project_bridge_id, create_input: createInput };
+    try {
+      await controlPlane.recordArtifactRef({ stable_key: key, title_card_id: bridge.title_card_id,
+        workspace_id: bridge.workspace_id, workflow_run_id: bridge.workflow_run_id,
+        input_snapshot_id: bridge.input_snapshot_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+        payload, checksum: sha256Text(stableStringify(payload)), created_by: 'system' });
+    } catch (error) {
+      const winner = await recoverClaim();
+      if (winner) return winner;
+      throw error;
+    }
+    const paperProject = await this.paperProjectGateway.createPaperProject(createInput);
 
     const paperProjectRef = this.ref(
       'paper_project',
@@ -327,7 +366,12 @@ export class TopicSelectionV1cPaperProjectBridgeService {
         carriedLiteratureEvidenceIds,
       });
     } catch (error) {
-      await this.rollbackPaperProject(paperProject.paper_id, error);
+      const current = await this.getPaperProjectBridge(bridge.paper_project_bridge_id);
+      if (current.bridge_payload_hash === bridge.bridge_payload_hash
+        && current.target_paper_project_ref?.ref_id === paperProject.paper_id && current.paper_project_intake_ref) {
+        return this.toIntakeResult({ bridge: current, paperProjectCreated: true, carriedLiteratureEvidenceIds });
+      }
+      // Keep the project and claim for inspection; a lost reply must never delete attached work.
       throw this.toAttachError(error, bridge.paper_project_bridge_id);
     }
   }
@@ -982,26 +1026,6 @@ export class TopicSelectionV1cPaperProjectBridgeService {
       ...condition.refs,
       ...condition.required_action.refs,
     ]));
-  }
-
-  private async rollbackPaperProject(paperProjectId: string, originalError: unknown): Promise<void> {
-    if (!this.paperProjectGateway) {
-      return;
-    }
-    try {
-      await this.paperProjectGateway.deletePaperProject(paperProjectId);
-    } catch (rollbackError) {
-      throw new AppError(
-        500,
-        'INTERNAL_ERROR',
-        'PaperProjectBridge intake failed and rollback of the created PaperProject also failed.',
-        {
-          created_paper_id: paperProjectId,
-          original_error: originalError instanceof Error ? originalError.message : 'unknown',
-          rollback_error: rollbackError instanceof Error ? rollbackError.message : 'unknown',
-        },
-      );
-    }
   }
 
   private toAttachError(error: unknown, paperProjectBridgeId: string): AppError | unknown {

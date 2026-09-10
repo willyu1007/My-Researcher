@@ -4,7 +4,7 @@
 
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
-| Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 4 on 2026-09-10 after Phase 3 closeout | confirmed through Phase 4 | Phase 5 remains required and outside current authorization; N6/N8 alone cannot complete T-153. |
+| Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 5 on 2026-09-10 after Phase 4 closeout | confirmed through Phase 5 | Full-flow completion remains to be verified; N6/N8 alone cannot complete T-153. |
 | CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | All 36 topic-selection profiles admit product CLI, including all four v1c profiles; stage-level qualifications and public consumer references are recorded below. Whole-flow Phase 5 remains required. |
 | CX-03 / Phase 3 closeout | Sampling/recovery, extraction/discovery, adjudication/confirmation, convergence and Arena checks; repaired Debate 169–174 and checkpoint-bound source-to-v1b 175–178 | passed with independent semantic, artifact and replay review | Actual model outputs, exact product checkpoint owners and unique frozen lineage; retrieval/readiness and Human inputs remain controlled, JSON/in-memory persistence is not full CLI relational recovery. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
@@ -20,6 +20,31 @@
 | Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This earlier preparation used no model calls and did not itself qualify or activate profiles. |
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
 | CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
+
+## Phase 5 — composition and intake recovery
+
+The user authorized Phase 5 after the Phase 4 closeout. Complete HTTP composition and relational
+reconstruction remain in progress; no new live model attempt has been charged in this phase.
+
+Independent read-only review reproduced a duplicate-project defect in the actual intake gateway:
+ResearchLifecycleService can create a PaperProject before artifact/metrics/timeline initialization
+fails. Reconstructing the service and retrying used a new project ID. Intake now writes a protected
+bridge-scoped claim through the shared control plane before entering that gateway. An unfinished
+claim blocks a second creation; existing attached refs remain the completion authority. Attachment
+success followed by a lost response rereads the original project, and no rollback deletes it.
+
+Three focused checks pass: actual gateway partial creation then reconstruction, attachment-response
+loss, and concurrent services plus input drift against one store. The associated bridge/HTTP run
+passes 30 checks with one environment skip (before adding the separate passing concurrency case).
+Backend no-emit passes and independent review found no unresolved issue in this fix. Relational
+persistence still needs qualification. A partial gateway write may leave an unattached project for
+inspection; this correction refuses automatic repetition rather than claiming atomic rollback.
+The bridge remains the authority for selected evidence and obligations; the current generic project
+creation gateway does not persist its literature_evidence_ids array as a separate evidence context.
+
+The new API composition fixture is uncommitted/in progress. It prepares an isolated source through
+public literature asset, content-processing, dossier and activation APIs; source preparation and
+Human choices are controlled test inputs. Product source/readiness checks are not overridden.
 
 ## Phase 4 — v1c qualification and recovery
 
@@ -137,7 +162,7 @@ checks pass. No build/server, database migration or temporary runtime instrument
 
 Through 199: **4,397,676 reported tokens**, eleven unknown-usage attempts (4, 8, 9, 20, 63, 83, 95,
 102, 130, 160, 168), no pending attempt and no aggregate ceiling. At that checkpoint four v1c profiles remained; the final qualification above now closes Phase 4.
-Phase 5 remains outside the current implementation authorization.
+Phase 5 was subsequently authorized; current full-flow evidence is tracked at the task head.
 
 ## Phase 4 — optional N2/N3/N5 support
 
@@ -953,5 +978,5 @@ an explicitly local profile override, not a new real-model qualification. Those 
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
 - Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and
-  genuine Human decisions. Phase 4 is authorized; Phase 5 remains required outside current authorization.
+  genuine Human decisions. Phase 4 subsequently closed; Phase 5 is now authorized and remains required.
 - T-129 archival separately awaits reconciliation of its second worktree occurrence.
