@@ -4,8 +4,8 @@
 
 | Claim / reference | Decisive check | Latest result | Material boundary |
 |---|---|---|---|
-| Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 5 on 2026-09-10 after Phase 4 closeout | confirmed through Phase 5 | Full-flow completion remains to be verified; N6/N8 alone cannot complete T-153. |
-| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | All 36 topic-selection profiles admit product CLI, including all four v1c profiles; stage-level qualifications and public consumer references are recorded below. Whole-flow Phase 5 remains required. |
+| Task scope and authorization | User selected full topic-selection Codex task; authorized Phase 5 on 2026-09-10 after Phase 4 closeout | confirmed through Phase 5 | All five phases are verified under the approved scope; Human research decisions remain explicit. |
+| CX-01 / coverage inventory | Default registry compared with execution-inventory.md | 36 registered, 36 unique documented profiles | All 36 topic-selection profiles admit product CLI, including all four v1c profiles; stage-level qualifications and public consumer references are recorded below. Phase 5 now verifies whole-flow composition and persisted replay. |
 | CX-03 / Phase 3 closeout | Sampling/recovery, extraction/discovery, adjudication/confirmation, convergence and Arena checks; repaired Debate 169–174 and checkpoint-bound source-to-v1b 175–178 | passed with independent semantic, artifact and replay review | Actual model outputs, exact product checkpoint owners and unique frozen lineage; retrieval/readiness and Human inputs remain controlled, JSON/in-memory persistence is not full CLI relational recovery. |
 | Runner prerequisite | T-152 code and evidence through beb45cef | inherited transport foundation reviewed | T-152 canaries are not T-153 consumer/model qualification. |
 | CX-02 / local composition and quality fixes | N6/N7/N8 runtime/admission, harness, coordinator and v1b HTTP contract suites | 265 distinct checks passed across final relevant runs | Combined run: 264 passed; after the final blocked-replay correction, the full harness passed all 128 checks, including one added case. Includes N6→N7 CLI support→Human stop→ordinary N8, actual N8 feedback→N7→four-role N8 and both N6 regeneration contexts. Fake model process and controlled upstream/Human fixtures; the latest 171-check activation pass uses shipped profile admission for these consumers. |
@@ -19,32 +19,95 @@
 | Public consumers | Earlier HTTP/contract/harness and targeted refinement/advance checks | 143 passed, 1 environment skip; targeted HTTP 3 passed | Does not prove real model reasoning or product activation. |
 | Qualification preparation | Pinned sources, three canonical N6 request previews, budget/harness tests and backend no-emit typecheck | 3 previews passed; 133 distinct tests passed, opt-in live test skipped | No model calls. The preview covers the first N6 Explorer request, not downstream live execution. This earlier preparation used no model calls and did not itself qualify or activate profiles. |
 | Real model qualification / CX-02, CX-08 | Pinned abstract cases through attempt 91 | N6 insufficiency/apparent conflict and exact-delta positive/negative review inspected; ordinary N8 v4 admitted | 2,254,848 reported tokens plus unknown usage from six failed attempts; conditional N8 v5 and both regeneration paths admitted with non-advance; default-profile refinement overclaim reached the correct final-gate refusal. See current evidence below. |
-| CX-09 / T-129 transfer | Current successor/deferral records, e44e862c | recorded | Original C-2/C-3 remain uncompleted; other generation providers deferred. Two T-129 worktree occurrences prevent archival. |
+| CX-09 / T-129 transfer | Roadmap obligation table, 36-profile inventory, qualified prompts, runtime gate wording and maintained scenarios/operator docs | reconciled | Codex obligations complete under approved replacement qualification. Original corpus C-2 and provider C-3 are not retroactively completed; other generation providers remain deferred. T-129 physical archival separately awaits worktree reconciliation. |
 
-## Phase 5 — composition and intake recovery
+## Phase 5 — complete HTTP composition and persistent recovery
 
-The user authorized Phase 5 after the Phase 4 closeout. Complete HTTP composition and relational
-reconstruction remain in progress; no new live model attempt has been charged in this phase.
+The user authorized Phase 5 on 2026-09-10. CX-06/CX-07/CX-08/CX-09 now hold together with the
+Phase 1–4 evidence. No new live model attempt was charged: accounting remains through 216,
+4,890,215 reported tokens, 14 unknown-usage attempts and no pending call. Aggregate ceilings remain
+removed; each call retains the 600-second deadline. Prior role qualifications remain valid: the
+managed-file fix preserves the same scientific bytes, N4 removes only runtime audit duplication,
+and the N8 budget change preserves the same prompt/model and requires strict completed-gate replay.
 
-Independent read-only review reproduced a duplicate-project defect in the actual intake gateway:
-ResearchLifecycleService can create a PaperProject before artifact/metrics/timeline initialization
-fails. Reconstructing the service and retrying used a new project ID. Intake now writes a protected
-bridge-scoped claim through the shared control plane before entering that gateway. An unfinished
-claim blocks a second creation; existing attached refs remain the completion authority. Attachment
-success followed by a lost response rereads the original project, and no rollback deletes it.
+The maintained test `T-153 CLI product HTTP composes managed sources through intake and feedback
+without caller role answers` in `topic-selection-v1b-routes.integration.test.ts` uses actual buildApp
+owners and controls only the external CLI process. It prepares a synthetic literature source through
+public asset, content-processing, dossier and activation APIs, then composes original-paragraph
+extraction → need discovery → adjudication → exact Human-confirmation support → frozen v1b input →
+N1–N11 with CLI options, four-role N6 and ordinary N8 → four-role risk promotion → N3 → delegated
+candidate → exact Human acceptance → bridge → actual ResearchLifecycleService PaperProject intake →
+CLI feedback. It makes exactly 16 CLI calls, accepts no caller role answers and uses no generation
+gateway. No profile eligibility override or direct database patch supplies progression.
 
-Three focused checks pass: actual gateway partial creation then reconstruction, attachment-response
-loss, and concurrent services plus input drift against one store. The associated bridge/HTTP run
-passes 30 checks with one environment skip (before adding the separate passing concurrency case).
-Backend no-emit passes and independent review found no unresolved issue in this fix. Relational
-persistence still needs qualification. A partial gateway write may leave an unattached project for
-inspection; this correction refuses automatic repetition rather than claiming atomic rollback.
-The bridge remains the authority for selected evidence and obligations; the current generic project
-creation gateway does not persist its literature_evidence_ids array as a separate evidence context.
+The same test passes with both in-memory and PostgreSQL repositories. PostgreSQL uses a uniquely
+owned disposable local database with the complete migration history and all four repository modes
+set to prisma. Application reconstruction replays the four upstream CLI nodes byte-for-byte, the
+frozen N11 publication and completed intake; rereading the actual PaperProject succeeds and intake
+returns its original ID with created=false. N4/N6/support/candidate/feedback replay makes no extra
+model call. Missing question Human approval stops before N8; missing promotion reconfirmation stops
+before the Human decision. Sampling, optional support, convergence/Arena and non-advancing/loopback
+branches retain their separately recorded stage and real-model checks rather than being forced into
+this advancing fixture.
 
-The new API composition fixture is uncommitted/in progress. It prepares an isolated source through
-public literature asset, content-processing, dossier and activation APIs; source preparation and
-Human choices are controlled test inputs. Product source/readiness checks are not overridden.
+Implementation and independent review found and verified these corrections:
+
+- Intake reserves a protected bridge-scoped claim before the actual gateway, whose artifact/metrics/
+  timeline writes may fail after project creation. Pending claims block duplicate creation across
+  concurrent or reconstructed services. Attached refs remain the completion authority; an attachment
+  that succeeds then loses its response recovers the original project without deletion. Actual partial
+  creation, attachment loss, concurrency and input drift pass focused checks (checkpoint 50e55008).
+- Original fulltext extraction reads the parser-managed file when normalizedText is absent and
+  verifies document/paragraph checksums, source/locator uniqueness and containment. Inline/file
+  source tests pass; changed or missing files fail before another model call and unselected paragraphs
+  remain outside the model packet.
+- Ordinary N8's 22k target rejected the composed source-to-question packet (22,687 estimated tokens).
+  Its 28k target matches the initial Debate assessor, retaining the 128k window and overflow refusal.
+  Historical 22k output replays under 28k only with a successful checksum-valid receipt, exact current
+  request/source/prompt/model/runner identity and its protected completed gate. Uncommitted old output
+  and changed requests remain refused. All three initial_from_n5 variants pass independent re-review.
+- N4's packet duplicated bulky role-audit and admission-identity objects in the dossier. Only these
+  audit objects are projected to hashes; every scientific field, Critic resolution, risk, condition and
+  lineage remains, and the canonical dossier is untouched. Composed PostgreSQL inputs measure about
+  49k estimated tokens, below the existing 64k target. The HTTP test asserts the exact projection.
+  Final upgrade review also reproduced the resulting old-candidate context mismatch before fixing
+  it: generation recovery and Human admission read the protected original context, validate checksum
+  and exact scope/node/gate identity, then reuse its original bytes only when the old and current
+  contexts have identical audit projections. Original evidence and audit changes still fail. Old
+  preview receipt interruption, first Human acceptance, completed replay and an unpersisted model
+  outcome are covered; the ambiguous outcome cannot trigger another call after upgrade.
+
+| Decisive Phase 5 check | Result |
+|---|---|
+| Full seven-file regression (v1b/v1c HTTP, source harness, N8/delegated runtimes, context registry, bridge) | 196 passed, 5 opt-in/environment skips |
+| After N8 budget-replay repair: complete v1b HTTP, v1b harness and ordinary N8 runtime | 173 passed, 6 opt-in/environment skips |
+| Managed inline/file extraction and source/locator drift | 2 passed |
+| Final advancing CLI HTTP chain | passed; 16 external process calls |
+| Final PostgreSQL chain with application reconstruction | passed; same chain and exact upstream/intake replay |
+| Deferred N6/N8 provider gates after wording alignment | 2 passed; 409 before writes |
+| LLM configuration / workflow matrix / backend no-emit | 5 passed / consistency passed / passed |
+| Scoped T-153 governance sync and lint | preview limited to T-153 status and generated views; apply and lint passed |
+| N4 historical context compatibility | red reproduced stable-key mismatch, then 13 runtime/service/attempt checks passed; independent runtime/service/admission run: 17 passed |
+| Independent read-only review | all material findings fixed, including N8 and N4 upgrade compatibility |
+
+The disposable database and owned debug journal were removed after the persisted check; no temporary
+instrumentation remains. Reproducible commands and persistence setup are in the permanent operator
+guide. Local execution logs are under `/tmp/my-researcher-t153-phase2/phase5-*`; maintained tests and
+this bounded result are the durable verification record.
+
+Completion contract: outcome closure is supported by the full API chain plus all 36 qualified
+profiles; implementation quality by the checks and resolved review findings above; semantic
+convergence by the shared policies/configuration, corrected scenario/matrix/gate wording, operator
+guide and task obligation disposition. No extra approval is required beyond the user's authorization
+through Phase 5; fixtures never impersonate a genuine research decision.
+
+Material limits: managed source/readiness and Human choices are controlled fixtures, not scientific
+or investment approval. A partial gateway write may leave an unattached project for authority
+inspection; ambiguous domain writes remain fail-closed rather than automatically replayed. The bridge
+holds selected evidence and obligations; generic PaperProject creation does not copy its evidence-ID
+array into a separate PaperProject evidence record. Downstream PaperImplementation/experiment execution,
+full GUI operation, autonomous Human decisions, statistical quality calibration and other-provider
+activation are outside the accepted task boundary. T-129 archival is a separate administrative action.
 
 ## Phase 4 — v1c qualification and recovery
 
@@ -755,7 +818,7 @@ an explicitly local profile override, not a new real-model qualification. Those 
   nine historical calls have unknown usage, with no pending call. Aggregate ceilings remain null;
   the per-call deadline remains 600 seconds. Private evidence remains under the shared live path.
 - The following qualification covers real candidate admission and candidate-to-v1b lineage.
-  Source-extraction composition and task-level completion remain open.
+  Later source-extraction and Phase 5 sections supply composition and task-level completion evidence.
 
 ## Real candidate admission and frozen v1b lineage
 
@@ -971,12 +1034,12 @@ an explicitly local profile override, not a new real-model qualification. Those 
   sampling, convergence, Arena and negative cases, this closes CX-03 and Phase 3. No actual research
   approval, statistical quality calibration or full CLI relational recovery is claimed.
 
-## Outstanding verification
+## Retained verification boundaries
 
-- Phase 3 is closed. Remaining v1b/v1c profile integration and whole-workflow operation belong to
-  Phases 4–5; the full-task acceptance remains open.
-- An interrupted domain commit without a completion receipt still requires authority inspection;
-  no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.
-- Whole-flow CX-06/CX-08 remain open and must distinguish actual models, controlled fixtures and
-  genuine Human decisions. Phase 4 subsequently closed; Phase 5 is now authorized and remains required.
+- All five phases and CX-01 through CX-09 are closed by the evidence above; no in-scope verification
+  remains outstanding. Scientific quality is bounded by inspected role cases, not statistical calibration.
+- An interrupted domain commit without completion still requires authority inspection. No automatic
+  partial-write recovery is claimed; recovery and Human gates retain their owners.
+- Controlled whole-flow inputs and genuine Human decisions remain distinct. Product CLI composition
+  and PostgreSQL reconstruction do not claim autonomous research approval or downstream paper execution.
 - T-129 archival separately awaits reconciliation of its second worktree occurrence.

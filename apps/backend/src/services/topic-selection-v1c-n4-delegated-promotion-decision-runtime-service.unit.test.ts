@@ -1,3 +1,4 @@
+import { projectV1cDecisionResearchContext } from './topic-selection-v1c-codex-context-service.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
@@ -509,9 +510,17 @@ test('CLI N4 preserves original context and replays receipt interruption before 
   const humanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({ repository,
     promotionGateService: gateService, checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture() });
   let context = 'Original evidence limits the promotion claim';
+  let upgraded = false;
+  let auditIdentity = 'original-runtime';
   const service = () => {
     const runtime = new TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService(controlPlane, { modelProfileRegistry, agentOrchestrator,
-      resolveResearchContext: async () => ({ original_evidence: context }) });
+      resolveResearchContext: async () => {
+        const original = { original_evidence: context, promotion_dossier: { dossier_payload: {
+          scientific_claim: context, debate_execution: { role_artifacts: [{ runner: auditIdentity }], critic_resolutions: ['Retain limitation'] },
+          support_policy: { admission_identity: { runner: auditIdentity }, path: 'bounded_debate' },
+        } } };
+        return upgraded ? projectV1cDecisionResearchContext(original) : original;
+      } });
     return new TopicSelectionV1cN4DelegatedPromotionDecisionService({ controlPlane, runtime,
       admission: new TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionService(runtime),
       gateService, humanPromotionDecisionService });
@@ -526,6 +535,7 @@ test('CLI N4 preserves original context and replays receipt interruption before 
   };
   await assert.rejects(service().generateDelegatedPromotionCandidate(input), /candidate receipt interruption/);
   assert.equal(calls, 1); assert.equal(repository.writes.length, 0);
+  upgraded = true; // Upgrade after model completion but before the outer candidate receipt exists.
   const preview = await service().generateDelegatedPromotionCandidate(input);
   assert.deepEqual(await service().generateDelegatedPromotionCandidate(input), preview);
   assert.equal(calls, 1); assert.equal(repository.writes.length, 0);
@@ -533,6 +543,10 @@ test('CLI N4 preserves original context and replays receipt interruption before 
     node_attempt_id: input.node_attempt_id, candidate_receipt_ref: preview.candidate_receipt_ref, confirmed_candidate_hash: preview.candidate_hash,
     human_actor: { actor_type: 'human' as const, actor_id: 'reviewer' }, promote_reconfirmed: true,
     condition_owners: output.conditions.map(condition => ({ condition_id: condition.condition_id, owner: { actor_type: 'human' as const, actor_id: 'researcher' } })) };
+  auditIdentity = 'changed-runtime';
+  await assert.rejects(service().recordDelegatedPromotionDecision(acceptance), /drift|differs|match/i);
+  assert.equal(repository.writes.length, 0);
+  auditIdentity = 'original-runtime';
   context = 'Changed evidence';
   await assert.rejects(service().recordDelegatedPromotionDecision(acceptance), /drift|differs|match/i);
   assert.equal(repository.writes.length, 0);
@@ -553,4 +567,19 @@ test('CLI N4 preserves original context and replays receipt interruption before 
   const legacy = await service().generateDelegatedPromotionCandidate({ ...input, node_attempt_id: 'legacy-identity' });
   assert.deepEqual(legacy.candidate.decision_support_refs[0]?.legacy_ref, { ref_id: 'legacy-gate' });
   assert.equal(repository.writes.length, 1); assert.equal(calls, 3);
+  upgraded = false;
+  controlPlane.recordArtifactRef = async value => {
+    if (value.stable_key?.startsWith('codex-attempt:') && value.stable_key.endsWith(':outcome')) {
+      throw new Error('Interrupted before model outcome persisted');
+    }
+    return record(value);
+  };
+  const pendingInput = { ...input, node_attempt_id: 'pending-upgrade' };
+  await assert.rejects(service().generateDelegatedPromotionCandidate(pendingInput), /interrupted|did not succeed/i);
+  assert.equal(calls, 4);
+  controlPlane.recordArtifactRef = record;
+  upgraded = true;
+  await assert.rejects(service().generateDelegatedPromotionCandidate(pendingInput), /in progress|interrupted|did not succeed/i);
+  assert.equal(calls, 4, 'Audit representation compatibility cannot repeat an ambiguous paid attempt.');
+  assert.equal(repository.writes.length, 1);
 });

@@ -1594,12 +1594,39 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, triage=${triage}, recov
     && item.ref_id === row.evidence_ref.ref_id && (item.version_id ?? null) === (row.evidence_ref.version_id ?? null)
     && item.title_card_id === row.evidence_ref.title_card_id));
   assert.ok(citationRefs.every(item => item.ref_type !== 'artifact_ref' && item.ref_type !== 'trial_ledger'));
+  const legacyContextConfig = createDefaultTopicSelectionContextPolicyProfileRegistry();
+  const legacyProfile = legacyContextConfig.profiles.find(profile => profile.context_family === 'v1b_n8_topic_value_assessment'
+    && profile.invocation_slot_id === 'n8_value_assessment_draft')!;
+  legacyProfile.token_budget_policy.estimated_input_token_target = 22000;
+  const legacyRegistry = new TopicSelectionContextPolicyProfileRegistryService({ registry: legacyContextConfig });
+  const resolve = TopicSelectionContextPolicyProfileRegistryService.prototype.resolveProfile;
+  let legacyBudget = true;
+  const profileMock = t.mock.method(TopicSelectionContextPolicyProfileRegistryService.prototype, 'resolveProfile',
+    function (this: TopicSelectionContextPolicyProfileRegistryService, input: Parameters<typeof resolve>[0]) {
+      return resolve.call(legacyBudget && input.context_policy_profile_id === legacyProfile.context_policy_profile_id ? legacyRegistry : this, input);
+    });
+  const recordN8 = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane);
+  ctx.controlPlane.recordArtifactRef = async artifact => {
+    if (artifact.workflow_run_id === n8Input.workflow_run_id && artifact.stable_key?.startsWith('cli-node-commit:')) {
+      throw new Error('Interrupted before N8 authority commit.');
+    }
+    return recordN8(artifact);
+  };
+  await assert.rejects(service.invokeNode(n8Input), /Interrupted before N8 authority commit/);
+  ctx.controlPlane.recordArtifactRef = recordN8;
+  legacyBudget = false;
+  await assert.rejects(service.invokeNode(n8Input), /drift/i);
+  assert.equal(calls, 6, 'The new budget cannot consume old output without a completed gate.');
+  legacyBudget = true;
   const n8 = await service.invokeNode(n8Input);
   assert.equal(n8.gate_status, 'admitted_with_warnings', JSON.stringify(n8));
   assert.equal(calls, 6);
+  profileMock.mock.restore();
   const n8Replay = await service.invokeNode(n8Input);
   assert.equal(n8Replay.replay_provenance?.replayed, true);
   assert.equal(calls, 6);
+  await assert.rejects(service.invokeNode({ ...n8Input, created_by: 'human' }), /drift|replay/i);
+  assert.equal(calls, 6, 'A completed 22k gate replays under 28k only for the exact request.');
 
   // Trigger the actual N8 producer, then consume its feedback and run the four-role CLI re-entry.
   const forcedInput = { ...n8Input, node_attempt_id: 'n8_cli_operator_debate',

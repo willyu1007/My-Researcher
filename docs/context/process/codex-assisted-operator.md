@@ -90,6 +90,11 @@ the original request/runtime identity and protected completed gate trace match; 
 request cannot bypass a changed context policy. New targets are 32k for grouping/admission, 48k for
 synthesis and 40k for N6 triage, within the existing 128k window. These are per-context limits.
 
+Ordinary N8 uses a 28k input target, matching the initial Debate assessor. Completed N8 gates
+from the former 22k target retain exact replay only when the protected completion and every other
+request, source, prompt, model and runner identity match. An old uncommitted output cannot use
+this compatibility path; context overflow still stops before model execution.
+
 At the question-checkpoint `n6_refinement_delta_debate` recovery frontier, coordinator `advance`
 also consumes the N7 CLI setting. It recovers the exact persisted Human refinement and executes
 Explorer → Critic → Arbiter without caller role answers. A substantive unchanged delta with material
@@ -131,7 +136,10 @@ profile registry; a configured runner is required.
   extraction draft/context or an external model answer. Abstract source ID/URL and checksum must
   match the frozen search inputs. Generated summaries, missing source provenance and unresolved
   bound paragraphs are refused. Bound paragraphs must resolve uniquely within their literature, match their
-  stored document/paragraph checksums and have one bound literature source. Unselected paragraphs
+  stored document/paragraph checksums and have one bound literature source. The normal content parser
+  stores normalized fulltext in a managed file; extraction reads that file when inline text is absent
+  and verifies the whole-document checksum plus the bound paragraph's checksum and containment.
+  A missing or changed file is refused before model execution. Unselected paragraphs
   are excluded; section/document wildcard reads are unsupported. Abstract output retains its warnings.
 - `topic-selection.v1a.generate-need-candidate.v1`: supply the current `evidence_map_ref`, its
   `evidence_strength_ref`, exact `search_snapshot_refs` / `resource_snapshot_refs`, topic scope and
@@ -341,6 +349,9 @@ After N3, generate a reviewable candidate with
 ```
 
 The backend reads the frozen scientific/evidence context and actual gate, support and dossier.
+The N4 model packet replaces only duplicated role-audit objects and runtime admission metadata
+with their hashes. Scientific prose, critic resolutions, risks, conditions and lineage remain in
+the packet; the complete canonical dossier and its audit records remain unchanged in storage.
 The response contains `candidate`, `candidate_receipt_ref`, `candidate_hash`, `candidate_artifact`
 and `human_review_required: true`. Generating or replaying it does not write a Human decision.
 Review its rationale, decision, required actions and conditions. The model cannot assign a Human
@@ -380,6 +391,10 @@ is reused. Completed acceptance replays the same Human authority. Changed gate, 
 or request identity under the same attempt returns conflict. An unfinished model claim requires
 inspection before an explicit new attempt. Oversized full context blocks before model execution;
 the CLI path cannot compress away scientific bodies into references alone.
+A saved candidate's original context representation remains usable across the audit-only projection
+upgrade: the product verifies its protected context and exact equivalence, including audit hashes.
+Original evidence or audit changes still refuse admission; an unfinished model claim cannot rerun
+merely because the context representation changed.
 
 ## PaperProject intake recovery
 
@@ -428,6 +443,37 @@ candidate artifact write reuses completed model output; an ambiguous partial fee
 fails closed. Inspect existing feedback and recheck authorities before deciding recovery; do not
 bypass a pending submission by inventing another attempt. Changed inputs require an explicit new
 execution once prior state is resolved. External answers and caller-supplied classification are rejected.
+
+## Reproducible CLI workflow verification
+
+`apps/backend/src/routes/topic-selection-v1b-routes.integration.test.ts` contains
+`T-153 CLI product HTTP composes managed sources through intake and feedback without caller role answers`.
+Run it from the repository root with:
+
+```bash
+pnpm --dir apps/backend exec node --import tsx --test --test-name-pattern='T-153 CLI product HTTP' src/routes/topic-selection-v1b-routes.integration.test.ts
+```
+
+The test uses the real application owners and a controlled external CLI process. Public APIs prepare
+managed fulltext and a Human-curated dossier, then execute extraction, need discovery, adjudication,
+confirmation support, v1b options/N6/N8, risk-bearing promotion, Human acceptance, bridge/intake and
+feedback. Sixteen model calls are supplied at the process boundary; no request supplies role answers.
+Exact question and promotion Human stops remain enforced. Synthetic source/readiness and Human
+choices establish API composition, not research approval or real-model reasoning quality.
+
+For persistence verification, provision a disposable local PostgreSQL database with the repository
+migrations. Set DATABASE_URL to that database's public schema, T153_PRODUCT_HTTP_DATABASE to its name
+(`t153_p5_` followed by 12 lowercase hexadecimal characters), and set RESEARCH_LIFECYCLE_REPOSITORY,
+TITLE_CARD_REPOSITORY, APPLICATION_SETTINGS_REPOSITORY and AUTO_PULL_REPOSITORY to `prisma` before
+running the same test. It reconstructs the app, replays all four upstream CLI nodes, verifies the
+frozen publication, rereads the created PaperProject and replays intake without another project.
+The test refuses a nonlocal or mismatched database; its synthetic records persist until the
+operator removes that disposable database. Its temporary source/content files are removed on exit.
+
+T-153 verification records the completed PostgreSQL run plus separate real Codex qualifications
+for all 36 enabled profiles, including optional sampling/convergence/Arena/support and recovery
+branches outside this advancing chain. Full GUI operation, autonomous Human decisions and downstream
+PaperImplementation execution are separate capabilities.
 
 ## Current rehearsal
 

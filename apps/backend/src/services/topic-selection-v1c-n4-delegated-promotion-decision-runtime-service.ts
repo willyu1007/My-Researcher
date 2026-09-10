@@ -1,3 +1,4 @@
+import { projectV1cDecisionResearchContext } from './topic-selection-v1c-codex-context-service.js';
 import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
@@ -224,10 +225,31 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
       context: this.resolveRuntimeProfile(this.slotBinding()).profile_hash };
   }
 
-  private async resolveCliContext(handoff: TopicSelectionPromotionGateHandoff, mode: TopicSelectionAgentExecutionMode) {
-    if (mode !== 'codex_cli') return undefined;
+  private async resolveCliContext(input: Pick<GenerateTopicSelectionV1cN4DelegatedPromotionDecisionCandidateInput,
+    'gate_handoff' | 'execution_mode' | 'workflow_run_id' | 'node_attempt_id'>) {
+    if (input.execution_mode !== 'codex_cli') return undefined;
     if (!this.options.resolveResearchContext) throw new AppError(500, 'INTERNAL_ERROR', 'CLI delegated candidate requires its research context resolver.');
-    return this.options.resolveResearchContext(handoff);
+    const current = await this.options.resolveResearchContext(input.gate_handoff);
+    const previous = await this.controlPlane.getArtifactRefByStableKey(`n4-cli-context:${this.hash([input.workflow_run_id, input.node_attempt_id])}`);
+    if (!previous) return current;
+    const packet = previous.payload;
+    const frozen = packet?.research_context;
+    if (!packet || previous.artifact_kind !== 'diagnostic' || previous.storage_kind !== 'inline'
+      || previous.checksum !== this.hash(packet) || previous.workflow_run_id !== input.workflow_run_id
+      || previous.title_card_id !== input.gate_handoff.gate_check.title_card_id
+      || (previous.workspace_id ?? null) !== (input.gate_handoff.gate_check.workspace_id ?? null)
+      || packet?.schema_version !== 'TopicSelectionV1cN4DelegatedPromotionDecisionContextPacket@v1'
+      || packet.node_id !== NODE_ID || packet.slot_id !== SLOT_ID
+      || packet.workflow_run_id !== input.workflow_run_id || packet.node_attempt_id !== input.node_attempt_id
+      || packet.promotion_gate_check_id !== input.gate_handoff.promotion_gate_check_id
+      || !frozen || typeof frozen !== 'object' || Array.isArray(frozen)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Stored CLI decision context identity does not match this attempt.');
+    }
+    // Preserve the original prompt bytes across audit-only representation upgrades. Scientific
+    // and audit changes still fail equality; all other current runtime identities are rebuilt below.
+    const original = frozen as Record<string, unknown>;
+    return this.hash(projectV1cDecisionResearchContext(original)) === this.hash(projectV1cDecisionResearchContext(current))
+      ? original : current;
   }
 
   async generateCandidate(
@@ -242,7 +264,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     this.assertGateHandoff(input.gate_handoff);
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? this.defaultRunMode(input.execution_mode);
-    const researchContext = await this.resolveCliContext(input.gate_handoff, input.execution_mode);
+    const researchContext = await this.resolveCliContext(input);
     const sourceHashes = this.sourceHashes(input.gate_handoff);
     if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
@@ -350,7 +372,7 @@ export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {
     compressed_context_hash?: string | null;
   }): Promise<TopicSelectionV1cN4DelegatedPromotionDecisionAdmissionExpectedIdentity> {
     const binding = this.slotBinding();
-    const researchContext = await this.resolveCliContext(input.gate_handoff, input.execution_mode);
+    const researchContext = await this.resolveCliContext(input);
     const sourceHashes = this.sourceHashes(input.gate_handoff);
     if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);

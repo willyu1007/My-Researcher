@@ -142,6 +142,7 @@ export type GenerateTopicSelectionV1bN8RuntimeDraftInput = {
   codex_response?: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload> | null;
   mocked_output?: TopicSelectionMockedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload> | null;
   created_by?: TopicSelectionV1bWorkflowHarnessRunRequest['created_by'];
+  canReplayCompletedGate?: (artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef) => Promise<boolean>;
 };
 
 export type TopicSelectionV1bN8RuntimeDraftGenerationResult =
@@ -279,6 +280,18 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     if (receiptHash) {
       const previous = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
       if (previous) {
+        const saved = previous.payload?.result as TopicSelectionV1bN8RuntimeDraftGenerationResult | undefined;
+        if (previous.payload?.request_hash !== receiptHash && saved?.status === 'succeeded'
+          && typeof saved.semantic_artifact?.context_policy_profile_hash === 'string') {
+          // Only an exact completed gate may retain its old context budget. Recompute every
+          // other input, prompt, source, model and runner identity against today's request.
+          const frozenContext = { ...contextPacket, context_policy_profile_hash: saved.semantic_artifact.context_policy_profile_hash };
+          const frozenHash = this.hash({ request: input.request, contextPacketHash: this.hash(frozenContext), binding, runMode,
+            runner: this.agentOrchestrator.codexCliExecutionIdentity,
+            prompt: this.messages(binding, frozenContext), profile: this.resolveModelProfile(binding, input.execution_mode, runMode).profile_hash });
+          if (previous.payload?.request_hash === frozenHash && previous.checksum === this.hash(previous.payload)
+            && await input.canReplayCompletedGate?.(saved.semantic_artifact)) return this.readReceiptResult(previous, frozenHash);
+        }
         return this.readReceiptResult(previous, receiptHash);
       }
     }

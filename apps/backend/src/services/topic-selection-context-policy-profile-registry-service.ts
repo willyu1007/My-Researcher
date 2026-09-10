@@ -1106,7 +1106,9 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         invocation_slot_id: TOPIC_SELECTION_V1B_N8_INVOCATION_SLOT_IDS.value_assessment_draft,
         functional_template: 'candidate_for_deterministic_gate',
         context_family: 'v1b_n8_topic_value_assessment',
-        estimated_input_token_target: 22000,
+        // The canonical source-to-question HTTP chain carries resolved evidence and contract
+        // bodies (22,687 estimated input tokens). Match the initial Debate assessor's allowance.
+        estimated_input_token_target: 28000,
         estimated_output_token_budget: 4096,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,

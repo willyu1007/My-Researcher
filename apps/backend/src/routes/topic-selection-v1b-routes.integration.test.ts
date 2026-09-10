@@ -1236,72 +1236,75 @@ class FakeTopicSelectionV1aLlmGateway {
 
   async createStructuredOutput<T>(request: LlmStructuredOutputRequest) {
     this.calls.push(request);
-    const userPayload = JSON.parse(request.messages.find((message) => message.role === 'user')?.content ?? '{}') as {
-      node?: {
-        workflow_run_id: string;
-        node_attempt_id: string;
-        execution_mode: string;
-        profile_id: string;
-        policy_version: string;
-        output_schema_version: string;
-      };
-      candidate?: {
-        need_candidate_ref: TopicSelectionFunctionalRef;
-        gap_codes?: string[];
-      };
-      readiness?: {
-        readiness_assessment_ref: TopicSelectionFunctionalRef;
-      };
-      support_packet?: {
-        validation_support_packet_ref: TopicSelectionFunctionalRef;
-        open_gap_codes?: string[];
-        residual_risk_refs?: TopicSelectionFunctionalRef[];
-      };
-    };
-    if (request.schemaName !== TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION) {
-      throw new Error(`Unexpected v1a structured output schema ${request.schemaName}.`);
-    }
-    const sourceRefs = [
-      userPayload.candidate?.need_candidate_ref,
-      userPayload.readiness?.readiness_assessment_ref,
-      userPayload.support_packet?.validation_support_packet_ref,
-    ].filter((item): item is TopicSelectionFunctionalRef => Boolean(item));
-    const parsed = {
-      schema_version: TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION,
-      workflow_run_id: userPayload.node?.workflow_run_id,
-      node_attempt_id: userPayload.node?.node_attempt_id,
-      recommendation_packet_id: `${userPayload.node?.node_attempt_id ?? 'node_attempt'}_recommendation`,
-      need_candidate_ref: userPayload.candidate?.need_candidate_ref,
-      validation_support_packet_ref: userPayload.support_packet?.validation_support_packet_ref,
-      readiness_assessment_ref: userPayload.readiness?.readiness_assessment_ref,
-      execution_mode: userPayload.node?.execution_mode,
-      profile_id: userPayload.node?.profile_id,
-      final_decision: 'validate',
-      rationale: 'Fake v1a provider validates the native runner candidate while preserving support-packet risks.',
-      required_actions: [
-        'route result according to deterministic v1a node policy',
-        ...(userPayload.support_packet?.open_gap_codes?.includes('METHOD_FAMILY_COVERAGE_GAP')
-          ? ['carry METHOD_FAMILY_COVERAGE_GAP into v1b intake']
-          : []),
-      ],
-      gap_codes: userPayload.support_packet?.open_gap_codes ?? userPayload.candidate?.gap_codes ?? [],
-      accepted_risk_refs: [],
-      residual_risk_refs: userPayload.support_packet?.residual_risk_refs ?? [],
-      rejected_reason: null,
-      merge_target_need_candidate_ref: null,
-      searchplan_recheck_reason: null,
-      searchplan_recheck_gap_codes: [],
-      source_refs: sourceRefs,
-      recommendation_payload: { fake_provider: true },
-      policy_version: userPayload.node?.policy_version,
-      output_schema_version: userPayload.node?.output_schema_version,
-    };
+    assert.equal(request.schemaName, TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION);
+    const parsed = nativeAdjudicationReply(JSON.parse(request.messages.find(message => message.role === 'user')?.content ?? '{}'));
     return {
       parsed: parsed as T,
       raw: { schemaName: request.schemaName, parsed },
       telemetry: telemetry(request.schemaName),
     };
   }
+}
+
+function nativeAdjudicationReply(payload: unknown) {
+  const userPayload = payload as {
+    node?: {
+      workflow_run_id: string;
+      node_attempt_id: string;
+      execution_mode: string;
+      profile_id: string;
+      policy_version: string;
+      output_schema_version: string;
+    };
+    candidate?: {
+      need_candidate_ref: TopicSelectionFunctionalRef;
+      gap_codes?: string[];
+    };
+    readiness?: {
+      readiness_assessment_ref: TopicSelectionFunctionalRef;
+    };
+    support_packet?: {
+      validation_support_packet_ref: TopicSelectionFunctionalRef;
+      open_gap_codes?: string[];
+      residual_risk_refs?: TopicSelectionFunctionalRef[];
+    };
+  };
+  const sourceRefs = [
+    userPayload.candidate?.need_candidate_ref,
+    userPayload.readiness?.readiness_assessment_ref,
+    userPayload.support_packet?.validation_support_packet_ref,
+  ].filter((item): item is TopicSelectionFunctionalRef => Boolean(item));
+  const parsed = {
+    schema_version: TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION,
+    workflow_run_id: userPayload.node?.workflow_run_id,
+    node_attempt_id: userPayload.node?.node_attempt_id,
+    recommendation_packet_id: `${userPayload.node?.node_attempt_id ?? 'node_attempt'}_recommendation`,
+    need_candidate_ref: userPayload.candidate?.need_candidate_ref,
+    validation_support_packet_ref: userPayload.support_packet?.validation_support_packet_ref,
+    readiness_assessment_ref: userPayload.readiness?.readiness_assessment_ref,
+    execution_mode: userPayload.node?.execution_mode,
+    profile_id: userPayload.node?.profile_id,
+    final_decision: 'validate',
+    rationale: 'Fake v1a provider validates the native runner candidate while preserving support-packet risks.',
+    required_actions: [
+      'route result according to deterministic v1a node policy',
+      ...(userPayload.support_packet?.open_gap_codes?.includes('METHOD_FAMILY_COVERAGE_GAP')
+        ? ['carry METHOD_FAMILY_COVERAGE_GAP into v1b intake']
+        : []),
+    ],
+    gap_codes: userPayload.support_packet?.open_gap_codes ?? userPayload.candidate?.gap_codes ?? [],
+    accepted_risk_refs: [],
+    residual_risk_refs: userPayload.support_packet?.residual_risk_refs ?? [],
+    rejected_reason: null,
+    merge_target_need_candidate_ref: null,
+    searchplan_recheck_reason: null,
+    searchplan_recheck_gap_codes: [],
+    source_refs: sourceRefs,
+    recommendation_payload: { fake_provider: true },
+    policy_version: userPayload.node?.policy_version,
+    output_schema_version: userPayload.node?.output_schema_version,
+  };
+  return parsed;
 }
 
 function roleCoverageRef(
@@ -1580,8 +1583,9 @@ async function createTitleCard(app: FastifyInstance, suffix: string): Promise<st
   return (titleCardRes.json() as { title_card_id: string }).title_card_id;
 }
 
-async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
+async function createV1bInputBundle(app: FastifyInstance, suffix: string, prepareLiterature?: (literatureId: string) => Promise<{ paragraphId: string; text: string }>, cliReplies?: unknown[]) {
   const literatureId = await createLiterature(app, suffix);
+  const preparedSource = await prepareLiterature?.(literatureId);
   const titleCardId = await createTitleCard(app, suffix);
   const basketRes = await app.inject({
     method: 'PATCH',
@@ -1718,7 +1722,7 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
         },
         source_health_summary: { source_count: 1, failed_source_count: 0, warning_codes: [] },
         dedup_summary: { duplicate_groups: 0, canonical_work_refs: [literatureRef] },
-        evidence_map_input_refs: [literatureRef, sourceRef],
+        evidence_map_input_refs: [literatureRef, sourceRef, ...(preparedSource ? [ref('fulltext_paragraph', preparedSource.paragraphId, titleCardId)] : [])],
         coverage_observations: coverageRowRefs.map((rowRef) => ({
           coverage_row_intent_ref: rowRef,
           status: 'succeeded',
@@ -1755,6 +1759,19 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
       route_target_node_id: 'topic-selection.v1a.build-evidence-map.v1',
     },
   );
+  const extractionDraft = (() => {
+    const draft = buildV1aNativeEvidenceMapDraft({ titleCardId,
+      searchRunHandoff: n4.scenario_result.node_result.downstream_handoff, literatureRef, sourceRef });
+    if (!preparedSource) return draft;
+    const paragraphRef = ref('fulltext_paragraph', preparedSource.paragraphId, titleCardId);
+    const sentences = preparedSource.text.split(/(?<=\.) /);
+    return { ...draft, producer_kind: cliReplies ? 'codex_cli' : draft.producer_kind, draft_units: draft.draft_units.map((unit, index) => ({ ...unit,
+      locator: { locator_type: 'paragraph', locator_ref: paragraphRef, paragraph_ref: paragraphRef,
+        literature_ref: literatureRef, source_ref: sourceRef },
+      source_statement: sentences[[0, 3, 2, 1][index]!]!,
+    })) };
+  })();
+  if (cliReplies) cliReplies.push(extractionDraft);
   const n5 = await invokeV1aNativeHarnessNode(
     app,
     'topic-selection.v1a.build-evidence-map.v1',
@@ -1765,13 +1782,9 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
       workflow_run_id: `workflow_run_v1a_for_v1b_n5_${suffix}`,
       node_attempt_id: `node_attempt_v1a_for_v1b_n5_${suffix}`,
       search_run_handoff: n4.scenario_result.node_result.downstream_handoff,
-      extraction_draft: buildV1aNativeEvidenceMapDraft({
-        titleCardId,
-        searchRunHandoff: n4.scenario_result.node_result.downstream_handoff,
-        literatureRef,
-        sourceRef,
-      }),
-      execution_mode: 'none',
+      extraction_draft: cliReplies ? null : extractionDraft,
+      execution_mode: cliReplies ? 'codex_cli' : 'none',
+      ...(cliReplies ? { run_mode: 'product' } : {}),
       policy_version: 'v1',
       output_schema_version: 'v1',
       expectations: { status: 'succeeded', materialization_status: 'ready', evidence_unit_count: 4, downstream_handoff_present: true },
@@ -1784,7 +1797,30 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
     },
   );
   const n6AttemptId = `node_attempt_v1a_for_v1b_n6_${suffix}`;
-  const n6StrengthRef = ref('evidence_strength_assessment', `strength_${suffix}`, titleCardId);
+  let n6StrengthRef = ref('evidence_strength_assessment', `strength_${suffix}`, titleCardId);
+  if (cliReplies) {
+    const evidenceMapRef = n5.scenario_result.node_result.evidence_map_ref as TopicSelectionFunctionalRef;
+    const strength = await app.inject({ method: 'POST', url: '/topic-selection/v1a/evidence-strength-assessments', payload: {
+      evidence_map_id: evidenceMapRef.ref_id, target_ref: evidenceMapRef, purpose: 'need_validation',
+      role_bundle: Object.fromEntries(['support', 'challenge', 'baseline', 'context'].map(role => [role + '_unit_ids',
+        refsByV1aEvidenceRole(n5.scenario_result.node_result.evidence_map_records, role, titleCardId).map(ref => ref.ref_id)])),
+      assessment_workflow_version: 'v1', policy_version_id: 'v1',
+    } }); assertStatus(strength, 201);
+    const evidence = await app.inject({ method: 'GET', url: `/topic-selection/v1a/evidence-maps/${evidenceMapRef.ref_id}/need-validation-bundle` });
+    assertStatus(evidence, 200);
+    const evidenceBundle = evidence.json<{ strength_assessment_refs: TopicSelectionFunctionalRef[]; conflict_set_refs: TopicSelectionFunctionalRef[] }>();
+    n6StrengthRef = evidenceBundle.strength_assessment_refs[0]!;
+    const batch = buildV1aNativeRankedBatch({ titleCardId, nodeAttemptId: n6AttemptId, evidenceMapRecords: n5.scenario_result.node_result.evidence_map_records, strengthRef: n6StrengthRef });
+    const drafts = batch.drafts.map((draft, index) => ({ ...draft, conflict_refs: evidenceBundle.conflict_set_refs, mechanism_payload: { research_object: 'evidence workflows',
+      mechanism: index ? 'adaptive review routing' : 'evidence-linked replay', intervention: index ? 'prioritize unresolved objections' : 'link every decision to evidence',
+      comparison: 'final-decision-only records', outcome: index ? 'objection resolution' : 'replay completeness' } }));
+    const evidenceRefs = uniqueRefs(drafts.flatMap(draft => Object.values(draft.evidence_role_bundle).flat()));
+    cliReplies.push({ ...batch, drafts, portfolio_disposition: { outcome: 'selected', rationale: 'Controlled comparative priority.', confidence: 0.8,
+      evidence_refs: evidenceRefs, rejection_reasons: [], reopening_conditions: [], candidate_dispositions: drafts.map((draft, index) => ({
+        candidate_key: draft.draft_id, disposition: index ? 'parked' : 'selected', rationale: 'Controlled comparative priority.', evidence_refs: evidenceRefs,
+        drop_reason_code: null, reopening_conditions: index ? ['Reconsider adaptive routing after replay.'] : [],
+      })) } });
+  }
   await advanceEvidenceCheckpoint(app, titleCardId);
   const n6 = await invokeV1aNativeHarnessNode(
     app,
@@ -1795,24 +1831,24 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
       title_card_id: titleCardId,
       workflow_run_id: `workflow_run_v1a_for_v1b_n6_${suffix}`,
       node_attempt_id: n6AttemptId,
-      topic_scope_ref: ref('topic_scope', `topic_${suffix}`, titleCardId),
+      topic_scope_ref: cliReplies ? n1.scenario_result.node_result.topic_seed_ref : ref('topic_scope', `topic_${suffix}`, titleCardId),
       evidence_map_ref: n5.scenario_result.node_result.evidence_map_ref,
       evidence_strength_ref: n6StrengthRef,
-      resource_sample_set_ref: ref('resource_sample_set', `sample_${suffix}`, titleCardId),
+      resource_sample_set_ref: cliReplies ? null : ref('resource_sample_set', `sample_${suffix}`, titleCardId),
       search_snapshot_refs: [n4.scenario_result.node_result.search_run_ref],
       resource_snapshot_refs: [n2.scenario_result.node_result.literature_resource_pool_snapshot_ref],
       policy_version: 'v1',
       output_schema_version: 'v1',
       profile_id: TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
-      execution_mode: 'mocked_llm',
-      run_mode: 'acceptance',
+      execution_mode: cliReplies ? 'codex_cli' : 'mocked_llm',
+      run_mode: cliReplies ? 'product' : 'acceptance',
       exploration_payload: buildV1aNativeExplorationPayload(),
       arbiter_payload: buildV1aNativeArbiterPayload({
         evidenceMapRecords: n5.scenario_result.node_result.evidence_map_records,
         titleCardId,
         strengthRef: n6StrengthRef,
       }),
-      mocked_output: {
+      mocked_output: cliReplies ? null : {
         fixture_id: `ranked_batch_${suffix}`,
         output: buildV1aNativeRankedBatch({
           titleCardId,
@@ -1848,6 +1884,7 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
   const alternativeCandidate = n6.scenario_result.adapter_result.persist_need_candidate_batch_result.persisted_candidates[1];
   assert.ok(alternativeCandidate);
   const candidateRef = ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version);
+  if (cliReplies) cliReplies.push(nativeAdjudicationReply);
   const n7 = await invokeV1aNativeHarnessNode(
     app,
     'topic-selection.v1a.validate-need-adjudication.v1',
@@ -1862,11 +1899,11 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
       search_run_ref: candidate.search_run_ref,
       search_plan_ref: candidate.search_plan_ref,
       literature_snapshot_ref: candidate.literature_snapshot_ref,
-      execution_mode: 'provider_llm',
-      run_mode: 'acceptance',
+      execution_mode: cliReplies ? 'codex_cli' : 'provider_llm',
+      run_mode: cliReplies ? 'product' : 'acceptance',
       executor_kind: 'single_agent',
       profile_id: TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID,
-      fixture_human_decision: true,
+      fixture_human_decision: !cliReplies,
       policy_version: 'v1',
       output_schema_version: 'v1',
       expectations: {
@@ -1885,6 +1922,12 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
   );
   const gapCheckpoint = await researchCheckpoint(app, titleCardId, 'gap_selection');
   assert.ok(gapCheckpoint.allowed_actions.includes('advance'));
+  if (cliReplies) cliReplies.push(({ output_lineage }: { output_lineage: Record<string, unknown> }) => ({
+    schema_version: 'HumanConfirmationSemanticReview@v1', review_id: `review_${suffix}`,
+    status: 'pass', alignment_codes: ['validate_alignment_clear'], risk_coverage: 'complete', required_check_coverage: 'complete',
+    scope_violations: [], rationale_summary: 'Controlled Human confirmation covers the current candidates, risks and required checks.',
+    warning_codes: [], blocker_codes: [], review_reason_codes: [], ...output_lineage,
+  }));
   const n8 = await invokeV1aNativeHarnessNode(
     app,
     'topic-selection.v1a.human-confirm-need.v1',
@@ -1939,7 +1982,8 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
           ],
         },
       },
-      execution_mode: 'deterministic_parser',
+      execution_mode: cliReplies ? 'codex_cli' : 'deterministic_parser',
+      ...(cliReplies ? { run_mode: 'product' } : {}),
       policy_version: 'v1',
       output_schema_version: 'v1',
       profile_id: TOPIC_SELECTION_CONFIRMATION_SEMANTIC_REVIEW_SINGLE_AGENT_PROFILE_ID,
@@ -3731,4 +3775,241 @@ test('v1b operator routes (W-15): sign-off strict validation + tripwire target g
   } finally {
     await app.close();
   }
+});
+
+// One API-only composition: controlled external CLI replies, production app owners and Human inputs.
+test('T-153 CLI product HTTP composes managed sources through intake and feedback without caller role answers', async t => {
+  const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { TopicSelectionCodexCliRunnerService } = await import('../services/topic-selection-codex-cli-runner-service.js');
+  const database = process.env.T153_PRODUCT_HTTP_DATABASE;
+  if (database) {
+    const url = new URL(process.env.DATABASE_URL!);
+    assert.match(database, /^t153_p5_[a-f0-9]{12}$/);
+    assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
+    assert.equal(url.pathname, `/${database}`); assert.equal(url.searchParams.get('schema'), 'public');
+    for (const key of ['RESEARCH_LIFECYCLE_REPOSITORY', 'TITLE_CARD_REPOSITORY', 'APPLICATION_SETTINGS_REPOSITORY', 'AUTO_PULL_REPOSITORY']) {
+      assert.equal(process.env[key], 'prisma');
+    }
+  }
+  const home = mkdtempSync(join(tmpdir(), 't153-product-http-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const replies: unknown[] = [];
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'controlled-cli', stderr: '', exit_code: 0, timed_out: false };
+    assert.ok(replies.length, 'Unexpected model execution or unprotected replay.');
+    calls++;
+    const reply = replies.shift();
+    const output: unknown = typeof reply === 'function' ? reply(JSON.parse(options.stdin.split('[user]\n')[1]!)) : reply;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `t153-http-${calls}` }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
+      stderr: '', exit_code: 0, timed_out: false };
+  });
+  const previousRoot = process.env.LITERATURE_CONTENT_PROCESSING_ROOT;
+  process.env.LITERATURE_CONTENT_PROCESSING_ROOT = join(home, 'content');
+  t.after(() => { if (previousRoot === undefined) delete process.env.LITERATURE_CONTENT_PROCESSING_ROOT; else process.env.LITERATURE_CONTENT_PROCESSING_ROOT = previousRoot; });
+  const gateway = new FakeTopicSelectionV1aLlmGateway();
+  const options = { backgroundWorkEnabled: false, topicSelectionCodexCli: { runner, model_id: 'gpt-6-astra' }, topicSelectionV1aLlmGateway: gateway };
+  let app = buildApp(options);
+  t.after(() => app.close());
+  const upstreamReplays: Array<{ url: string; payload: object; result: unknown }> = [];
+  app.addHook('onSend', async (request, _reply, payload) => {
+    const body = request.body as { scenario_input?: { execution_mode?: string } } | undefined;
+    if (request.url.startsWith('/topic-selection/v1a/workflow-harness/nodes/')
+      && body?.scenario_input?.execution_mode === 'codex_cli' && typeof payload === 'string') {
+      upstreamReplays.push({ url: request.url, payload: body, result: JSON.parse(payload) });
+    }
+    return payload;
+  });
+  const reconstruct = async () => {
+    if (!database) return;
+    await app.close();
+    const { getPrismaClient } = await import('../repositories/prisma/prisma-client.js');
+    await getPrismaClient().$disconnect();
+    app = buildApp(options);
+  };
+  const suffix = uniqueId('t153-cli-full');
+  const { v1bInputBundle: bundle } = await createV1bInputBundle(app, suffix, async literatureId => {
+    const send = async (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) => {
+      const response = await app.inject({ method, url, payload });
+      assert.ok(response.statusCode >= 200 && response.statusCode < 300, response.body);
+      return response;
+    };
+    const text = '# Controlled workflow study\n\nEvidence workflows miss reviewer-facing traceability from claims to decisions. A bounded replay mechanism links evidence to each decision. The comparison baseline only records final decisions. The study does not establish effectiveness outside these synthetic workflows.';
+    const asset = join(home, 'controlled-study.md'); writeFileSync(asset, text);
+    await send('POST', `/literature/${literatureId}/content-assets`, { asset_kind: 'raw_fulltext', source_kind: 'local_path',
+      local_path: asset, mime_type: 'text/markdown', checksum: sha256Text(text), rights_class: 'OA' });
+    await send('POST', `/literature/${literatureId}/content-processing/runs`, { requested_stages: ['ABSTRACT_READY', 'FULLTEXT_PREPROCESSED'] });
+    for (let poll = 0; poll < 100; poll++) {
+      const response = await send('GET', `/literature/${literatureId}/content-processing/runs`);
+      const runs = response.json<{ items: Array<{ status: string; error_message?: string }> }>().items;
+      if (runs[0]?.status === 'SUCCESS') break;
+      assert.ok(!['FAILED', 'PARTIAL'].includes(runs[0]?.status ?? ''), response.body);
+      assert.ok(poll < 99, 'Content preparation did not finish.');
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    const response = await send('GET', `/literature/${literatureId}/content-processing/key-content-curation-bundle`);
+    const curation = response.json<{ paragraphs: Array<{ paragraph_id: string; text: string }>; document: { normalized_text_checksum: string } }>();
+    const paragraph = curation.paragraphs[0]!; assert.ok(paragraph);
+    const item = (id: string, type: string, statement: string) => ({ id, type, statement, details: statement,
+      source_refs: [{ ref_type: 'paragraph', ref_id: paragraph.paragraph_id }], confidence: 0.9, evidence_strength: 'high', notes: null, provenance: 'model_generated' });
+    await send('POST', `/literature/${literatureId}/content-processing/key-content-dossier`, { curation_source: 'manual_curated', curator: 'controlled fixture', dossier: {
+      schema_version: 'key_content.v1', extraction_profile: 'paper_semantic_dossier.v1', readiness_status: 'READY',
+      input_refs: { fulltext_checksum: curation.document.normalized_text_checksum },
+      categories: { research_problem: [item('problem', 'problem', 'Evidence workflows miss reviewer-facing traceability.')],
+        contributions: [item('contribution', 'contribution', 'A bounded replay mechanism links evidence to decisions.')],
+        method: [item('method', 'method', 'Compare linked evidence with final-decision-only records.')], datasets_and_benchmarks: [], experiments: [],
+        key_findings: [item('finding', 'finding', 'The replay mechanism preserves decision links in synthetic workflows.')],
+        limitations: [item('limit', 'limitation', 'Effectiveness outside synthetic workflows is unverified.')], reproducibility: [], related_work_positioning: [],
+        evidence_candidates: [item('evidence', 'evidence', 'The controlled paragraph describes the comparison.')], figure_insights: [], table_insights: [], claim_evidence_map: [], automation_signals: [] },
+      quality_report: { completeness_score: 0.4, confidence: 0.9, blockers: [], warnings: [], conflicts: [], extraction_diagnostics: [] },
+      display_digest: 'Controlled workflow comparison; synthetic source only.', generated_at: new Date().toISOString(),
+    } });
+    await send('POST', `/topics/${suffix}/literature-scope`, { actions: [{ literature_id: literatureId, scope_status: 'in_scope' }] });
+    await send('PATCH', `/topics/${suffix}/literature-activation`, { actions: [{ literature_id: literatureId,
+      activation_status: 'active', activation_score: 90, reason: 'Controlled Human readiness input for an isolated synthetic-source test.' }] });
+    return { paragraphId: paragraph.paragraph_id, text: paragraph.text };
+  }, replies);
+  assert.equal(gateway.calls.length, 0, 'No generation provider participates in the CLI product chain.');
+  const upstreamCalls = calls;
+  assert.equal(upstreamCalls, 4);
+  assert.equal(upstreamReplays.length, 4);
+  await reconstruct();
+  for (const replay of [...upstreamReplays]) {
+    const response = await app.inject({ method: 'POST', url: replay.url, payload: replay.payload });
+    assertStatus(response, 201); assert.deepEqual(response.json(), replay.result);
+  }
+  assert.equal(calls, upstreamCalls);
+  const cli = (request: TopicSelectionV1bWorkflowHarnessRunRequest): TopicSelectionV1bWorkflowHarnessRunRequest => ({ ...request,
+    execution_spec: { execution_mode: 'codex_cli', model_option_id: null }, run_mode: 'product', semantic_artifacts: [] });
+  const n1 = await invokeV1bHarnessNode(app, v1bHarnessN1Request(bundle, suffix));
+  const n2 = await invokeV1bHarnessNode(app, v1bHarnessN2Request(bundle, n1, suffix, acceptedConstraintProfilePayload()));
+  const n3 = await invokeV1bHarnessNode(app, v1bHarnessN3Request(n1, n2, suffix));
+  const n4Input = cli(v1bHarnessN4Request(n1, n2, n3, suffix));
+  replies.push(v1bHarnessN4Draft(bundle));
+  const n4 = await invokeV1bHarnessNode(app, n4Input);
+  assert.ok(n4.authority_ref, JSON.stringify(n4));
+  assert.deepEqual({ ...await invokeV1bHarnessNode(app, n4Input), replay_provenance: null }, { ...n4, replay_provenance: null });
+  assert.equal(calls, upstreamCalls + 1);
+  const option = await selectedV1bHarnessOption(app, n4);
+  const n5 = await invokeV1bHarnessNode(app, v1bHarnessN5Request(n4, acceptedV1bHarnessSliceSelectionPayload(option), suffix));
+  const n6Input = cli(await v1bHarnessN6Request(app, n5, suffix));
+  const roles = n6CodexDebateRoles(v1bHarnessN6Draft(bundle, n6Input));
+  replies.push(...roles.n6_debate_explorer.map(role => role.codex_response.output), roles.n6_debate_critic[0]!.codex_response.output,
+    { ...roles.n6_debate_arbiter[0]!.codex_response.output, repair_actions: [] });
+  const n6Response = await app.inject({ method: 'POST', url: `/topic-selection/v1b/workflow-harness/nodes/${n6Input.node_id}/invocations`, payload: n6Input });
+  if (n6Response.statusCode !== 201) {
+    const diagnostics = await app.inject({ method: 'GET', url: `/topic-selection/v1b/workflow-runs/${n6Input.workflow_run_id}/artifacts` });
+    const audits = diagnostics.json<{ items: TopicSelectionArtifactRefRecord[] }>().items.filter(row => row.payload?.status || row.payload?.blocker_codes);
+    assert.fail(JSON.stringify({ response: n6Response.json(), calls, audits: audits.map(row => ({ status: row.payload?.status, validation: row.payload?.validation, blockers: row.payload?.blocker_codes })) }));
+  }
+  const n6 = n6Response.json<WorkflowHarnessHttpResult>();
+  assert.ok(n6.handoff_ref, JSON.stringify(n6));
+  assert.deepEqual({ ...await invokeV1bHarnessNode(app, n6Input), replay_provenance: null }, { ...n6, replay_provenance: null });
+  assert.equal(calls, upstreamCalls + 5);
+  const n7 = await invokeV1bHarnessNode(app, await v1bHarnessN7Request(app, n6, suffix));
+  const n8Input = cli(await v1bHarnessN8Request(app, n7, suffix));
+  const beforeHuman = await app.inject({ method: 'POST', url: `/topic-selection/v1b/workflow-harness/nodes/${n8Input.node_id}/invocations`, payload: n8Input });
+  assert.equal(beforeHuman.statusCode, 409, beforeHuman.body);
+  assert.equal(calls, upstreamCalls + 5, 'Question review must stop progression before model work.');
+  await advanceQuestionCheckpoint(app, bundle.title_card_id);
+  replies.push(v1bHarnessN8ValueDraft(n8Input));
+  const n8 = await invokeV1bHarnessNode(app, n8Input);
+  assert.ok(n8.authority_ref, JSON.stringify(n8));
+  const n9 = await invokeV1bHarnessNode(app, await v1bHarnessN9Request(app, n8, suffix));
+  const n10 = await invokeV1bHarnessNode(app, await v1bHarnessN10Request(app, n9, suffix));
+  const n11Input = await v1bHarnessN11Request(app, n10, suffix);
+  const n11 = await invokeV1bHarnessNode(app, n11Input);
+  assert.equal(n11.route_decision, 'stop_v1b_complete', JSON.stringify(n11));
+  await reconstruct();
+  assert.deepEqual({ ...await invokeV1bHarnessNode(app, n11Input), replay_provenance: null }, { ...n11, replay_provenance: null });
+  assert.equal(calls, upstreamCalls + 6); assert.equal(replies.length, 0);
+  const post = async (url: string, payload: object, status = 201) => {
+    const response = await app.inject({ method: 'POST', url, payload });
+    assert.equal(response.statusCode, status, `${url}: ${response.body.slice(0, 1500)}`); return response;
+  };
+  const snapshot = (await post('/topic-selection/v1c/promotion-input-snapshots', {
+    v1b_to_v1c_input_bundle_id: n11.authority_ref!.ref_id,
+  })).json<TopicSelectionPromotionInputSnapshotRecord>();
+  assert.equal(snapshot.closure_status, 'ready_for_gate');
+  const outputs = promotionDebateRoleOutputs({ ...snapshot, closure_status: 'ready_for_gate', snapshot,
+    snapshot_hashes: { bundle_hash: snapshot.bundle_hash, package_snapshot_hash: snapshot.package_snapshot_hash,
+      package_draft_input_snapshot_hash: snapshot.package_draft_input_snapshot_hash, promotion_input_snapshot_hash: snapshot.promotion_input_snapshot_hash } });
+  const final = outputs['n2_bounded_micro_debate.synthesizer_final'];
+  final.n3_semantic_layer = { ...final.n3_semantic_layer as Record<string, unknown>,
+    material_risk_acknowledgements: { status: 'addressed', risk_refs: snapshot.risk_finding_refs ?? [] } };
+  replies.push(...Object.values(outputs));
+  const supportInput = { promotion_input_snapshot_id: snapshot.promotion_input_snapshot_id, workflow_run_id: `promotion_${suffix}`,
+    node_attempt_id: `support_${suffix}`, execution_spec: { execution_mode: 'codex_cli' } };
+  const support = (await post('/topic-selection/v1c/promotion-decision-support/bounded-debate', supportInput))
+    .json<TopicSelectionV1cPromotionDecisionSupportCreationResult>();
+  assert.deepEqual((await post('/topic-selection/v1c/promotion-decision-support/bounded-debate', supportInput)).json(), support);
+  const { promotion_gate_check: gate } = (await post('/topic-selection/v1c/promotion-gate-checks', {
+    promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
+  })).json<TopicSelectionV1cPromotionGateCheckCreationResult>();
+  assert.equal(gate.disposition, 'ready_for_human_decision');
+  const conditions = support.promotion_dossier.dossier_payload.condition_candidates as TopicSelectionPromotionConditionCandidate[];
+  replies.push(({ context_packet: p }: { context_packet: Record<string, unknown> }) => {
+    const projected = (p.research_context as { promotion_dossier: { dossier_payload: Record<string, unknown> } }).promotion_dossier.dossier_payload;
+    const original = support.promotion_dossier.dossier_payload;
+    for (const [key, value] of Object.entries(original)) {
+      if (key !== 'debate_execution' && key !== 'support_policy') assert.deepEqual(projected[key], value);
+    }
+    const audit = original.debate_execution as Record<string, unknown>;
+    const projectedAudit = projected.debate_execution as Record<string, unknown>;
+    assert.equal(projectedAudit.role_artifacts, undefined);
+    assert.equal(projectedAudit.role_artifacts_hash, sha256Text(stableStringify(audit.role_artifacts)));
+    assert.ok(audit.role_artifacts, 'The canonical dossier retains its full runtime identity.');
+    return {
+      schema_version: 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1', promotion_gate_check_id: p.promotion_gate_check_id,
+      promotion_input_snapshot_id: p.promotion_input_snapshot_id, promotion_input_snapshot_hash: p.promotion_input_snapshot_hash,
+      title_card_id: bundle.title_card_id, decision: conditions.length ? 'promote_with_conditions' : 'promote_to_paper_project',
+      rationale: 'Controlled synthetic workflow candidate; requires explicit Human review.', confirmed_snapshot_hash: p.promotion_input_snapshot_hash,
+      conditions, required_actions: [], loopback_target: null, allowed_refinements: [], stop_conditions: [], reopen_conditions: [],
+      cited_refs: p.allowed_refs, decision_support_refs: p.allowed_refs, no_authority_write_confirmed: true,
+      no_bridge_creation_confirmed: true, human_review_required: true,
+    };
+  });
+  const previewInput = { promotion_gate_check_id: gate.promotion_gate_check_id, workflow_run_id: `promotion_${suffix}`,
+    node_attempt_id: `candidate_${suffix}`, execution_spec: { execution_mode: 'codex_cli' } };
+  const candidate = (await post('/topic-selection/v1c/promotion-decisions/delegated/candidates', previewInput))
+    .json<{ candidate_receipt_ref: TopicSelectionFunctionalRef; candidate_hash: string }>();
+  assert.deepEqual((await post('/topic-selection/v1c/promotion-decisions/delegated/candidates', previewInput)).json(), candidate);
+  const human = { actor_type: 'human' as const, actor_id: 'controlled-http-reviewer' };
+  const acceptance = { promotion_gate_check_id: gate.promotion_gate_check_id, workflow_run_id: previewInput.workflow_run_id,
+    node_attempt_id: previewInput.node_attempt_id, candidate_receipt_ref: candidate.candidate_receipt_ref,
+    confirmed_candidate_hash: candidate.candidate_hash, human_actor: human,
+    condition_owners: conditions.map(condition => ({ condition_id: condition.condition_id, owner: human })) };
+  const unconfirmed = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions/delegated', payload: acceptance });
+  assert.equal(unconfirmed.statusCode, 409, unconfirmed.body);
+  const decision = (await post('/topic-selection/v1c/promotion-decisions/delegated', { ...acceptance, promote_reconfirmed: true }))
+    .json<TopicSelectionV1cHumanPromotionDecisionCreationResult>();
+  const bridge = (await post('/topic-selection/v1c/paper-project-bridges', { promotion_decision_id: decision.promotion_decision.promotion_decision_id }))
+    .json<{ paper_project_bridge: { paper_project_bridge_id: string; bridge_payload_hash: string } }>().paper_project_bridge;
+  const intakeUrl = `/topic-selection/v1c/paper-project-bridges/${bridge.paper_project_bridge_id}/paper-project-intake`;
+  const intakeInput = { bridge_payload_hash: bridge.bridge_payload_hash, title: 'Controlled CLI workflow paper', created_by: 'human' };
+  const intake = (await post(intakeUrl, intakeInput)).json<{ paper_project_id: string; paper_project_created: boolean }>();
+  assert.equal(intake.paper_project_created, true);
+  await reconstruct();
+  const project = await app.inject({ method: 'GET', url: `/paper-projects/${intake.paper_project_id}/artifact-bundle` });
+  assertStatus(project, 200);
+  const replayIntake = (await post(intakeUrl, intakeInput, 200)).json<typeof intake>();
+  assert.equal(replayIntake.paper_project_id, intake.paper_project_id); assert.equal(replayIntake.paper_project_created, false);
+  replies.push(({ context_packet: p }: { context_packet: Record<string, unknown> }) => ({
+    schema_version: 'topic-selection-v1c-downstream-feedback-candidate.v1', paper_project_bridge_id: p.paper_project_bridge_id,
+    downstream_source_kind: p.downstream_source_kind, downstream_source_ref: p.downstream_source_ref,
+    source_feedback_refs: p.source_feedback_refs, observed_blocker_refs: p.observed_blocker_refs, artifact_refs: p.artifact_refs,
+    feedback_signal: 'no_recheck_needed', severity: 'info', summary: 'Only formatting changed.', required_action: null, feedback_payload: {},
+    normalization_hints: { requires_recheck_hint: false, loopback_target_hint: null, affected_ref_hint: null, reason_codes: ['no_recheck_needed'] },
+    cited_refs: p.allowed_refs, no_upstream_mutation_confirmed: true,
+  }));
+  const feedbackInput = { paper_project_bridge_id: bridge.paper_project_bridge_id, workflow_run_id: `promotion_${suffix}`,
+    node_attempt_id: `feedback_${suffix}`, execution_spec: { execution_mode: 'codex_cli' }, downstream_source_kind: 'paper_project',
+    downstream_source_ref: ref('paper_project', intake.paper_project_id, bundle.title_card_id), raw_feedback_text: 'Only formatting changed.' };
+  const feedback = (await post('/topic-selection/v1c/downstream-feedback/normalize', feedbackInput)).json();
+  assert.deepEqual((await post('/topic-selection/v1c/downstream-feedback/normalize', feedbackInput)).json(), feedback);
+  assert.equal(calls, upstreamCalls + 12); assert.equal(replies.length, 0);
+  assert.equal(gateway.calls.length, 0);
 });

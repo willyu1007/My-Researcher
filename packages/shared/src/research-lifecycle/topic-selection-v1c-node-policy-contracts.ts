@@ -75,7 +75,7 @@ export const TOPIC_SELECTION_V1C_NODE_POLICIES = [
     provider_required: false,
     debate_allowed: true,
     // Implemented bounded micro-debate: promotion_supporter_draft -> reviewer_critic_review ->
-    // promotion_supporter_repair -> synthesizer_final (gated prompt bodies: T-129 C-2).
+    // promotion_supporter_repair -> synthesizer_final (product Codex qualified by T-153).
     debate_primitive: 'bounded_sequence',
     human_review_required: false,
     human_delegated_allowed: false,

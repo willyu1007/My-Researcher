@@ -3914,18 +3914,20 @@ test('product CLI validation preserves risk and Human gates and blocks unsafe re
   }
 });
 
-test('product CLI extraction reads bound original paragraphs and refuses source or locator drift', async t => {
+for (const storage of ['inline', 'file'] as const) test(`product CLI extraction reads bound original paragraphs from ${storage} and refuses source or locator drift`, async t => {
   const original = 'The supplied answer document is less useful in the middle of the context.';
   const ctx = await seedNeedValidationSearchRuntime({ originalFulltext: original });
   const unselected = 'UNSELECTED_FRAGMENT must remain outside the model packet.';
   const initialDocument = (await ctx.literature.listFulltextDocumentsByLiteratureId('lit_001'))[0]!;
   const initialParagraphs = await ctx.literature.listFulltextParagraphsByDocumentId(initialDocument.id);
   const fullText = `${original}\n\n${unselected}`;
-  await ctx.literature.upsertFulltextExtractionBundle({ document: { ...initialDocument, normalizedText: fullText, normalizedTextChecksum: sha256Text(fullText) },
-    sections: [], anchors: [], paragraphs: [...initialParagraphs, { ...initialParagraphs[0]!, id: 'paragraph_unselected', paragraphId: 'paragraph_unselected',
-      text: unselected, checksum: sha256Text(unselected), orderIndex: 2, startOffset: original.length + 2, endOffset: fullText.length }] });
   const home = await fs.mkdtemp(join(tmpdir(), 'v1a-paragraph-cli-'));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const textPath = join(home, 'normalized.txt');
+  if (storage === 'file') await fs.writeFile(textPath, fullText);
+  await ctx.literature.upsertFulltextExtractionBundle({ document: { ...initialDocument, normalizedText: storage === 'inline' ? fullText : null, normalizedTextPath: storage === 'file' ? textPath : null, normalizedTextChecksum: sha256Text(fullText) },
+    sections: [], anchors: [], paragraphs: [...initialParagraphs, { ...initialParagraphs[0]!, id: 'paragraph_unselected', paragraphId: 'paragraph_unselected',
+      text: unselected, checksum: sha256Text(unselected), orderIndex: 2, startOffset: original.length + 2, endOffset: fullText.length }] });
   const handoff = ctx.searchRunResult.node_result.downstream_handoff!;
   const draft = evidenceMapExtractionDraft({ title_card_id: ctx.titleCard.title_card_id, handoff,
     literature_ref: ctx.literatureRef, source_ref: ctx.sourceRef, coverage_row_intent_ref: ctx.coverageRowIntentRefs[0]!,
@@ -3956,6 +3958,14 @@ test('product CLI extraction reads bound original paragraphs and refuses source 
   draft.draft_units[0]!.locator.paragraph_ref = { ...ctx.manualLocatorRef, version_id: 'forged' };
   await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'cli-paragraph-forged' }), /quote or locator/);
   assert.equal(calls, 2);
+  if (storage === 'file') {
+    await fs.writeFile(textPath, fullText + ' tampered');
+    await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'file-drift' }), /original paragraph/);
+    await fs.rm(textPath);
+    await assert.rejects(ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario({ ...request, node_attempt_id: 'file-missing' }), /original paragraph/);
+    assert.equal(calls, 2, 'Missing or drifted managed text is rejected before a model call.');
+    await fs.writeFile(textPath, fullText);
+  }
   const document = (await ctx.literature.listFulltextDocumentsByLiteratureId('lit_001'))[0]!;
   const paragraphs = await ctx.literature.listFulltextParagraphsByDocumentId(document.id);
   await ctx.literature.upsertFulltextExtractionBundle({ document, sections: [], anchors: [],

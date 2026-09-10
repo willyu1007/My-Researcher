@@ -1,6 +1,6 @@
 # Execution inventory
 
-Inventory established at `a5263023`, reconciled with the current Phase 4 implementation on 2026-09-10. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
+Inventory established at `a5263023`, reconciled with the completed Phase 5 implementation on 2026-09-10. This is a coverage index for T-153, not another runtime admission registry. The maintained workflow matrix and typed policies remain authoritative. A row names a registered profile, not necessarily one node or one model call. Planned verification is owned by `verification.md`; qualification evidence and its limits are recorded in verification.md.
 
 ## Model profiles
 
@@ -72,14 +72,14 @@ Reserved/rejected Debate slots stay reserved/rejected. Optional semantic/Arena s
 
 ## T-129 prompt inheritance
 
-Historical source: `git show 5cf904fb:dev-docs/active/topic-selection-calibration-release/00-overview.md`, C-1/C-2/C-3. D-30 had already made threshold calibration optional and removed C-1 sign-off as C-3's prerequisite. C-2 still required corpus-informed prompt finalization. Replacing that remaining corpus dependency with role-specific qualification is the explicit approved decision in the roadmap, not an already-proved quality result.
+Historical source: `git show 5cf904fb:dev-docs/active/topic-selection-calibration-release/00-overview.md`, C-1/C-2/C-3. D-30 had already made threshold calibration optional and removed C-1 sign-off as C-3's prerequisite. C-2 still required corpus-informed prompt finalization. The roadmap explicitly replaces that remaining corpus dependency for Codex with role-specific qualification. Phases 2–4 supply the resulting real-model evidence; Phase 5 verifies composition. This does not claim the original corpus-based C-2 was completed.
 
 | Historical prompt family | Current `.ai/llm/topic-selection/prompts/` source | Current observation |
 |---|---|---|
 | #16 / #17 / #18 N6 Explorer/Critic/Arbiter | `v1b/n6-debate-{explorer,critic,arbiter}/system.md` | Explorer/Critic v2 and Arbiter v4: earlier v3 insufficiency/apparent-conflict outputs inspected with substantive repairs; v4 clarifies non-advancing treatment of Critic findings after real regeneration exposed ambiguity; both real regeneration paths admitted with evidence expansion; default-profile activation verified |
 | #22 ordinary N8 assessment | `v1b/n8-topic-value-assessment/system.md` | Prompt v4 covers scoped value reasoning, exact admissible citations, consistent 0–100 scoring, insufficiency and non-advance; was part of the original six; real ordinary assessments admitted with explicit evidence limitations |
 | #23 N8 bounded role family | `v1b/n8-bounded-micro-debate/system.md` | Prompt v5 covers four role behaviors, exact citations, 0–100 scoring and resolution of assessment defects while retaining actual research blockers; real four-role chain and business gate admitted with evidence recheck; default-profile activation verified |
-| #25 promotion N2 bounded family | `v1c/n2-bounded-micro-debate/system.md` | Already expanded for material risks and grouped conditions by later work; preserve that contract |
-| Later refinement-delta family | `v1b/n6-refinement-delta-debate/system.md` | Additional substantive support-only contract; outside the historical six but inside T-153 |
+| #25 promotion N2 bounded family | `v1c/n2-bounded-micro-debate/system.md` | Ordinary v4 and risk Debate v4 qualified on all nine original paragraphs (207–211), with actual prior roles, material risks, grouped conditions, N3 and exact support-commit recovery |
+| Later refinement-delta family | `v1b/n6-refinement-delta-debate/system.md` | Additional support-only contract outside the historical six; real exact-delta positive/negative cases, Critic preservation, deterministic admission and Human checkpoint recovery qualified in Phase 2 |
 
-The old six were neither an exhaustive workflow inventory nor confined to N6/N8 Debate. Inspect remaining enabled families against the same qualification criteria; do not rewrite substantive prompts merely to match a count.
+The old six were neither an exhaustive workflow inventory nor confined to N6/N8 Debate. All enabled families now have the same qualification criteria and their own evidence references above. Optional threshold tuning and other-provider activation remain explicitly outside the completed Codex rollout.

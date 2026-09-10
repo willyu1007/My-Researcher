@@ -741,7 +741,7 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
   private assertProviderDebatePathOpen(): void {
     if (TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.dormant) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
-        `N6 divergent-debate provider_llm execution is pre-wired but DORMANT (T-128 W-14): debate prompts are pre-calibration skeletons and the path opens only via the W-19 turn-on after a ${TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_scope} sign-off (${TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_contract}). Run the debate with codex_assisted or mocked_llm role outputs instead.`);
+        `N6 divergent-debate provider_llm execution is pre-wired but DORMANT (T-128 W-14): other-provider activation remains deferred after T-153 Codex qualification; this provider path opens only via the W-19 turn-on after a ${TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_scope} sign-off (${TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH.release_sign_off_contract}). Use product codex_cli or the existing codex_assisted/mocked_llm compatibility paths.`);
     }
   }
 

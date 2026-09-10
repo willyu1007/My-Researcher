@@ -1272,8 +1272,8 @@
     {
       "id": "T-153",
       "slug": "topic-selection-codex-product-workflow",
-      "status": "in-progress",
-      "updated": "2026-09-09",
+      "status": "done",
+      "updated": "2026-09-10",
       "dev_docs_path": "dev-docs/active/topic-selection-codex-product-workflow",
       "feature_id": "F-003"
     }

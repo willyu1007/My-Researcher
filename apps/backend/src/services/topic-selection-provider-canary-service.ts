@@ -677,11 +677,10 @@ export class TopicSelectionProviderCanaryService {
    *  contract a debate role produces — through the product's own orchestrator path, so what is
    *  verified is the product path and not just the runner.
    *
-   *  It does not route a research node to the line. The N6 and N8 debates keep their dormancy gate,
-   *  which is closed because the debate prompts are pre-calibration skeletons; that reason applies
-   *  to this line exactly as it applies to provider_llm, so opening it with a different execution
-   *  mode would defeat the gate rather than satisfy it. Admission is granted by this canary's own
-   *  profile registry, which is why the line stays inadmissible everywhere else.
+   *  This isolated canary predates T-153's qualified product consumers. Its private profile
+   *  admission verifies transport and one output contract, not full Debate or research quality.
+   *  Product Codex admission now comes from the default registry and canonical node consumers;
+   *  the separate provider_llm Debate activation remains deferred.
    */
   async runV1bN6CodexCliCanary(input: {
     codexCliRunner: TopicSelectionCodexCliRunnerService;

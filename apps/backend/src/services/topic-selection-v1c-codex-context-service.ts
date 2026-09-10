@@ -14,6 +14,23 @@ import { promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion
 
 const validFinding = new Ajv({ allErrors: true }).compile<TopicSelectionRiskFindingPayload>(topicSelectionRiskFindingPayloadSchema);
 
+/** Omit only duplicate audit bodies; the projection is idempotent and binds their exact hashes. */
+export function projectV1cDecisionResearchContext(context: Record<string, unknown>): Record<string, unknown> {
+  const dossier = context.promotion_dossier;
+  if (!dossier || typeof dossier !== 'object' || Array.isArray(dossier)) return context;
+  const record = dossier as Record<string, unknown>;
+  if (!record.dossier_payload || typeof record.dossier_payload !== 'object' || Array.isArray(record.dossier_payload)) return context;
+  const payload = { ...record.dossier_payload } as Record<string, unknown>;
+  for (const [field, auditField] of [['debate_execution', 'role_artifacts'], ['support_policy', 'admission_identity']] as const) {
+    const value = payload[field];
+    if (value && typeof value === 'object' && !Array.isArray(value) && auditField in value) {
+      const { [auditField]: audit, ...details } = value as Record<string, unknown>;
+      payload[field] = { ...details, [`${auditField}_hash`]: canonicalHash(audit) };
+    }
+  }
+  return { ...context, promotion_dossier: { ...record, dossier_payload: payload } };
+}
+
 /** Resolve the frozen promotion evidence; model support never updates package or risk authority. */
 export class TopicSelectionV1cCodexContextService {
   constructor(private readonly options: {
@@ -30,8 +47,8 @@ export class TopicSelectionV1cCodexContextService {
       || gate.gate_check.workspace_id !== input.snapshot.workspace_id) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI decision context differs from its frozen promotion input.');
     }
-    return { ...await this.promotion(input), gate_check: gate.gate_check, promotion_support: gate.support,
-      promotion_dossier: gate.dossier, argument_readiness: gate.argument_readiness_mini_check };
+    return projectV1cDecisionResearchContext({ ...await this.promotion(input), gate_check: gate.gate_check,
+      promotion_support: gate.support, promotion_dossier: gate.dossier, argument_readiness: gate.argument_readiness_mini_check });
   }
 
   async promotion(handoff: TopicSelectionPromotionInputSnapshotHandoff): Promise<Record<string, unknown>> {

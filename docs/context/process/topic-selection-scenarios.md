@@ -3,7 +3,7 @@
 > Maintained scenario registry migrated from the historical T-089 bundle during T-145. Task paths and `.ai/scripts` registration rules in historical prose are provenance only; current executable checks live under `apps/backend/scripts/`.
 
 ## Purpose
-This file is the scenario registry for T-089. Scenarios describe acceptance orchestration only. Business semantics come from the SSOT matrix `docs/context/process/topic-selection-workflow-matrix.md`（原 `06-workflow-matrix.md`，已迁移）and `07-node-policies.md`.
+This file is the maintained acceptance-scenario registry, originally established by T-089. Scenarios describe acceptance orchestration only. Business semantics come from the SSOT matrix `docs/context/process/topic-selection-workflow-matrix.md`（原 `06-workflow-matrix.md`，已迁移）and `07-node-policies.md`.
 
 Machine-checked（T-089 ③，2026-07-05 起）: `apps/backend/scripts/topic-selection-workflow-matrix-consistency.mjs`（进 backend 默认套件）双向校验本注册表——矩阵 `covered_scenarios` 引用的 scenario 必须在此注册、此处注册的 scenario 必须被矩阵引用、每个 scenario 的 `covered_nodes` 与矩阵行集合**相等**、covered_nodes 必须是契约已知 node id。
 
@@ -31,6 +31,15 @@ Use these tier names in verification notes and script summaries to avoid mixing 
 | `real_provider_canary` | Small, explicit-cost run against registered provider LLMs to test structured output quality, latency, telemetry, and failure shape. | provider credentials required |
 
 ## Registry
+
+Execution modes below describe each scenario's covered product paths, not automatic admission
+for every slot or generic scenario-runner dispatch. The typed policies and default model profiles
+remain authoritative. T-153 qualifies all 36 product Codex profiles; compatibility modes retain
+their existing contracts and other-provider Debate activation remains deferred. Whole HTTP
+composition and PostgreSQL reconstruction are verified by the CLI product test in
+`topic-selection-v1b-routes.integration.test.ts`; this controlled chain starts with managed
+literature preparation, while sampling, convergence, optional support and loopbacks have separate
+stage checks and real-model qualifications recorded in T-153 verification.
 
 ### `topic-selection.real-e2e.canary.v1`
 ```yaml
@@ -196,7 +205,7 @@ scenario_id: topic-selection.downstream.feedback-recheck.v1
 status: partial_runner_migrated
 purpose: Verify downstream feedback creates typed loopback/recheck records without mutating upstream topic-selection authority.
 scenario_type: downstream_loopback
-execution_modes: [none, codex_assisted]
+execution_modes: [none, codex_cli, codex_assisted]
 covered_nodes:
   - topic-selection.v1c.create-paper-project-bridge.v1
   - topic-selection.v1c.downstream-feedback-recheck.v1
@@ -205,7 +214,7 @@ fixtures_or_data_source: active PaperProjectBridge and controlled downstream fee
 assertion_scope: feedback source lineage, typed loopback target, recheck request creation, append-only feedback, and upstream immutability
 artifact_expectations: feedback trace, recheck request refs, bridge hash comparison, and upstream immutability assertion evidence
 business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
-implementation_note: 状态对齐 2026-07-06（T-089 ④ 复核确认项）——v1c N6 feedback-normalization 候选运行时已实装（codex_assisted 支持路径与单测在案）；此前 status=planned_migration / execution_modes=[none] 为未建成时代的陈述。旧任务专用 smoke runner 已随治理收敛退役。
+implementation_note: T-153 product Codex reads the complete bridge and raw report, produces a validated normalization candidate and calls the existing record-only feedback/recheck owner. Real overclaim and no-recheck cases, full HTTP composition and persisted replay pass; ambiguous partial recheck writes remain fail-closed.
 ```
 
 ### `topic-selection.debate.resource-sampling-polarity.v1`
@@ -226,49 +235,49 @@ business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
 ### `topic-selection.debate.v1a-need-discovery.v1`
 ```yaml
 scenario_id: topic-selection.debate.v1a-need-discovery.v1
-status: planned_after_node_policy
+status: implemented
 purpose: Verify arbiter-led debate can deepen v1a need discovery and persist a bounded batch of grounded NeedCandidates into the existing candidate pool before adjudication.
 scenario_type: debate
-execution_modes: [codex_assisted, provider_llm, mocked_llm]
+execution_modes: [codex_cli, codex_assisted, provider_llm, mocked_llm]
 covered_nodes:
   - topic-selection.v1a.generate-need-candidate.v1
 fixtures_or_data_source: controlled evidence map with multiple plausible need framings, support/challenge tension, and prior-art risk
 assertion_scope: D-25 implementation slice coverage, deterministic-before-LLM verification order, mocked-before-provider/codex staged verification, GenerateNeedCandidateNodeInput validation, stable GenerateNeedCandidateNodeResult shape across execution modes, status versus terminal_result mapping, debate trigger, exploration_context versus arbiter_context separation, evidence signal extraction, candidate framing expansion, optional arbiter-scoped supplemental rounds up to 3 total rounds, SupplementalRoundRoutingDecision production, supplementable versus non-supplementable reason handling, no broad re-exploration, ranked candidate draft batch minimum schema validation, CandidateDraftAdmissionReport production, admission gate decisions, PersistNeedCandidateBatchCommand validation, idempotent all-or-none NeedCandidate persistence, candidate-pool projection refs/hash, downstream handoff refs only, candidate-pool comparison, draft-to-NeedCandidate mapping, bounded NeedCandidate persistence, per-candidate validation, rejected alternative artifacts, no raw debate transcript handoff, no NeedCandidateSet authority, no SearchPlan mutation, and no ValidatedNeed creation
 artifact_expectations: D-25 implementation slice evidence, GenerateNeedCandidateNodeResult, context packet refs/hashes, shared context envelope, exploration_context digest, arbiter_context digest, cache hit/miss provenance, memory admission summary, role agent provenance, role-level summaries, SupplementalRoundRoutingDecision and supplemental-round requests when used, ranked candidate draft batch artifact, minimum schema validation report, CandidateDraftAdmissionReport, PersistNeedCandidateBatchCommand redacted snapshot, arbiter candidate batch synthesis, rejected/merged framing rationale, unresolved points, batch ranking, draft-to-record mapping report, candidate-pool projection refs/hash, validation report, persisted NeedCandidate refs, and candidate discovery audit refs
 business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
-implementation_note: D-25 WorkflowHarness plumbing cases exist for finalize-persist, supplemental-routing, admission-blocked, duplicate merge-hint, malformed blocked output, execution-mode shape stability, and persistence-conflict rollback; the initial multi-agent debate role loop is implemented through TopicSelectionNeedDiscoveryDebateLoopService; the real E2E canary now routes v1a generate-need-candidate through WorkflowHarness, while full scenario-wrapper migration for remaining nodes and automated supplemental repair rounds remain pending.
+implementation_note: The canonical WorkflowHarness executes two Explorers, DeepCritic, Arbiter framing and final synthesis through product Codex, validates complete role refs and persists admitted batches with exact replay. T-153 real-model cases cover insufficient evidence, disagreement and non-advance. Supplemental routing and successor/linked-round owners retain their existing boundaries; generic scenario-wrapper coverage is separate.
 ```
 
 ### `topic-selection.debate.v1b-n6-topic-candidates.v1`
 ```yaml
 scenario_id: topic-selection.debate.v1b-n6-topic-candidates.v1
-status: runtime_implemented_prompts_gated
+status: implemented
 purpose: Verify the N6 divergent candidate debate loop (explorer/critic/arbiter fan-out) deepens topic-question candidate generation behind the deterministic N6 gate.
 scenario_type: debate
-execution_modes: [codex_assisted, mocked_llm, provider_llm]
+execution_modes: [codex_cli, codex_assisted, mocked_llm, provider_llm]
 covered_nodes:
   - topic-selection.v1b.generate-topic-question-candidates.v1
 fixtures_or_data_source: controlled frozen N5 selection for regular initial review, plus candidate-quality failure fixtures for conditional n6_debate_escalation recovery
 assertion_scope: required initial-path Debate in coordinator and Codex product HTTP, exact receipt replay and drift rejection, conditional recovery via deterministic gate codes, caller-side runtime execution, divergent loop `v1b_n6_divergent_candidate_debate` role fan-out, deterministic admission, arbiter draft funnel into the existing N6 gate, no unreviewed initial product admission, and loopback re-entry projection attachment
 artifact_expectations: four role outputs/audits, arbiter draft batch, input-bound Debate receipt with admission/transcript/gate draft, conditional gate-failure retry-context projection refs, and harness trace refs
 business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md + 07-node-policies.md
-implementation_note: regular bounded initial path implemented T-148 FIND-018; runtime implemented T-127 W-07 (2026-06-20, caller-side debate + runDivergentLoop; JD D-T127-02); provider_llm debate path product-gated by W-14 dormancy (release owned by T-129 C-3); gated prompt bodies are T-129 C-2 scope. Registered 2026-07-05 (T-089 slice ③) because the SSOT matrix N6 row references this scenario id.
+implementation_note: T-153 qualifies and enables regular, gate-failure regeneration and N7-loopback Codex Debate through canonical product callers, with four actual role outputs and a deterministic Arbiter-to-N6 bridge. T-129 C-2 corpus gating is superseded for Codex by approved role-specific qualification; other-provider activation remains deferred under its separate dormancy gate.
 ```
 
 ### `topic-selection.debate.v1b-value-tension.v1`
 ```yaml
 scenario_id: topic-selection.debate.v1b-value-tension.v1
-status: runtime_implemented_prompts_gated
+status: implemented
 purpose: Verify bounded debate can evaluate novelty versus feasibility tension in topic value assessment.
 scenario_type: debate
-execution_modes: [codex_assisted, provider_llm, mocked_llm]
+execution_modes: [codex_cli, codex_assisted, provider_llm, mocked_llm]
 covered_nodes:
   - topic-selection.v1b.assess-topic-value.v1
 fixtures_or_data_source: controlled TopicQuestionContract and value input with novelty/feasibility disagreement
-assertion_scope: debate trigger, novelty advocate output, feasibility skeptic output, reviewer arbiter result, disposition recommendation consistency, and blocker handling
-artifact_expectations: role outputs, arbiter summary, value dimension deltas, validation report, and value assessment audit refs
+assertion_scope: ordinary assessment and signal/operator-triggered Debate, N7 admission, four ordered assessor/value_critic/assessor_repair/synthesizer_final outputs, actual prior bodies, Critic finding resolution, deterministic value disposition, non-advance, exact replay and drift rejection
+artifact_expectations: four role outputs and CLI audits, assessment draft, input-bound completion receipt, exact citations, Critic resolutions, validation report and value assessment refs
 business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
-implementation_note: 状态对齐 2026-07-06（T-089 ④ 复核确认项,原 status=planned_after_node_policy 为三方错位中最陈旧一方）——bounded_sequence 运行时 T-123 Phase 3 已实装并产品接线（N6 同形 gate 触发 T1/T3 → loopback n8_feedback_to_n7 → N7 debate_admission_review → 4 角色有界序列,coordinator 全闭环驱动,e2e 在案）；gated prompt 正文属 T-129 C-2,provider debate 路径受 W-14 dormancy(T-129 C-3)。角色词汇以实现为准（assessor/value_critic/assessor_repair/synthesizer_final,见矩阵 slot map）,本条目早期 novelty-advocate/feasibility-skeptic 表述为设计期语言。
+implementation_note: T-153 qualifies ordinary N8 and the four-role Codex sequence (assessor/value_critic/assessor_repair/synthesizer_final). Actual trigger feedback flows through N7 admission and the same bounded loopback guards. Both repair and final synthesis must resolve Critic findings; research deficits remain explicit. T-129 prompt obligations are superseded for Codex by role-specific qualification; other-provider activation remains deferred.
 ```
 
 ### `topic-selection.debate.v1c-promotion-support-risk.v1`
@@ -277,12 +286,12 @@ scenario_id: topic-selection.debate.v1c-promotion-support-risk.v1
 status: implemented
 purpose: Require one bounded Debate for accepted risks or material RiskFinding refs before a new deterministic promotion gate.
 scenario_type: debate
-execution_modes: [codex_assisted]
+execution_modes: [codex_cli, codex_assisted]
 covered_nodes:
   - topic-selection.v1c.generate-promotion-support.v1
 fixtures_or_data_source: frozen PromotionInputSnapshot; in-memory runtime and HTTP fixtures with typed risks and a risk-free deterministic control
 assertion_scope: required-risk trigger, risk-free fast path, four ordered product role audits, material-risk and accepted-risk coverage, complete typed condition groups and early checks, Human-edited exact mappings and unmapped-risk rejection without partial decision writes, deterministic N3 authority, exact replay and conflicting input, legacy support refusal and historical gate replay
 artifact_expectations: support and dossier with support_policy, condition_candidates, admission identity and debate_execution containing four role artifacts; zero backend provider calls; N2/N3 author no N4 decision; explicit Human conditions alone reach the existing N4 authority
 business_semantics_source: topic-selection-workflow-matrix.md + T-148 roadmap material-risk policy
-implementation_note: T-148 FIND-027 / FIND-028; fixed bounded micro-debate caller, complete advisory risk-to-condition groups, unchanged strict Human gate; no scenario-registry dispatch or provider activation
+implementation_note: T-148 established required risk Debate and exact Human condition mapping. T-153 qualifies all four Codex roles against original evidence and actual prior outputs, verifies N3/support commit recovery and composes promotion, bridge, intake and feedback. No generic scenario-registry dispatch or other-provider activation is implied.
 ```

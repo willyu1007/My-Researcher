@@ -13,6 +13,11 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
   Human decisions remain explicit. See `codex-assisted-operator.md` for supported
   requests, Human stops and recovery. The separate `provider_llm` Debate dormancy gate and its
   historical `calibration_gate_release` scope remain deferred.
+- Canonical HTTP composition now passes from managed literature through evidence/need discovery,
+  question/value work, Human promotion, bridge/PaperProject intake and feedback. The same controlled
+  external-process test passes with PostgreSQL repositories across application reconstruction.
+  This verifies composition and persistent replay; real-model role qualification is recorded
+  separately in T-153, and Human decisions in tests remain controlled inputs.
 - Provenance carries an authoritative runner identity, not a metered gateway identity:
   `source_kind: codex_cli_response`, `provider_id: "codex"`, `model_id`, `runner_version` (read
   from the binary that ran, never declared), `thread_id`, and `trace_artifact_ref` / `_hash`.

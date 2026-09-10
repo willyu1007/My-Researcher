@@ -117,7 +117,7 @@ SO-02/DMP-11 锁定 model-like 调用槽位清单。未列入本表的节点是 
 | `topic-selection.v1a.generate-need-candidate.v1` | `explorer.round_1_discovery` | debate worker role/stage | per named profile (DMP-12) | yes | yes | yes | `topic-selection.need-discovery.explorer.v1`; `NeedDiscoveryExplorerNotes@v1` | implemented |
 | `topic-selection.v1a.generate-need-candidate.v1` | `deep_critic.round_1_discovery` | debate worker role/stage | per named profile (DMP-12) | yes | yes | yes | `topic-selection.need-discovery.deep-critic.v1`; `NeedDiscoveryDeepCriticNotes@v1` | implemented |
 | `topic-selection.v1a.generate-need-candidate.v1` | `arbiter.issue_framing` | debate arbiter role/stage | per named profile (DMP-12) | yes | yes | yes | `topic-selection.need-discovery.arbiter-framing.v1`; `DebateIssueFrame@v1` | implemented |
-| `topic-selection.v1a.generate-need-candidate.v1` | `arbiter.final_synthesis` | debate arbiter external output port | provider_llm / explicit product codex_cli; mocked_llm for isolated tests | no | yes | yes | `topic-selection.need-discovery.arbiter-final.v1`; `RankedCandidateDraftBatch@v1` | implemented |
+| `topic-selection.v1a.generate-need-candidate.v1` | `arbiter.final_synthesis` | debate arbiter final product output | provider_llm / explicit product codex_cli; mocked_llm for isolated tests | no | yes | yes | `topic-selection.need-discovery.arbiter-final.v1`; `RankedCandidateDraftBatch@v1` | implemented |
 | `topic-selection.v1a.validate-need-adjudication.v1` | `adjudication_recommendation` | single_agent recommendation before deterministic gate | codex_assisted / explicit product codex_cli | yes | yes | no | `topic-selection.need-adjudication.single-agent.v1`; `TopicSelectionNeedAdjudicationRecommendationPacket@v1` | implemented |
 | `topic-selection.v1a.human-confirm-need.v1` | `confirmation_semantic_review` | human-authorized bounded semantic review | codex_assisted / explicit product codex_cli | yes | yes | no | `topic-selection.confirmation-semantic-review.single-agent.v1`; `HumanConfirmationSemanticReview@v1` | implemented |
 
@@ -175,11 +175,11 @@ Record node-specific rationale here only after the matrix row exists.
 - **v1a N8 / v1c N4（hard human gates）**: 产品要求人审决定才能推进；v1a N8 附带 bounded semantic review（codex 可在人授权边界内执行）；v1c N4 的 product CLI 先生成受保护候选回执，再以精确 candidate hash、显式 Human actor 和条件 owner 映射接受；promote 类另需 Human reconfirmation。候选与回执重放不写人类决策；最终决定权在人。v1c N6 CLI 只归一化并记录完整 bridge 上的原始反馈，确定性 owner 决定是否创建 recheck，不自动回流推进。
 
 ### Provider Required Reasons
-- No node is provider-required. Provider execution is scenario-driven or explicit override until a future node policy updates this matrix.（唯一例外语义：v1a `arbiter.final_synthesis` 在 real run 中必须 provider_llm，见 slot map。）
+- No node requires the provider gateway. Real v1a `arbiter.final_synthesis` requires product model execution through `provider_llm` or the qualified `codex_cli` consumer; manually supplied final answers cannot substitute for that product call. See the slot map and Codex operating guide.
 
 ### Codex Allowed Reasons
 - Codex is allowed for single-agent and support slots to preserve the personal local-first cost model while keeping shared schema validation, guardrails, and provenance.
-- Codex is not allowed for deterministic or human-review nodes because those nodes do not invoke model-like execution.
+- Deterministic operations and Human decisions retain their own authority. Codex may execute their explicitly registered advisory slots, including Human-confirmation semantic review and promotion candidates; those outputs cannot supply the Human decision.
 
 ## Change Log
 - 2026-07-07（D-30：N8 operator 强制辩论门 + 阈值重定性 advisory）: ① N8 新增第三触发源 T-OP——run request 可选 `operator_debate_request`（N8-only fail-closed、提交时声明、无事后重入路径），首过与 T1/T3 合并进同一 `n8_feedback_to_n7` loopback（新 blocker 码 `operator_forced_debate_trigger`，重入降级 `operator_forced_after_debate` warning），复用 N7 准入/frontier opt-in/反振荡全链，零新路由零新 gate（DMP-10）；coordinator node_inputs + advance 路由 schema 透传。② N6/N8 debate 阈值由"待 C-1 标定的质量门"改判 **advisory 路由启发器**——supersede W-06/W-07 provisional product gate（harness 不再发射 `N6/N8_DEBATE_THRESHOLDS_PROVISIONAL`）+ 退役 W-15 advance 侧 `sign_off_required` 强制（签核记录路径保留合法）；标定降为可选调优，T-129 收窄为 C-2+C-3；`provisional:true` 仅记录未标定、翻 flag 仍人工。`topic-selection-w15-s4-signoff-product-run.mjs` 退役删除（08-scenarios 注记留痕）。决策全文见 T-088 `06-joint-decisions.md` D-30。

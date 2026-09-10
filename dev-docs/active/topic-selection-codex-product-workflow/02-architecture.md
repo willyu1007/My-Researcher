@@ -443,7 +443,28 @@ guard around the canonical feedback/recheck writes. Completed calls replay; ambi
 writes require inspection and cannot auto-repeat. No code advances or loops back into upstream stages.
 Caller observations and unresolved source refs are not independently verified evidence.
 
-## Phase 5 intake recovery
+## Phase 5 composition and recovery
+
+Managed fulltext extraction resolves the exact SearchRun-bound paragraph against either inline
+normalized text or the parser-owned normalizedTextPath. It verifies whole-document and paragraph
+checksums, containment, document readiness and unique source/locator identity before model work.
+Missing or changed files fail closed; unrelated paragraphs never enter the extraction packet.
+
+Ordinary N8 uses a 28k input target, matching the initial Debate assessor. A historical successful
+receipt may retain its old context profile hash only after recomputing every other current input,
+source, prompt, model and runner identity and finding its exact protected completed gate. Incomplete
+old outputs cannot cross a context-policy change. Normal gate replay still rechecks authorities.
+
+The N4 promotion packet hashes only dossier debate_execution.role_artifacts and
+support_policy.admission_identity, which duplicate runtime audit metadata. All scientific content,
+critic resolutions, risk/condition/recheck bodies and lineage remain. The canonical stored dossier
+is unchanged, and the projection participates in context identity. This avoids exhausting the
+64k input target on audit duplication without introducing lossy scientific compression.
+The protected n4-cli-context artifact preserves an attempt's original research_context. Generation
+recovery and Human admission reuse that body only when its checksum, scope and node identity are
+valid and the old/current contexts are identical under the same idempotent audit projection.
+Every other request/prompt/model identity is rebuilt. This keeps old candidate acceptance and replay
+valid across representation upgrades while refusing source/audit drift and ambiguous paid claims.
 
 Before an unconsumed bridge enters the PaperProject gateway, the shared control plane reserves one
 `paper-project-bridge-intake:<bridge ID>` claim bound to its hash and normalized creation input.

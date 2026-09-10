@@ -1650,7 +1650,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
         }
         artifact = generated.gate_draft.semantic_artifact;
       } else {
-        const generated = await this.n8ValueAssessmentRuntime.generateDraftArtifact({ request, execution_mode: 'codex_cli', run_mode: request.run_mode });
+        const generated = await this.n8ValueAssessmentRuntime.generateDraftArtifact({ request, execution_mode: 'codex_cli', run_mode: request.run_mode,
+          canReplayCompletedGate: async artifact => {
+            const replayInput = { ...request, semantic_artifacts: [artifact] };
+            const admission = this.runtimeAdmission(policy, replayInput);
+            return Boolean((await this.findReplay(replayInput, this.hashContext(replayInput, admission.runtimeAdmissionHash).nodeReplayKey)).exact);
+          } });
         if (generated.status !== 'succeeded') {
           throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N8 CLI did not produce an admitted draft.', { blocker_codes: generated.invocation_result.blocker_codes });
         }

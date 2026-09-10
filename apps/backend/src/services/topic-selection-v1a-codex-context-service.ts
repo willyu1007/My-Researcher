@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import type { TopicSelectionResearchEvidencePacket } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type { TopicSelectionValidationDecisionSupportPacketRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
@@ -81,11 +82,14 @@ export class TopicSelectionV1aCodexContextService {
             if (!refs.length) continue;
             const sourceRefs = run.evidence_map_input_refs.filter(ref => ref.ref_type === 'literature_source'
               && sourceRows.some(row => row.id === ref.ref_id || row.sourceUrl === ref.ref_id));
+            // The production parser stores normalized text in its managed file; older records may inline it.
+            const normalizedText = document.normalizedText ?? (document.normalizedTextPath
+              ? await readFile(document.normalizedTextPath, 'utf8').catch(() => null) : null);
             if (refs.length !== 1 || resolvedParagraphs.has(refIdentity(refs[0]!)) || sourceRefs.length !== 1
-              || !['READY', 'PARTIAL_READY'].includes(document.status) || !document.normalizedText?.trim()
-              || document.normalizedTextChecksum !== sha256Text(document.normalizedText)
+              || !['READY', 'PARTIAL_READY'].includes(document.status) || !normalizedText?.trim()
+              || document.normalizedTextChecksum !== sha256Text(normalizedText)
               || !paragraph.text.trim() || paragraph.checksum !== sha256Text(paragraph.text)
-              || !document.normalizedText.replace(/\s+/g, ' ').includes(paragraph.text.replace(/\s+/g, ' ').trim())) {
+              || !normalizedText.replace(/\s+/g, ' ').includes(paragraph.text.replace(/\s+/g, ' ').trim())) {
               throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI extraction requires an unambiguous, checksum-valid original paragraph and bound literature source.');
             }
             const locatorRef = refs[0]!;

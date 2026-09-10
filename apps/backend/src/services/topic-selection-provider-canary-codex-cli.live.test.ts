@@ -5,9 +5,8 @@
 // that satisfies the audit schema and a trace artifact that actually lands in the control plane.
 //
 // It uses the real N6 question-candidate contract but does not route the N6 debate to the line.
-// That debate's provider path is dormant because its prompts are pre-calibration skeletons, and
-// that reason applies here too, so the canary grants admission to itself and the line stays
-// inadmissible everywhere else.
+// This historical canary grants isolated admission; T-153 separately qualifies and enables all
+// product Codex roles through their canonical consumers. Other-provider Debate remains dormant.
 
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';

@@ -63,7 +63,7 @@
 | --- | --- | --- |
 | T-151 codex-cli-execution-line | archived | dev-docs/archive/codex-cli-execution-line |
 | T-152 codex-app-server-transport | archived | dev-docs/archive/codex-app-server-transport |
-| T-153 topic-selection-codex-product-workflow | in-progress | dev-docs/active/topic-selection-codex-product-workflow |
+| T-153 topic-selection-codex-product-workflow | done | dev-docs/active/topic-selection-codex-product-workflow |
 
 ## M-001 LLM Research Lifecycle v1
 
