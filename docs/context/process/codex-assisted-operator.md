@@ -100,7 +100,9 @@ profile registry; a configured runner is required.
   and `executor_kind: "single_agent"` or `"multi_agent_debate"`. Debate runs two Explorers, one Critic,
   issue framing and final synthesis through Codex. Critic reads both actual Explorer proposals; final
   reads recorded summaries and the issue frame. Exact role identity and complete output references are
-  checked, and a failed required worker stops subsequent calls. No role execution overrides or caller answers are
+  checked against each recipient's supplied context before recording its role output or calling the
+  next role. Changed title/version scope or legacy metadata is refused with the model audit retained;
+  inspect an unfinished claim before using a new attempt. A failed required worker stops subsequent calls. No role execution overrides or caller answers are
   accepted on this node. To persist admitted candidates, supply `persist_admitted_candidates: true`
   and a `persistence_context` whose SearchRun, SearchPlan and literature-snapshot refs exactly match
   the current evidence map. A mismatch is rejected before model execution. Candidate

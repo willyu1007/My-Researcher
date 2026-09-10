@@ -54,7 +54,7 @@
   },
   "prompts": {
     "topic-selection-evidence-map-extraction": {
-      "version": "v4",
+      "version": "v5",
       "system": "prompts/v1a/evidence-map-extraction/system.md"
     },
     "topic-selection-need-adjudication": {

@@ -608,10 +608,58 @@ an explicitly local profile override, not a new real-model qualification. Those 
 - Current offline verification: 228 passed, three opt-in live skips; backend no-emit typecheck, five
   LLM config tests and workflow matrix consistency pass. Independent review rechecked legacy payload
   compatibility, checkpoint wiring, the source projection, lossless compression and paragraph pins.
-- `checkpoint_comparison_v5_live` is running serially against the corrected paragraph fixture and
-  current production code. Its outcome and the changed final-synthesis prompt's real qualification
-  remain pending. Fixed Human reviews must be inspected against every actual persisted candidate;
-  snapshot identity alone does not establish viable alternatives or true comparison axes.
+- Attempt 160 (`checkpoint_comparison_v5_live`) reaches the unchanged 600-second N5 deadline with
+  no final message or usage and no evidence/domain authority; it is not a successful extraction.
+  At 160 the accounting total is 3,307,677 reported tokens plus ten unknown-usage calls. The trace
+  contains 18,589 agent-message deltas: 69,025 partial JSON characters / 1,647 lines, 21 units and
+  25 links, still generating clusters at timeout. This demonstrates long output rather than a
+  no-output stall; it does not prove formatting was the sole cause. N5 v5 adds only compact JSON
+  without indentation, with its config version and rendered hash updated. Six binding tests, five
+  config tests and matrix consistency pass; attempt 163 supplies the first bounded real v5 result below.
+- Attempts 161–162 (`checkpoint_comparison_v6_live`) use eight focused BEIR paragraphs / 4,853
+  characters, array hash `9d80cb9b51e5c5dba197970aa95c551881edc2cee2518dd7ee66372a122d9647`,
+  at `/tmp/my-researcher-t153-phase2/beir-focused-paragraphs.json`. They retain dense retrieval
+  limits, re-ranking/late-interaction gains, latency/index costs and reannotation counter-evidence.
+  Other analyses (including TAS-B training losses, GenQ adaptation and hardware/search settings)
+  and complete tables are outside this selected input. Missing improvement methods or universal
+  latency bounds cannot be inferred from this selection.
+- 161 uses N5 v4, produces 12 valid units and 11 links, and reaches the exact evidence Human fixture
+  checkpoint. Review verifies every quote/locator, ten extraction checksums, audit/receipt identity
+  and preservation of coverage warnings. 162 uses N6 single-agent v5 and produces two persisted
+  substantive candidates with full mechanism axes: historical position-sensitive QA (model-selected)
+  and historical retrieval under distribution shift (parked). Exact N5/N6 replay adds no calls.
+  Independent review verifies the two candidate bodies, 40 complete source-bound refs, 16 discovery
+  artifact checksums and the audit/receipt/persistence chain.
+  The preferred QA draft has no challenge unit; readiness correctly returns
+  `DISCONFIRMING_EVIDENCE_REQUIRED` before N7. This is a valid stop, not full-chain qualification.
+  Calls report 32,569 and 32,252 tokens; through 162: 3,372,498 reported tokens plus the same ten unknowns.
+- The comparative helper explicitly records the controlled Human preference for historical
+  retrieval before model execution, caps this fixture's portfolio at two (product default unchanged),
+  and matches one actual candidate through its source-backed support refs. Ambiguous matches stop.
+  It saves model preference and the exact selected candidate separately; it never edits the model
+  batch or reclassifies evidence to satisfy readiness. Fixed Human comparisons require independent
+  inspection against every actual candidate. No actual researcher approval is claimed.
+- `checkpoint_debate_v1_live` (163–168) does not qualify the full chain. N5 v5 at 163 produced
+  13 units / 13 links as 39,025 compact JSON characters with no newlines; original quotes/locators,
+  source roles and coverage warnings hold. Independent review also verifies all ten extraction
+  artifact checksums, output/trace audit hashes, current profile hash and complete claim/receipt result.
+  This is one bounded positive, not proof that formatting
+  eliminates timeouts. Explorer 164 has 22 valid complete refs. Explorer 165 has one changed title
+  scope among 17 refs; the previous loop admitted and forwarded it to Critic 166. Issue framing 167
+  also completed before the qualification-owned App Server was stopped during final synthesis 168.
+  168 is `CODEX_CLI_EXIT_FAILURE`, with unknown usage, no final batch, candidate or N7/N8/v1b authority.
+  Critic/framing cannot qualify on the invalid upstream body. Calls 163–167 report 30,938 / 24,962 /
+  24,580 / 29,025 / 25,433 tokens. Through 168: 3,507,436 reported tokens plus 11 unknown calls
+  (4, 8, 9, 20, 63, 83, 95, 102, 130, 160, 168); aggregate ceilings remain null.
+- The repaired loop reuses the existing complete-reference validator at all five CLI role boundaries,
+  against the actual receiver's user messages, before admitted artifacts or downstream model work.
+  Fault injection first reproduced the missing rejection; tests now cover all five identity fields
+  across Explorer/Critic/framing/final, plus valid nullable and dynamic summary refs. Affected loop,
+  adapter and harness tests: 169 passed, three opt-in live skips; backend no-emit typecheck, config
+  checks and matrix consistency pass. Independent review also passed 25 tests, rejected the actual
+  165 output, accepted 164 and both historical Critic/framing/final sets (117–119 and 124–126), and
+  confirmed no downstream authority at 168. `checkpoint_debate_v2_live` starts at 169 to qualify
+  the repaired full chain; its result is pending.
 
 ## Outstanding verification
 

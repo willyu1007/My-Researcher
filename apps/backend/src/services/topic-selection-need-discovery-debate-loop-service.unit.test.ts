@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -110,6 +114,7 @@ function lastUserPayload(request: LlmStructuredOutputRequest): Record<string, un
 async function makeRuntime(options: {
   llmGateway?: ThrowingLlmGateway | ProviderDebateGateway;
   executionMode?: TopicSelectionAgentExecutionMode;
+  codexCliRunner?: TopicSelectionCodexCliRunnerService;
 } = {}) {
   const repository = new InMemoryTopicSelectionControlPlaneRepository();
   let sequence = 0;
@@ -125,6 +130,8 @@ async function makeRuntime(options: {
   const agentOrchestrator = new TopicSelectionAgentOrchestratorService({
     controlPlane,
     llmGateway,
+    codexCliRunner: options.codexCliRunner,
+    codexCliModelId: options.codexCliRunner?.executionIdentity.model,
     now: () => '2026-05-19T00:00:00.000Z',
   });
   const debateLoop = new TopicSelectionNeedDiscoveryDebateLoopService({
@@ -147,7 +154,9 @@ async function makeRuntime(options: {
     output_schema_version: 'v1',
     profile_id: TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID,
     execution_mode: options.executionMode ?? 'mocked_llm',
-    exploration_payload: explorationPayload(),
+    exploration_payload: options.codexCliRunner
+      ? { ...explorationPayload(), evidence_signal_digest: { evidence: arbiterPayload().evidence_ref_table } }
+      : explorationPayload(),
     arbiter_payload: arbiterPayload(),
     created_by: 'system',
   });
@@ -1133,4 +1142,64 @@ test('need-discovery stops after the first required worker fails schema admissio
   assert.equal(result.status, 'blocked');
   assert.equal(result.role_invocation_results.length, 1);
   assert.equal(ctx.llmGateway.calls.length, 0);
+});
+
+
+test('CLI Debate rejects changed complete references before recording or invoking the next role', async t => {
+  const cases = [
+    { call: 1, field: 'title_card_id', value: 'mistyped-title' },
+    { call: 2, field: 'version_id', value: 'stale-version' },
+    { call: 3, field: 'ref_type', value: 'invented-type' },
+    { call: 4, field: 'legacy_ref', value: { source: 'foreign-legacy' } },
+    { call: 5, field: 'ref_id', value: 'invented-id' },
+    { call: 0, field: 'title_card_id', value: 'unused' },
+  ];
+  for (const mismatch of cases) await t.test(mismatch.call ? `role ${mismatch.call}: ${mismatch.field}` : 'complete nullable refs and actual summary refs pass', async t => {
+    const home = await fs.mkdtemp(join(tmpdir(), 'need-debate-refs-'));
+    t.after(() => fs.rm(home, { recursive: true, force: true }));
+    let calls = 0;
+    const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      calls++;
+      const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as { refs?: { role_level_summary_refs: TopicSelectionArtifactFunctionalRef[] } };
+      const output = calls <= 2 ? explorerNotes(`explorer_${calls}`, `angle_${calls}`)
+        : calls === 3 ? deepCriticNotes()
+        : calls === 4 ? { ...issueFrame(), source_role_summary_refs: packet.refs!.role_level_summary_refs }
+        : rankedBatch();
+      let changed = false;
+      const visit = (value: unknown): void => {
+        if (Array.isArray(value)) { value.forEach(visit); return; }
+        if (!value || typeof value !== 'object') return;
+        const record = value as Record<string, unknown>;
+        if (typeof record.ref_type === 'string' && typeof record.ref_id === 'string') {
+          record.version_id ??= null;
+          record.legacy_ref ??= null;
+          if (calls === mismatch.call && !changed) { record[mismatch.field] = mismatch.value; changed = true; }
+          return;
+        }
+        Object.values(record).forEach(visit);
+      };
+      visit(output);
+      return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `refs-thread-${calls}` }),
+        JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
+        stderr: '', exit_code: 0, timed_out: false };
+    });
+    t.after(() => runner.shutdown());
+    const ctx = await makeRuntime({ executionMode: 'codex_cli', codexCliRunner: runner });
+    const run = () => ctx.debateLoop.runNeedDiscoveryDebate({ workspace_id: 'workspace_001', title_card_id: 'title_card_001',
+      node_input: { ...nodeInput(ctx.compiledContext), execution_mode: 'codex_cli' }, run_mode: 'product',
+      exploration_context_packet: ctx.compiledContext.exploration_context_packet,
+      arbiter_context_packet: ctx.compiledContext.arbiter_context_packet, debate_loop_id: 'debate_loop_001' });
+    if (mismatch.call) {
+      await assert.rejects(run(), /CLI reference is outside/);
+      assert.equal(calls, mismatch.call, 'An invalid role must not trigger the next model call.');
+      const artifacts = await ctx.repository.listArtifactRefsByWorkflowRunId('workflow_run_001');
+      const accepted = artifacts.filter(artifact => /"artifact_key":"debate_(role_output|issue_frame|final_synthesis)"/.test(JSON.stringify(artifact.payload)));
+      assert.equal(accepted.length, mismatch.call - 1, 'Keep prior admitted outputs and the failed invocation audit, but no artifact for the invalid output.');
+      assert.ok(artifacts.some(artifact => JSON.stringify(artifact.payload).includes('topic-selection-agent-invocation-audit-v1')));
+    } else {
+      assert.equal((await run()).status, 'succeeded');
+      assert.equal(calls, 5);
+    }
+  });
 });

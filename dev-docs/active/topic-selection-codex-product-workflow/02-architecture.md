@@ -215,6 +215,11 @@ quotes; complete strength/conflict records enter the role contexts. The existing
 actual Explorer bodies and parent invocation IDs into Critic, then both role summaries and the issue
 frame into final synthesis. Every CLI role must echo its supplied loop/round/role/stage/instance
 identity; mismatch blocks role-artifact admission. A failed required worker stops subsequent work.
+Each CLI Explorer, Critic, issue-framing and final-synthesis output also passes the shared recursive
+full-reference validator against the exact user messages sent to that invocation, before its role
+artifact is recorded or its body reaches another role. Type, ID, title/version scope and legacy
+metadata must match; absent and null optional metadata are equivalent. Supplied dynamic summary/frame
+refs remain valid. Refusal retains the model audit and follows the existing interrupted-claim recovery.
 Full output refs, including empty-portfolio decisions, pass the existing batch validator before
 admission and routing. Its scope includes source refs, actual node contexts and the consumed Debate
 summaries/frame, never arbitrary output refs or final self-reference. A legitimate

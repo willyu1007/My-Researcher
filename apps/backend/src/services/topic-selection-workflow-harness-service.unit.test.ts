@@ -3443,7 +3443,10 @@ test('Codex discovery qualification persists its actual candidate through frozen
     assert.equal(alternative.url, 'https://arxiv.org/html/2104.08663v4#S5');
     assert.equal(sha256Text(alternative.text), '9857965c203b4935ec628a8ff203f3fe6666580d12d12f63607ca618c31b7070');
     assert.ok(alternative.paragraphs?.length, 'The comparative fixture must preserve original paragraph boundaries.');
-    assert.equal(sha256Text(JSON.stringify(alternative.paragraphs)), '2024b3b422976030b018733e711bff634697eb3eb6e3828b3b2e62a69defff72');
+    assert.ok([
+      '2024b3b422976030b018733e711bff634697eb3eb6e3828b3b2e62a69defff72', // complete S5/S6 prose selection
+      '9d80cb9b51e5c5dba197970aa95c551881edc2cee2518dd7ee66372a122d9647', // focused comparison, costs and annotation-bias selection
+    ].includes(sha256Text(JSON.stringify(alternative.paragraphs))));
     sources.push(alternative);
   }
   const seed = await seedNeedValidationSearchRuntime({ originalFulltext: source.text, productCheckpoints,
@@ -3461,7 +3464,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
   const save = async (name: string, value: unknown) => fs.writeFile(join(directory, `${runId}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'discovery-to-v1b', source: source.url,
     source_hash: sha256Text(source.text), controlled_search: true, evidence_roles: useExtraction ? 'model_extracted' : 'controlled', source_count: sources.length, sources: sources.map(source => ({ url: source.url, hash: sha256Text(source.text), selected_paragraph_count: source.paragraphs?.length ?? 1, selected_paragraphs_hash: sha256Text(JSON.stringify(source.paragraphs ?? [source.text])) })),
-    selected_case: selectedCase, candidate_is_model_generated: true, controlled_human_input: true, actual_human_decision: false,
+    selected_case: selectedCase, controlled_human_research_preference: productCheckpoints ? 'historical retrieval capability in lit_002' : 'model-preferred candidate', candidate_is_model_generated: true, controlled_human_input: true, actual_human_decision: false,
     app_checkpoint_guard_not_exercised: !productCheckpoints, repositories: 'in-memory with JSON artifact storage', model, limits,
     started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
   const profiles = new TopicSelectionModelProfileRegistryService();
@@ -3535,7 +3538,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
           : 'One original results section reused in four controlled role slots. These are not independent sources. Broader prior art, current model behavior, dataset access and efficacy of any repair are unverified.',
       }, resource_sample_digest: { status: 'not_supplied' }, search_coverage_digest: { status: productCheckpoints ? 'two_original_studies' : 'one_original_results_section',
         limitations: [useExtraction ? 'Controlled retrieval; no independent prior-art coverage.' : 'Controlled retrieval and role assignments; no independent prior-art coverage.'] } },
-      arbiter_payload: { ...arbiterPayload(), role_level_summaries: [] },
+      arbiter_payload: { ...arbiterPayload(), ...(productCheckpoints ? { max_persisted_candidates: 2 } : {}), role_level_summaries: [] },
     });
     const discovered = await harness.runGenerateNeedCandidateScenario(request);
     await save('discovery', discovered);
@@ -3555,9 +3558,17 @@ test('Codex discovery qualification persists its actual candidate through frozen
     else assert.equal(persistence.persisted_candidates.length, 1);
     const batch = discovered.adapter_result.ranked_candidate_draft_batch!;
     const selectedDraftId = batch.portfolio_disposition?.candidate_dispositions.find(item => item.disposition === 'selected')?.candidate_key;
-    const draft = batch.drafts.find(draft => draft.draft_id === selectedDraftId) ?? batch.drafts[0]!;
+    const retrievalSupport = new Set(evidence.evidenceUnits.filter(unit => unit.evidence_role === 'support'
+      && unit.literature_ref.ref_id === 'lit_002').map(unit => unit.evidence_unit_id));
+    const preferredDrafts = batch.drafts.filter(draft => draft.evidence_role_bundle.support_unit_refs.some(ref => retrievalSupport.has(ref.ref_id)));
+    if (productCheckpoints) assert.equal(preferredDrafts.length, 1, 'The fixed Human retrieval preference requires one unambiguous actual candidate.');
+    const draft = productCheckpoints ? preferredDrafts[0]!
+      : batch.drafts.find(draft => draft.draft_id === selectedDraftId) ?? batch.drafts[0]!;
     const candidate = persistence.persisted_candidates.find(candidate => candidate.candidate_need === draft.candidate_need)!;
     assert.ok(candidate);
+    await save('candidate-selection', { controlled_human_input: true, actual_human_decision: false,
+      preference: productCheckpoints ? 'historical retrieval capability in lit_002' : 'model-preferred candidate',
+      model_preferred_draft_id: selectedDraftId, selected_draft_id: draft.draft_id, selected_candidate: candidate });
     assert.equal(candidate.candidate_need, draft.candidate_need);
     assert.equal(candidate.unmet_need_statement, draft.unmet_need_statement);
     assert.deepEqual(candidate.evidence_role_bundle, draft.evidence_role_bundle);

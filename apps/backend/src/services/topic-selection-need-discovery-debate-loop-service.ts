@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -300,6 +301,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     for (let index = 0; index < instanceCount; index += 1) {
       const agentInstanceId = `explorer_${index + 1}`;
       const executionSpec = this.resolvedExecutionSpec(input, EXPLORER_SLOT, agentInstanceId);
+      const messages = this.roleMessages(input, 'explorer', agentInstanceId);
       const invocation = await this.dependencies.agentOrchestrator.invokeStructuredOutput<TopicSelectionNeedDiscoveryExplorerNotes>({
         ...this.baseInvocation(input, debateLoopId, debatePolicyId, roundIndex, 'explorer', 'round_1_discovery', agentInstanceId, executionSpec),
         profile_id: EXPLORER_SLOT.profile_id,
@@ -310,10 +312,11 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         },
         schema_name: EXPLORER_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryExplorerNotesSchema as unknown as Record<string, unknown>,
-        messages: this.roleMessages(input, 'explorer', agentInstanceId),
+        messages,
         mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, outputs[index], `explorer[${index}]`),
         codex_response: this.codexRoleResponse(executionSpec.execution_mode, codexResponses[index], `explorer[${index}]`),
       });
+      this.assertOutputReferences(invocation, messages);
       const artifact = invocation.structured_output
         ? await this.recordRoleOutput(input, invocation, EXPLORER_SLOT.output_contract, invocation.structured_output)
         : null;
@@ -347,6 +350,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     for (let index = 0; index < instanceCount; index += 1) {
       const agentInstanceId = `deep_critic_${index + 1}`;
       const executionSpec = this.resolvedExecutionSpec(input, DEEP_CRITIC_SLOT, agentInstanceId);
+      const messages = this.roleMessages(input, 'deep_critic', agentInstanceId, explorers.map(record => record.output));
       const invocation = await this.dependencies.agentOrchestrator.invokeStructuredOutput<TopicSelectionNeedDiscoveryDeepCriticNotes>({
         ...this.baseInvocation(input, debateLoopId, debatePolicyId, roundIndex, 'deep_critic', 'round_1_discovery', agentInstanceId, executionSpec,
           explorers.map(record => record.invocation.provenance.invocation_attempt_id)),
@@ -358,10 +362,11 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         },
         schema_name: DEEP_CRITIC_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryDeepCriticNotesSchema as unknown as Record<string, unknown>,
-        messages: this.roleMessages(input, 'deep_critic', agentInstanceId, explorers.map(record => record.output)),
+        messages,
         mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, outputs[index], `deep_critic[${index}]`),
         codex_response: this.codexRoleResponse(executionSpec.execution_mode, codexResponses[index], `deep_critic[${index}]`),
       });
+      this.assertOutputReferences(invocation, messages);
       const artifact = invocation.structured_output
         ? await this.recordRoleOutput(input, invocation, DEEP_CRITIC_SLOT.output_contract, invocation.structured_output)
         : null;
@@ -384,6 +389,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     parentInvocationAttemptIds: string[];
   }): Promise<RoleInvocationRecord<TopicSelectionNeedDiscoveryDebateIssueFrame>> {
     const executionSpec = this.resolvedExecutionSpec(input.input, ISSUE_FRAME_SLOT, 'arbiter_issue_frame');
+    const messages = this.arbiterMessages(input.input, 'issue_framing', { role_level_summary_refs: input.roleLevelSummaryRefs },
+      { role_level_summaries: input.roleLevelSummaries });
     const invocation = await this.dependencies.agentOrchestrator.invokeStructuredOutput<TopicSelectionNeedDiscoveryDebateIssueFrame>({
       ...this.baseInvocation(
         input.input,
@@ -407,14 +414,11 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       },
       schema_name: ISSUE_FRAME_SLOT.schema_name,
       schema: topicSelectionNeedDiscoveryDebateIssueFrameSchema as unknown as Record<string, unknown>,
-      messages: this.arbiterMessages(input.input, 'issue_framing', {
-        role_level_summary_refs: input.roleLevelSummaryRefs,
-      }, {
-        role_level_summaries: input.roleLevelSummaries,
-      }),
+      messages,
       mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, input.input.mocked_outputs?.arbiter_issue_frame, 'arbiter_issue_frame'),
       codex_response: this.codexRoleResponse(executionSpec.execution_mode, input.input.codex_responses?.arbiter_issue_frame, 'arbiter_issue_frame'),
     });
+    this.assertOutputReferences(invocation, messages);
     const artifact = invocation.structured_output
       ? await this.recordRoleOutput(input.input, invocation, ISSUE_FRAME_SLOT.output_contract, invocation.structured_output)
       : null;
@@ -437,7 +441,9 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     parentInvocationAttemptIds: string[];
   }): Promise<TopicSelectionAgentInvocationResult<TopicSelectionRankedCandidateDraftBatch>> {
     const executionSpec = this.resolvedExecutionSpec(input.input, FINAL_SYNTHESIS_SLOT, 'arbiter_final');
-    return this.dependencies.agentOrchestrator.invokeStructuredOutput<TopicSelectionRankedCandidateDraftBatch>({
+    const messages = this.arbiterMessages(input.input, 'final_synthesis', { issue_frame_ref: input.issueFrameRef,
+      role_level_summary_refs: input.roleLevelSummaryRefs }, { issue_frame: input.issueFrame, role_level_summaries: input.roleLevelSummaries });
+    const invocation = await this.dependencies.agentOrchestrator.invokeStructuredOutput<TopicSelectionRankedCandidateDraftBatch>({
       ...this.baseInvocation(
         input.input,
         input.debateLoopId,
@@ -461,16 +467,12 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       },
       schema_name: FINAL_SYNTHESIS_SLOT.schema_name,
       schema: topicSelectionRankedCandidateDraftBatchSchema as unknown as Record<string, unknown>,
-      messages: this.arbiterMessages(input.input, 'final_synthesis', {
-        issue_frame_ref: input.issueFrameRef,
-        role_level_summary_refs: input.roleLevelSummaryRefs,
-      }, {
-        issue_frame: input.issueFrame,
-        role_level_summaries: input.roleLevelSummaries,
-      }),
+      messages,
       mocked_output: this.mockedRoleOutput(executionSpec.execution_mode, input.input.mocked_outputs?.arbiter_final, 'arbiter_final'),
       codex_response: this.codexRoleResponse(executionSpec.execution_mode, input.input.codex_responses?.arbiter_final, 'arbiter_final'),
     });
+    this.assertOutputReferences(invocation, messages);
+    return invocation;
   }
 
   private baseInvocation(
@@ -680,6 +682,16 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       };
     }
     throw new AppError(500, 'INTERNAL_ERROR', `No context runtime profile for debate slot ${role}.${stage}.`);
+  }
+
+  private assertOutputReferences(
+    invocation: TopicSelectionAgentInvocationResult<unknown>,
+    messages: Array<{ role: 'system' | 'user'; content: string }>,
+  ): void {
+    if (invocation.provenance.execution_mode === 'codex_cli' && invocation.structured_output) {
+      assertV1aCodexReferences(invocation.structured_output,
+        messages.filter(message => message.role === 'user').map(message => JSON.parse(message.content)));
+    }
   }
 
   private roleIdentity(input: TopicSelectionNeedDiscoveryDebateLoopInput,
