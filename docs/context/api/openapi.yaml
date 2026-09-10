@@ -10815,15 +10815,17 @@ components:
               required: [execution_mode]
               properties:
                 execution_mode:
-                  enum: [mocked_llm, codex_assisted, provider_llm]
+                  enum: [codex_cli, mocked_llm, codex_assisted, provider_llm]
                 model_option_id:
                   anyOf:
                     - {type: string, minLength: 1}
                     - {type: 'null'}
             - {type: 'null'}
           description: >-
-            Reserved: a non-null value is rejected with 400 INVALID_PAYLOAD when this node is driven; no
-            provider generation consumer is wired here.
+            Product Codex generation is supported at N3/N4/N6/N7/N8 with execution_mode codex_cli and
+            no model_option_id. Other modes are reserved and rejected when the node is driven.
+        cli_support_slots:
+          $ref: '#/components/schemas/TopicSelectionV1bCliSupportSlots'
         draft_payload:
           anyOf:
             - type: object
@@ -11198,6 +11200,24 @@ components:
                   message: {type: string}
         run_state: {$ref: '#/components/schemas/TopicSelectionV1bWorkflowRunState'}
 
+    TopicSelectionV1bCliSupportSlots:
+      anyOf:
+        - type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            enum: [n6_loopback_triage, n7_candidate_grouping, n7_n8_debate_admission_review, n7_failed_trial_synthesis]
+        - {type: 'null'}
+      description: >-
+        Optional role selection with an exclusive codex_cli execution_spec. N6 accepts only
+        n6_loopback_triage and invokes it only after an actual semantic candidate failure. N7 accepts
+        the other three roles on ordinary initial or N8-feedback entry; an explicit array executes
+        only those roles, while omission preserves the default N8-Debate admission review. Grouping
+        requires remaining candidates; failed-trial synthesis requires exhausted semantic trials.
+        Technical N8 failures require N8 recovery. Empty, duplicate, cross-node or non-CLI selections
+        are rejected. Coordinator refinement-delta recovery does not accept this field. Role changes
+        under an existing attempt require a new attempt identity.
+
     TopicSelectionV1bWorkflowHarnessNodeInvocationRequest:
       type: object
       required: [schema_version, workflow_run_id, node_attempt_id, node_id, policy_version, frozen_input]
@@ -11230,6 +11250,8 @@ components:
           anyOf:
             - {$ref: '#/components/schemas/JsonObject'}
             - {type: 'null'}
+        cli_support_slots:
+          $ref: '#/components/schemas/TopicSelectionV1bCliSupportSlots'
         semantic_artifacts:
           anyOf:
             - type: array
@@ -11253,10 +11275,10 @@ components:
         admitted semantic support artifact. Non-model nodes reject execution_spec; deterministic-only
         nodes reject semantic artifacts. N4/N6/N8 require runtime-admitted model drafts and matching
         provenance. Structural validation does not replace the harness admission gate or rewrite
-        historical blocked attempts. N6, N7 N8-Debate admission support (plus exact-delta review at the coordinator recovery frontier), and N8 additionally consume codex_cli execution_spec without
+        historical blocked attempts. N2/N3/N4/N5 support, N6, N7 optional support (plus exact-delta review at the coordinator recovery frontier), and N8 additionally consume codex_cli execution_spec without
         semantic_artifacts to generate drafts through the product runner; defaults to product mode,
-        rejects gateway model options, and requires eligible profiles. Shipped CLI profiles remain
-        closed pending real-input qualification. N8 checks the question Human checkpoint before execution.
+        rejects gateway model options, and requires eligible profiles. Profile eligibility follows
+        the model registry and its qualification record. N8 checks the question Human checkpoint before execution.
       allOf:
         - if:
             required: [node_id]

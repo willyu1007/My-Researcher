@@ -20,6 +20,7 @@ import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
+  TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION,
   topicSelectionLoopbackBudgetRaiseSchema,
@@ -401,6 +402,7 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    * The CLI branch generates its own role outputs and defaults to product run mode.
    */
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
+  cli_support_slots?: TopicSelectionV1bWorkflowHarnessRunRequest['cli_support_slots'];
   /**
    * Caller-supplied model draft for N4/N8 or N6 recovery (acceptance / codex-assisted operation).
    * A fresh N6 frontier requires debate instead.
@@ -665,6 +667,17 @@ export class TopicSelectionV1bRunCoordinatorService {
   private async advanceLocked(
     input: AdvanceTopicSelectionV1bRunInput,
   ): Promise<TopicSelectionV1bRunAdvanceReport> {
+    for (const [nodeId, nodeInput] of Object.entries(input.node_inputs ?? {})) {
+      const slots = nodeInput.cli_support_slots;
+      if (slots == null) continue;
+      const allowed = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES.find(node => node.node_id === nodeId)?.semantic_support_slots ?? [];
+      if (nodeInput.execution_spec?.execution_mode !== 'codex_cli' || !Array.isArray(slots) || slots.length === 0
+        || new Set(slots).size !== slots.length || slots.some(slot => !TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS.includes(slot)
+          || !allowed.some(support => support.slot_id === slot && support.allowed_effect === 'support_only'))
+        || nodeInput.draft_payload || nodeInput.debate || nodeInput.support_payloads || nodeInput.refinement_payload) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `${nodeId}: cli_support_slots requires distinct supported slots and an exclusive CLI execution spec.`);
+      }
+    }
     const maxSteps = input.max_steps ?? 12;
     const loopbackBudgetBase = input.loopback_budget_per_node ?? 2;
     // W-15: operator records (sign-offs, budget raises) are written between advances, never during
@@ -723,7 +736,8 @@ export class TopicSelectionV1bRunCoordinatorService {
           || (nodeInput?.execution_spec && (!cli || nodeInput.execution_spec.model_option_id != null || nodeInput.debate != null))
           || nodeInput?.support_payloads
           || nodeInput?.refinement_payload
-          || nodeInput?.operator_debate_request) {
+          || nodeInput?.operator_debate_request
+          || nodeInput?.cli_support_slots) {
           throw new AppError(
             400,
             'INVALID_PAYLOAD',
@@ -1115,6 +1129,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         request.execution_spec = nodeInput.execution_spec;
         request.run_mode = input.run_mode ?? 'product';
       }
+      if (nodeInput?.cli_support_slots != null) request.cli_support_slots = nodeInput.cli_support_slots;
 
       const result = await this.invokeWithTimeout(request, nodeTimeoutMs);
       if (result.kind === 'timeout') {

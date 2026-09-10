@@ -3313,6 +3313,20 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     });
     assert.equal(badBudget.statusCode, 400);
 
+    for (const [nodeId, slots, mode] of [
+      [N6_ID, [], 'codex_cli'],
+      [N6_ID, ['n6_loopback_triage', 'n6_loopback_triage'], 'codex_cli'],
+      [N6_ID, ['n7_candidate_grouping'], 'codex_cli'],
+      [N2_ID, ['n6_loopback_triage'], 'codex_cli'],
+      [N7_ID, ['n7_failed_trial_synthesis'], 'provider_llm'],
+    ] as const) {
+      const invalidSupport = await app.inject({ method: 'POST',
+        url: `/topic-selection/v1b/workflow-runs/${runId}/advance`,
+        payload: { node_inputs: { [nodeId]: { execution_spec: { execution_mode: mode }, cli_support_slots: slots } } },
+      });
+      assert.equal(invalidSupport.statusCode, 400, invalidSupport.body);
+    }
+
     // Invalid N1 runtime fields must fail before either ingress records a durable attempt.
     for (const fields of [
       { run_mode: 'product' },
@@ -3330,7 +3344,8 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     }
 
     // 1) bootstrap the same N1 attempt with null runtime fields → halt at N2.
-    const afterN1 = await advance({ bootstrap_request: { ...n1Input, run_mode: null, profile_id: null } });
+    const afterN1 = await advance({ bootstrap_request: { ...n1Input, run_mode: null, profile_id: null },
+      node_inputs: { [N6_ID]: { execution_spec: { execution_mode: 'codex_cli' }, cli_support_slots: ['n6_loopback_triage'] } } });
     assert.deepEqual(afterN1.steps.map((step) => step.node_id), [n1Input.node_id]);
     dumpUnless(afterN1.halt.reason === 'human_node', 'COORD_DEBUG_AFTER_N1', afterN1);
     assert.equal(afterN1.halt.reason, 'human_node');

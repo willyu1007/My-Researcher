@@ -460,7 +460,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N6TopicQuestionCandidateGate',
     required_for_progress: false,
     fallback_policy: 'deterministic_fallback',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n6_loopback_triage_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n6_loopback_triage_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -474,7 +474,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N7TopicQuestionContractGate',
     required_for_progress: false,
     fallback_policy: 'deterministic_fallback',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_candidate_grouping_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_candidate_grouping_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -488,7 +488,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     target_gate_id: 'N7TopicQuestionContractGate',
     required_for_progress: false,
     fallback_policy: 'technical_retry_or_block',
-    allowed_execution_modes: ['codex_assisted', 'mocked_llm'],
+    allowed_execution_modes: ['codex_cli', 'codex_assisted', 'mocked_llm'],
     default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_failed_trial_synthesis_support,
     allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_failed_trial_synthesis_support],
     allowed_run_modes: ['test', 'acceptance', 'product'],
@@ -2383,6 +2383,14 @@ export interface TopicSelectionV1bWorkflowHarnessFrozenInput {
   frozen_input_hash?: string | null;
 }
 
+export const TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS = [
+  'n6_loopback_triage', 'n7_candidate_grouping', 'n7_n8_debate_admission_review', 'n7_failed_trial_synthesis',
+] as const;
+export type TopicSelectionV1bCliSupportSlotId = (typeof TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS)[number];
+export const topicSelectionV1bCliSupportSlotsSchema = {
+  anyOf: [{ type: 'array', minItems: 1, uniqueItems: true, items: { enum: [...TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS] } }, { type: 'null' }],
+} as const;
+
 export interface TopicSelectionV1bWorkflowHarnessRunRequest {
   schema_version: typeof TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION;
   workspace_id?: string | null;
@@ -2396,6 +2404,8 @@ export interface TopicSelectionV1bWorkflowHarnessRunRequest {
   run_mode?: TopicSelectionAgentRunMode | null;
   profile_id?: TopicSelectionV1bWorkflowHarnessProfileId | null;
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
+  /** Explicit optional CLI support; omission preserves the node's existing default behavior. */
+  cli_support_slots?: TopicSelectionV1bCliSupportSlotId[] | null;
   semantic_artifacts?: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef[] | null;
   /**
    * D-30 (2026-07-07): N8-only operator request for a bounded-debate re-assessment. On a FIRST-pass
@@ -4703,6 +4713,7 @@ export const topicSelectionV1bWorkflowHarnessRunRequestSchema = {
       anyOf: [topicSelectionV1bWorkflowHarnessExecutionSpecSchema, { type: 'null' }],
     },
     semantic_artifacts: semanticArtifactArray,
+    cli_support_slots: topicSelectionV1bCliSupportSlotsSchema,
     operator_debate_request: {
       anyOf: [
         {

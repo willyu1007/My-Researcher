@@ -85,6 +85,7 @@ test('only qualified topic-selection profiles admit product CLI execution withou
   const ids = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS;
   const qualified = new Set<string>([
     ids.constraint_profile_support, ids.intake_readiness_support, ids.slice_selection_support,
+    ids.n6_loopback_triage_support, ids.n7_candidate_grouping_support, ids.n7_failed_trial_synthesis_support,
     ids.research_slice_options_single_agent, ids.topic_question_candidates_single_agent, ids.topic_value_assessment_single_agent,
     ids.n7_n8_debate_admission_support, ids.n7_n6_refinement_delta_admission,
     ids.n8_bounded_debate, TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
@@ -101,7 +102,7 @@ test('only qualified topic-selection profiles admit product CLI execution withou
     ...Object.values(TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS),
     TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID, TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
   ]);
-  assert.equal(qualified.size, 29);
+  assert.equal(qualified.size, 32);
   const registry = createDefaultTopicSelectionModelProfileRegistry();
   assert.deepEqual(new Set(registry.profiles.filter(profile => profile.allowed_execution_modes.includes('codex_cli'))
     .map(profile => profile.profile_id)), qualified);

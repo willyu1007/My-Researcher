@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
@@ -74,13 +75,15 @@ export type TopicSelectionV1bN6LoopbackTriageRuntimeContextPacket = {
   frozen_input_payload: TopicSelectionV1bN6HarnessFrozenInputPayload;
   failed_draft_artifact_ref: TopicSelectionFunctionalRef;
   failed_draft_hash: string;
+  research_context?: Record<string, unknown>;
 };
 
 export type GenerateTopicSelectionV1bN6LoopbackTriageRuntimeInput = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest;
   failed_draft_artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
   failed_draft_hash: string;
-  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+  blocked_candidate_contexts?: Record<string, unknown>[];
+  execution_mode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
   run_mode?: TopicSelectionAgentRunMode | null;
   codex_response?: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bN6LoopbackTriageSupportPayload> | null;
   mocked_output?: TopicSelectionMockedAgentOutput<TopicSelectionV1bN6LoopbackTriageSupportPayload> | null;
@@ -136,16 +139,19 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
   private readonly agentOrchestrator: TopicSelectionAgentOrchestratorService;
+  private readonly resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
 
   constructor(
     private readonly controlPlane: TopicSelectionControlPlaneService,
     options: {
       agentOrchestrator?: TopicSelectionAgentOrchestratorService;
+      resolveResearchContext?: (request: TopicSelectionV1bWorkflowHarnessRunRequest) => Promise<Record<string, unknown>>;
       contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
       modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
       promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
     } = {},
   ) {
+    this.resolveResearchContext = options.resolveResearchContext;
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -159,11 +165,14 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
   async generateSupportArtifact(
     input: GenerateTopicSelectionV1bN6LoopbackTriageRuntimeInput,
   ): Promise<TopicSelectionV1bN6LoopbackTriageRuntimeGenerationResult> {
+    if (input.execution_mode === 'codex_cli' && (input.codex_response != null || input.mocked_output != null)) throw new AppError(400, 'INVALID_PAYLOAD', 'CLI triage generates its own output.');
     const frozenPayload = this.assertN6FrozenPayload(input.request);
     this.assertFailedDraftArtifact(input.failed_draft_artifact, input.failed_draft_hash);
     const binding = this.slotBinding();
     const runMode = input.run_mode ?? input.request.run_mode ?? this.defaultRunMode(input.execution_mode);
     const sourceHashes = this.sourceHashes(input.request, frozenPayload, input.failed_draft_artifact, input.failed_draft_hash);
+    const researchContext = await this.cliContext(input.request, input.failed_draft_artifact, input.execution_mode, input.blocked_candidate_contexts);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
       binding,
@@ -179,10 +188,18 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       runtimeInvocationContextHash,
       sourceHashes,
       failedDraftArtifact: input.failed_draft_artifact,
-      failedDraftHash: input.failed_draft_hash,
+      failedDraftHash: input.failed_draft_hash, researchContext,
     });
     const contextPacketHash = this.hash(contextPacket);
+    const receiptKey = `n6-cli-triage:${this.hash([input.request.workflow_run_id, input.request.node_attempt_id])}`;
+    const requestHash = input.execution_mode === 'codex_cli' ? this.hash({ request: input.request,
+      contextPacketHash, runtime: this.cliIdentity(runMode) }) : null;
+    if (requestHash) {
+      const receipt = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+      if (receipt) return this.readReceipt(receipt, requestHash);
+    }
     const contextArtifact = await this.controlPlane.recordArtifactRef({
+      ...(requestHash ? { stable_key: `${receiptKey}:context:${contextPacketHash}` } : {}),
       workspace_id: input.request.workspace_id ?? null,
       title_card_id: input.request.title_card_id ?? null,
       artifact_kind: 'diagnostic',
@@ -221,7 +238,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
         context_policy_profile: runtimeProfile.profile,
         context_policy_profile_hash: runtimeProfile.profile_hash,
         runtime_invocation_context_hash: runtimeInvocationContextHash,
-        context_payloads: [contextPacket],
+        context_payloads: input.execution_mode === 'codex_cli' ? [] : [contextPacket],
       },
       codex_response: input.codex_response ?? null,
       mocked_output: input.mocked_output ?? null,
@@ -237,6 +254,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       };
     }
 
+    if (input.execution_mode === 'codex_cli') assertV1aCodexReferences(invocation.structured_output, contextPacket);
     const semanticArtifact = await this.recordSemanticSupportArtifact({
       request: input.request,
       binding,
@@ -249,7 +267,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       sourceHashes,
       createdBy: input.created_by ?? input.request.created_by ?? 'system',
     });
-    return {
+    const result: TopicSelectionV1bN6LoopbackTriageRuntimeGenerationResult = {
       status: 'succeeded',
       semantic_artifact: semanticArtifact,
       structured_output: invocation.structured_output,
@@ -257,19 +275,34 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       context_packet_ref: contextPacketRef,
       context_packet_hash: contextPacketHash,
     };
+    if (requestHash) {
+      const payload = { request_hash: requestHash, result };
+      try {
+        await this.controlPlane.recordArtifactRef({ stable_key: receiptKey,
+          workspace_id: input.request.workspace_id ?? null, title_card_id: input.request.title_card_id ?? null,
+          workflow_run_id: input.request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+          payload, checksum: this.hash(payload), created_by: 'system' });
+      } catch (error) {
+        const winner = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
+        if (!winner) throw error;
+        return this.readReceipt(winner, requestHash);
+      }
+    }
+    return result;
   }
 
-  buildAdmissionExpectedIdentity(input: {
+  async buildAdmissionExpectedIdentity(input: {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
     frozenPayload: TopicSelectionV1bN6HarnessFrozenInputPayload;
     failedDraftArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
     failedDraftHash: string;
+    blockedCandidateContexts?: Record<string, unknown>[];
     normalizedPayloadHash: string;
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
     runMode: TopicSelectionAgentRunMode;
     profileId: string;
     modelOptionId: string | null;
-  }): TopicSelectionV1bN6LoopbackTriageAdmissionExpectedIdentity {
+  }): Promise<TopicSelectionV1bN6LoopbackTriageAdmissionExpectedIdentity> {
     const binding = this.slotBinding();
     this.assertFailedDraftArtifact(input.failedDraftArtifact, input.failedDraftHash);
     if (input.profileId !== binding.model_profile_id) {
@@ -279,6 +312,8 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'v1b N6 loopback triage runtime does not allow provider model options.');
     }
     const sourceHashes = this.sourceHashes(input.request, input.frozenPayload, input.failedDraftArtifact, input.failedDraftHash);
+    const researchContext = await this.cliContext(input.request, input.failedDraftArtifact, input.executionMode, input.blockedCandidateContexts);
+    if (researchContext) sourceHashes.research_context_hash = this.hash(researchContext);
     const runtimeProfile = this.resolveRuntimeProfile(binding);
     const runtimeInvocationContextHash = this.runtimeInvocationContextHash(
       binding,
@@ -294,7 +329,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       runtimeInvocationContextHash,
       sourceHashes,
       failedDraftArtifact: input.failedDraftArtifact,
-      failedDraftHash: input.failedDraftHash,
+      failedDraftHash: input.failedDraftHash, researchContext,
     });
     const modelProfile = this.resolveModelProfile(binding, input.executionMode, input.runMode);
     const promptPacket = this.promptPacketRuntime.buildPromptPacket({
@@ -343,7 +378,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       request: TopicSelectionV1bWorkflowHarnessRunRequest;
       binding: N6LoopbackTriageRuntimeSlotBinding;
       runMode: TopicSelectionAgentRunMode;
-      executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>;
+      executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>;
       structuredOutput: TopicSelectionV1bN6LoopbackTriageSupportPayload;
       invocation: TopicSelectionAgentInvocationResult<TopicSelectionV1bN6LoopbackTriageSupportPayload>;
       runtimeProfile: TopicSelectionResolvedContextPolicyProfile;
@@ -416,6 +451,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
     sourceHashes: Record<string, string>;
     failedDraftArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
     failedDraftHash: string;
+    researchContext?: Record<string, unknown>;
   }): TopicSelectionV1bN6LoopbackTriageRuntimeContextPacket {
     return {
       schema_version: 'TopicSelectionV1bN6LoopbackTriageRuntimeContextPacket@v1',
@@ -436,6 +472,7 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
       frozen_input_payload: input.frozenPayload,
       failed_draft_artifact_ref: this.failedDraftOutputRef(input.failedDraftArtifact),
       failed_draft_hash: input.failedDraftHash,
+      ...(input.researchContext ? { research_context: input.researchContext } : {}),
     };
   }
 
@@ -662,14 +699,51 @@ export class TopicSelectionV1bN6LoopbackTriageRuntimeService {
     return artifact.normalized_output_ref;
   }
 
+  cliIdentity(runMode: TopicSelectionAgentRunMode) {
+    const binding = this.slotBinding();
+    return { binding, prompt: buildV1bN6LoopbackTriageSystemContent(),
+      profile_hash: this.resolveModelProfile(binding, 'codex_cli', runMode).profile_hash,
+      context_profile_hash: this.resolveRuntimeProfile(binding).profile_hash,
+      runner: this.agentOrchestrator.codexCliExecutionIdentity };
+  }
+
+  async hasCliGenerationReceipt(request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef): Promise<boolean> {
+    const receipt = await this.controlPlane.getArtifactRefByStableKey(`n6-cli-triage:${this.hash([request.workflow_run_id, request.node_attempt_id])}`);
+    const result = receipt?.payload?.result as TopicSelectionV1bN6LoopbackTriageRuntimeGenerationResult | undefined;
+    return Boolean(receipt?.payload && receipt.checksum === this.hash(receipt.payload)
+      && receipt.workflow_run_id === request.workflow_run_id && (receipt.title_card_id ?? null) === (request.title_card_id ?? null)
+      && (receipt.workspace_id ?? null) === (request.workspace_id ?? null)
+      && result?.status === 'succeeded' && this.hash(result.semantic_artifact) === this.hash(artifact));
+  }
+
+  private readReceipt(record: TopicSelectionArtifactRefRecord, requestHash: string): TopicSelectionV1bN6LoopbackTriageRuntimeGenerationResult {
+    const result = record.payload?.result as TopicSelectionV1bN6LoopbackTriageRuntimeGenerationResult | undefined;
+    if (!result || record.checksum !== this.hash(record.payload) || record.payload?.request_hash !== requestHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'N6 CLI triage input or runtime identity drifted.');
+    }
+    return result;
+  }
+
+  private async cliContext(request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef, mode: TopicSelectionAgentExecutionMode,
+    blocked?: Record<string, unknown>[]) {
+    if (mode !== 'codex_cli') return undefined;
+    if (!this.resolveResearchContext || !blocked?.length) throw new AppError(400, 'INVALID_PAYLOAD', 'CLI triage requires original context and actual semantic gate failures.');
+    const draft = await this.controlPlane.getArtifactRef(this.failedDraftOutputRef(artifact).ref_id);
+    if (!draft?.payload || draft.checksum !== this.hash(draft.payload) || draft.checksum !== artifact.normalized_output_hash
+      || draft.title_card_id !== request.title_card_id) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'CLI triage failed draft body drifted.');
+    return { ...await this.resolveResearchContext(request), failed_draft: draft.payload, blocked_candidate_contexts: blocked };
+  }
+
   private defaultRunMode(
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>,
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>,
   ): TopicSelectionAgentRunMode {
-    return executionMode === 'mocked_llm' ? 'test' : 'acceptance';
+    return executionMode === 'codex_cli' ? 'product' : executionMode === 'mocked_llm' ? 'test' : 'acceptance';
   }
 
   private executorKind(
-    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_assisted' | 'mocked_llm'>,
+    executionMode: Extract<TopicSelectionAgentExecutionMode, 'codex_cli' | 'codex_assisted' | 'mocked_llm'>,
   ): TopicSelectionExecutorKind {
     return executionMode === 'codex_assisted' ? 'codex_assisted' : 'single_agent';
   }

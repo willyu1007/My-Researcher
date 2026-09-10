@@ -94,6 +94,7 @@ import type {
 import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
+  TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUNTIME_PROVENANCE_CLASSES,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_REQUEST_SCHEMA_VERSION,
@@ -416,6 +417,7 @@ const ALLOWED_REQUEST_KEYS = new Set([
   'run_mode',
   'profile_id',
   'execution_spec',
+  'cli_support_slots',
   'semantic_artifacts',
   'operator_debate_request',
   'actor',
@@ -828,6 +830,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       resolveResearchContext: request => this.resolveCodexResearchContext(request),
     });
     this.n6LoopbackTriageRuntime = new TopicSelectionV1bN6LoopbackTriageRuntimeService(controlPlane, {
+      resolveResearchContext: request => this.resolveCodexResearchContext(request),
       agentOrchestrator: options.agentOrchestrator,
       modelProfileRegistry: this.modelProfileRegistry,
     });
@@ -1107,6 +1110,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     let bodies: N6LoadedContext | N8LoadedContext | (N7LoadedContext & Pick<N6LoadedContext, 'researchSlice' | 'evidenceRefs'>);
     let admissibleCitationRefs: TopicSelectionFunctionalRef[] | undefined;
     let regenerationContext: Record<string, unknown> | undefined;
+    let trialHistory: Array<Record<string, unknown>> | undefined;
     if (input.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1') {
       const prepared = await this.prepareN6Context(input);
       if (!prepared.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message);
@@ -1141,6 +1145,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
       const evidenceRefs = await repository.listEvidenceRefsByResearchSliceId(researchSlice.research_slice_id);
       bodies = { ...loaded.value, researchSlice, evidenceRefs };
+      if (loaded.value.feedback) trialHistory = await this.resolveN7TrialHistory(input, payload.value, loaded.value.feedback);
     } else {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Codex research context is currently supported only for N4/N6/N7/N8.');
     }
@@ -1160,14 +1165,116 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     // N8 already carries every handoff ref/hash in its required projection. Preserve the handoff
     // warnings and route, without repeating the same payload and required-ref arrays in research bodies.
-    const frozenDomain = 'n7Handoff' in bodies ? { ...bodies, n7Handoff: {
-      route_signal: bodies.n7Handoff.route_signal,
-      warning_codes: bodies.n7Handoff.envelope.warning_codes,
+    let frozenDomain: Record<string, unknown> = bodies;
+    if ('n7Handoff' in bodies) frozenDomain = { ...bodies, n7Handoff: {
+      route_signal: bodies.n7Handoff.route_signal, warning_codes: bodies.n7Handoff.envelope.warning_codes,
       residual_risk_refs: bodies.n7Handoff.envelope.residual_risk_refs,
-    } } : bodies;
+    } };
+    else if ('n6Handoff' in bodies) {
+      // N7's frozen input already owns handoff identities; trial_history owns the exact feedback.
+      // Formation-run bookkeeping adds no question content beyond the candidate/frame bodies.
+      const { n6Handoff, run: _run, feedback, ...domain } = bodies;
+      frozenDomain = { ...domain, n6Handoff: { route_signal: n6Handoff.route_signal,
+        warning_codes: n6Handoff.envelope.warning_codes, residual_risk_refs: n6Handoff.envelope.residual_risk_refs },
+      ...(trialHistory ? {} : { feedback }) };
+    }
     return { frozen_domain: frozenDomain, evidence_packets: evidencePackets,
+      ...(trialHistory ? { trial_history: trialHistory } : {}),
       ...(regenerationContext ? { regeneration_context: regenerationContext } : {}),
       ...(admissibleCitationRefs ? { admissible_citation_refs: admissibleCitationRefs } : {}) };
+  }
+
+  private async resolveN7TrialHistory(input: TopicSelectionV1bWorkflowHarnessRunRequest,
+    payload: TopicSelectionV1bN7HarnessFrozenInputPayload, latest: TopicSelectionV1bN8ToN7FeedbackPayload): Promise<Array<Record<string, unknown>>> {
+    const fail = (message: string): never => { throw new AppError(409, 'GATE_CONSTRAINT_FAILED', `N7 trial history: ${message}`); };
+    const questions = this.runnerDependencies.topicQuestionRepository!;
+    const values = this.runnerDependencies.valueAssessmentRepository!;
+    const history: Array<Record<string, unknown>> = [];
+    const seen = new Set<string>();
+    let feedback: TopicSelectionV1bN8ToN7FeedbackPayload | null = latest;
+    while (feedback) {
+      const current: TopicSelectionV1bN8ToN7FeedbackPayload = feedback;
+      if (current.feedback_class === 'technical_failure') return fail('technical feedback is not a candidate failure.');
+      if (seen.has(current.previous_n7_handoff_ref.ref_id)) return fail('feedback lineage contains a cycle.');
+      seen.add(current.previous_n7_handoff_ref.ref_id);
+      const [handoffArtifact, decision, contract] = await Promise.all([
+        this.controlPlane.getArtifactRef(current.previous_n7_handoff_ref.ref_id),
+        questions.findSelectionDecisionById(current.previous_trial_ledger_ref.ref_id),
+        questions.findTopicQuestionContractById(current.failed_topic_question_contract_ref.ref_id),
+      ]);
+      const handoff = handoffArtifact?.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff | null;
+      const handoffPayload = handoff?.payload as TopicSelectionV1bN7ToN8HandoffPayload | undefined;
+      const candidateIndex = payload.admissible_candidate_refs.findIndex(ref => refsEqual(ref, current.failed_candidate_ref));
+      if (!handoff || !handoffArtifact || handoff.envelope.handoff_kind !== 'N7ToN8Handoff'
+        || handoffArtifact?.title_card_id !== input.title_card_id
+        || handoffArtifact.checksum !== canonicalHash(handoff) || canonicalHash(handoff) !== current.previous_n7_handoff_hash
+        || !decision || decision.title_card_id !== input.title_card_id || decision.candidate_set_id !== payload.topic_question_candidate_set_ref.ref_id
+        || !decision.admitted_candidate_ids.includes(current.failed_candidate_ref.ref_id)
+        || !contract || contract.title_card_id !== input.title_card_id || contract.source_candidate_id !== current.failed_candidate_ref.ref_id
+        || hashN7ContractAuthority(contract) !== current.failed_topic_question_contract_hash
+        || candidateIndex < 0 || payload.admissible_candidate_hashes[candidateIndex] !== current.failed_candidate_hash
+        || current.topic_question_candidate_set_hash !== payload.topic_question_candidate_set_hash
+        || !refsEqual(current.topic_question_candidate_set_ref, payload.topic_question_candidate_set_ref)
+        || !handoffPayload || !refsEqual(handoffPayload.trial_ledger_ref, current.previous_trial_ledger_ref)
+        || handoffPayload.trial_ledger_hash !== current.previous_trial_ledger_hash
+        || !refsEqual(handoffPayload.topic_question_contract_ref, current.failed_topic_question_contract_ref)
+        || handoffPayload.topic_question_contract_hash !== current.failed_topic_question_contract_hash
+        || !refsEqual(handoffPayload.active_candidate_ref, current.failed_candidate_ref)
+        || handoffPayload.active_candidate_hash !== current.failed_candidate_hash
+        || !refsEqual(handoffPayload.selected_research_slice_ref, payload.selected_research_slice_ref)
+        || handoffPayload.selected_research_slice_hash !== payload.selected_research_slice_hash) return fail('feedback, handoff, ledger or contract lineage drifted.');
+      const answerabilityPlan = await questions.findAnswerabilityPlanByContractId(contract.topic_question_contract_id);
+      if (!answerabilityPlan || hashN7AnswerabilityPlanAuthority(answerabilityPlan) !== handoffPayload.answerability_plan_hash) return fail('the original answerability plan is missing or drifted.');
+      const assessment = current.value_assessment_ref ? await values.findAssessmentById(current.value_assessment_ref.ref_id) : null;
+      let valueContext: Record<string, unknown> | null = null;
+      if (current.value_assessment_ref) {
+        if (!assessment || assessment.title_card_id !== input.title_card_id
+          || assessment.topic_question_contract_id !== contract.topic_question_contract_id
+          || hashN8ValueAssessmentAuthority(assessment) !== current.value_assessment_hash) return fail('value assessment identity drifted.');
+        const [memo, snapshot, evidenceRefs] = await Promise.all([
+          values.findReasoningMemoById(assessment.value_reasoning_memo_id),
+          values.findInputSnapshotById(assessment.topic_value_input_snapshot_id),
+          values.listEvidenceRefsByAssessmentId(assessment.topic_value_assessment_id),
+        ]);
+        if (!memo || memo.topic_value_assessment_id !== assessment.topic_value_assessment_id
+          || memo.title_card_id !== input.title_card_id || memo.topic_question_contract_id !== contract.topic_question_contract_id
+          || !snapshot || snapshot.title_card_id !== input.title_card_id
+          || !refsEqual(snapshot.topic_question_contract_ref, current.failed_topic_question_contract_ref)
+          || canonicalHash(snapshot.question_contract) !== canonicalHash(contract)
+          || canonicalHash(snapshot.answerability_plan) !== canonicalHash(answerabilityPlan)
+          || evidenceRefs.some(row => row.topic_value_assessment_id !== assessment.topic_value_assessment_id
+            || row.title_card_id !== input.title_card_id)) return fail('value assessment bodies are incomplete or drifted.');
+        // Keep the original snapshot details, but include its verified contract/plan only once per trial.
+        const { question_contract: _contract, answerability_plan: _plan, ...snapshotDetails } = snapshot;
+        // Model/audit bookkeeping refs repeat the invocation lineage. Scientific citations and risk refs stay below.
+        const { artifact_refs: _assessmentArtifacts, ...assessmentDetails } = assessment;
+        const { artifact_refs: _memoArtifacts, risk_finding_refs: memoRiskRefs, ...memoDetails } = memo;
+        valueContext = { assessment: assessmentDetails, memo: { ...memoDetails,
+          ...(canonicalHash(memoRiskRefs ?? []) === canonicalHash(assessment.risk_finding_refs ?? []) ? {} : { risk_finding_refs: memoRiskRefs }),
+        }, snapshot: snapshotDetails, evidence_refs: evidenceRefs };
+      } else if (current.value_assessment_hash != null) return fail('assessment hash has no source ref.');
+      const { required_refs: _requiredRefs, ...handoffDetails } = handoff;
+      // The handoff already carries the verified authority hash. The domain content hash uses
+      // a different preimage; repeating it invites a false lineage mismatch in semantic review.
+      const { contract_hash: _contentHash, ...contractDetails } = contract;
+      history.push({ feedback: current, handoff: handoffDetails, decision, contract: contractDetails, answerability_plan: answerabilityPlan, value_assessment: valueContext });
+      // Follow the exact feedback frozen into the prior selection, not all rejected rows or unrelated runs.
+      const previousHash = decision.admission_review.previous_feedback_hash;
+      feedback = null;
+      if (typeof previousHash === 'string') {
+        const snapshot = await this.controlPlane.getInputSnapshot(decision.input_snapshot_ref.ref_id);
+        if (!snapshot || snapshot.title_card_id !== input.title_card_id) return fail('selection input snapshot is missing.');
+        for (const ref of snapshot.source_refs.filter(ref => ref.ref_type === 'artifact_ref')) {
+          const artifact = await this.controlPlane.getArtifactRef(ref.ref_id);
+          if (artifact && canonicalHash(artifact) === previousHash && isN8ToN7FeedbackPayload(artifact.payload)) {
+            feedback = artifact.payload as unknown as TopicSelectionV1bN8ToN7FeedbackPayload;
+            break;
+          }
+        }
+        if (!feedback) return fail('the preceding frozen feedback cannot be resolved.');
+      }
+    }
+    return history;
   }
 
   private async resolveEarlyCliResearchContext(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<Record<string, unknown>> {
@@ -1592,43 +1699,97 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
   private async invokeCliN7Admission(input: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
     if (input.execution_spec?.model_option_id != null || input.profile_id != null) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI admission support uses its fixed slot profile without gateway options.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI support uses fixed slot profiles without gateway options.');
     }
     const payload = parseN7Payload(input.frozen_input.payload);
     if (!payload.ok || !['initial_from_n6', 'feedback_from_n8'].includes(payload.value.input_mode)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI admission support requires an initial or N8 feedback context.');
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI support requires an initial or N8 feedback context.');
     }
-    // The execution setting selects support generation; N7 itself remains deterministic.
-    const request = { ...input, execution_spec: undefined, run_mode: input.run_mode ?? 'product' as const };
+    const { cli_support_slots: requestedSlots, ...withoutSlots } = input;
+    const slots = (requestedSlots ?? ['n7_n8_debate_admission_review']) as TopicSelectionV1bN7SupportSlotId[];
+    // Preserve the completed default admission identity; explicit optional slots have their own receipt.
+    const request = { ...withoutSlots, execution_spec: undefined, run_mode: input.run_mode ?? 'product' as const };
     const preflight = { ...request, run_mode: undefined };
     const policy = this.getNodePolicy(request.node_id);
     const blocker = this.policyBlocker(policy, preflight, this.hashContext(preflight, null));
     if (blocker) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', blocker.message);
-    const receiptKey = `n7-cli-admission-input:${canonicalHash([request.workflow_run_id, request.node_attempt_id])}`;
-    const requestHash = canonicalHash({ request, runtime: this.n7SupportRuntime.cliAdmissionIdentity(request.run_mode) });
+    const attemptKey = canonicalHash([request.workflow_run_id, request.node_attempt_id]);
+    const receiptKey = `${requestedSlots ? 'n7-cli-input' : 'n7-cli-admission-input'}:${attemptKey}`;
+    const otherReceipt = await this.controlPlane.getArtifactRefByStableKey(`${requestedSlots ? 'n7-cli-admission-input' : 'n7-cli-input'}:${attemptKey}`);
+    if (otherReceipt) throw new AppError(409, 'VERSION_CONFLICT', 'N7 CLI support slots changed for an existing attempt.');
+    const requestHash = canonicalHash({ request, runtime: requestedSlots
+      ? slots.map(slot => this.n7SupportRuntime.cliAdmissionIdentity(request.run_mode, slot))
+      : this.n7SupportRuntime.cliAdmissionIdentity(request.run_mode) });
     const receipt = await this.controlPlane.getArtifactRefByStableKey(receiptKey);
-    let artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    let artifacts: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef[];
     if (receipt) {
-      if (receipt.checksum !== canonicalHash(receipt.payload) || receipt.payload?.request_hash !== requestHash || !isRecord(receipt.payload.artifact)) {
-        throw new AppError(409, 'VERSION_CONFLICT', 'N7 CLI admission request or runtime identity drifted.');
+      const saved = requestedSlots ? receipt.payload?.artifacts : receipt.payload?.artifact ? [receipt.payload.artifact] : null;
+      if (receipt.checksum !== canonicalHash(receipt.payload)
+        || !Array.isArray(saved) || saved.length !== slots.length || !saved.every(isRecord)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'N7 CLI support request or runtime identity drifted.');
       }
-      artifact = receipt.payload.artifact as unknown as TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+      artifacts = saved as unknown as TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef[];
+      if (receipt.payload?.request_hash !== requestHash) {
+        // A completed gate can replay its frozen context budget. Uncommitted output must still
+        // match today's context policy; request, model, prompt and runner identity never relax.
+        const frozenIdentities = slots.map((slot, index) => this.n7SupportRuntime.cliAdmissionIdentity(request.run_mode,
+          slot, artifacts[index]?.context_policy_profile_hash ?? undefined));
+        const frozenRequestHash = canonicalHash({ request, runtime: requestedSlots ? frozenIdentities : frozenIdentities[0] });
+        const replayInput = { ...request, semantic_artifacts: artifacts };
+        const admission = this.runtimeAdmission(policy, replayInput);
+        const replay = await this.findReplay(replayInput, this.hashContext(replayInput, admission.runtimeAdmissionHash).nodeReplayKey);
+        if (receipt.payload?.request_hash !== frozenRequestHash || !replay.exact) {
+          throw new AppError(409, 'VERSION_CONFLICT', 'N7 CLI support request or runtime identity drifted before a verified completion.');
+        }
+      }
     } else {
-      const generated = await this.n7SupportRuntime.generateSupportArtifact({
-        request, slot_id: 'n7_n8_debate_admission_review', execution_mode: 'codex_cli', run_mode: request.run_mode,
+      const loaded = await this.loadN7Context(request, payload.value);
+      if (!loaded.ok) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', loaded.message);
+      const lineage = this.n7LineageBlocker(payload.value, loaded.value);
+      if (lineage) throw new AppError(409, 'GATE_CONSTRAINT_FAILED', lineage.message);
+      const feedbackClass = loaded.value.feedback?.feedback_class;
+      if (feedbackClass === 'technical_failure') throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N7 cannot review a technical N8 failure; retry N8.');
+      const choice = this.chooseN7Candidate(payload.value, loaded.value, {
+        grouping: null, debateAdmission: null, failedTrialSynthesis: null, deltaAdmission: null,
       });
-      if (generated.status !== 'succeeded') throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N7 CLI admission support did not succeed.', {
-        blocker_codes: generated.invocation_result.blocker_codes,
-      });
-      artifact = generated.semantic_artifact;
-      const receiptPayload = { request_hash: requestHash, artifact };
+      const exhausted = !choice.ok && choice.code === 'N7_CANDIDATE_TRIALS_EXHAUSTED';
+      if ((feedbackClass === 'gate_rejected' && (slots.length !== 1 || slots[0] !== 'n7_n8_debate_admission_review'))
+        || (slots.includes('n7_candidate_grouping') && !choice.ok)
+        || (slots.includes('n7_failed_trial_synthesis') && (feedbackClass !== 'semantic_candidate_failure' || !exhausted))) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Requested N7 support does not apply to this candidate/feedback state.');
+      }
+      // Both receipt formats share a reservation before model work, including interrupted attempts.
+      const claimKey = `n7-cli-support-request:${attemptKey}`;
+      const claim = { receipt_key: receiptKey, request_hash: requestHash };
+      try {
+        await this.controlPlane.recordArtifactRef({ stable_key: claimKey, workflow_run_id: request.workflow_run_id,
+          workspace_id: request.workspace_id ?? null, title_card_id: request.title_card_id ?? null,
+          artifact_kind: 'diagnostic', storage_kind: 'inline', payload: claim, checksum: canonicalHash(claim), created_by: 'system' });
+      } catch (error) {
+        const winner = await this.controlPlane.getArtifactRefByStableKey(claimKey);
+        if (!winner) throw error;
+        if (winner.checksum !== canonicalHash(winner.payload) || canonicalHash(winner.payload) !== canonicalHash(claim)) {
+          throw new AppError(409, 'VERSION_CONFLICT', 'N7 CLI support slots or request changed for an existing attempt.');
+        }
+      }
+      artifacts = [];
+      for (const slot of slots) {
+        const generated = await this.n7SupportRuntime.generateSupportArtifact({
+          request, slot_id: slot, execution_mode: 'codex_cli', run_mode: request.run_mode,
+        });
+        if (generated.status !== 'succeeded') throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N7 CLI support did not succeed.', {
+          blocker_codes: generated.invocation_result.blocker_codes,
+          token_budget_gate_result: generated.invocation_result.token_budget_gate_result,
+        });
+        artifacts.push(generated.semantic_artifact);
+      }
+      const receiptPayload = requestedSlots ? { request_hash: requestHash, artifacts } : { request_hash: requestHash, artifact: artifacts[0]! };
       await this.controlPlane.recordArtifactRef({ stable_key: receiptKey,
         workspace_id: request.workspace_id ?? null, title_card_id: request.title_card_id ?? null,
         workflow_run_id: request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
         payload: receiptPayload, checksum: canonicalHash(receiptPayload), created_by: 'system' });
     }
-    // On replay, the harness checks the persisted gate result/current authority before loading mutable N7 rows.
-    return this.invokeNode({ ...request, semantic_artifacts: [artifact] });
+    return this.invokeNode({ ...request, semantic_artifacts: artifacts });
   }
 
   private assertRequest(input: TopicSelectionV1bWorkflowHarnessRunRequest): void {
@@ -1636,6 +1797,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'TopicSelection v1b workflow harness request must be an object.');
     }
     const record = input as unknown as Record<string, unknown>;
+    if (input.cli_support_slots != null) {
+      const slots = input.cli_support_slots;
+      const allowed = this.getNodePolicy(input.node_id).semantic_support_slots.filter(slot => slot.allowed_effect === 'support_only').map(slot => slot.slot_id);
+      if (input.execution_spec?.execution_mode !== 'codex_cli' || !Array.isArray(slots) || slots.length === 0
+        || new Set(slots).size !== slots.length || slots.some(slot => !allowed.includes(slot) || !TOPIC_SELECTION_V1B_CLI_SUPPORT_SLOTS.includes(slot))
+        || !['topic-selection.v1b.generate-topic-question-candidates.v1', 'topic-selection.v1b.materialize-topic-question-contract.v1'].includes(input.node_id)
+        || (input.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1'
+          && !['initial_from_n6', 'feedback_from_n8'].includes(String(input.frozen_input?.payload?.input_mode)))
+        || (input.semantic_artifacts?.length && (input.node_id !== 'topic-selection.v1b.generate-topic-question-candidates.v1'
+          || input.semantic_artifacts.some(artifact => artifact.slot_id !== 'n6_question_candidate_draft')))) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'CLI support slots require an explicit CLI invocation and supported node slots; support answers are generated internally.');
+      }
+    }
     const unknownKeys = Object.keys(record).filter((key) => !ALLOWED_REQUEST_KEYS.has(key));
     if (unknownKeys.length > 0) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'TopicSelection v1b workflow harness request contains unsupported fields.', {
@@ -1899,7 +2073,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(409, 'VERSION_CONFLICT', 'frozen_input_hash does not match frozen_input payload.');
     }
     const frozenInputHash = declaredFrozenInputHash ?? computedFrozenInputHash;
-    const executionSpecHash = canonicalHash(input.execution_spec ?? null);
+    const executionSpecHash = canonicalHash(input.cli_support_slots ? {
+      execution_spec: input.execution_spec, cli_support_slots: input.cli_support_slots,
+      runtime: this.n6LoopbackTriageRuntime.cliIdentity(input.run_mode ?? 'product'),
+    } : input.execution_spec ?? null);
     const semanticArtifacts = input.semantic_artifacts ?? [];
     const semanticArtifactHash = semanticArtifacts.length > 0 ? canonicalHash(semanticArtifacts) : null;
     const attemptFamilyKey = input.attempt_family_key?.trim() || canonicalHash({
@@ -10511,10 +10688,22 @@ export class TopicSelectionV1bWorkflowHarnessService {
       frozenPayload: TopicSelectionV1bN6HarnessFrozenInputPayload;
     },
   ): Promise<{ ok: true; value: N6LoopbackPlan } | { ok: false; code: string; message: string }> {
+    let generatedArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef | undefined;
+    if (input.cli_support_slots?.includes('n6_loopback_triage')) {
+      const generated = await this.n6LoopbackTriageRuntime.generateSupportArtifact({
+        request: input, failed_draft_artifact: context.draftArtifact, failed_draft_hash: context.draftHash,
+        blocked_candidate_contexts: context.blockedCandidateContexts, execution_mode: 'codex_cli', run_mode: input.run_mode ?? 'product',
+      });
+      if (generated.status !== 'succeeded') return { ok: false, code: 'N6_LOOPBACK_TRIAGE_RUNTIME_BLOCKED',
+        message: `N6 CLI triage did not succeed: ${generated.invocation_result.blocker_codes.join(', ')}.` };
+      generatedArtifact = generated.semantic_artifact;
+    }
     const triage = await this.resolveN6LoopbackTriage(input, {
       draftArtifact: context.draftArtifact,
       draftHash: context.draftHash,
       frozenPayload: context.frozenPayload,
+      blockedCandidateContexts: context.blockedCandidateContexts,
+      generatedArtifact,
     });
     if (!triage.ok) {
       return triage;
@@ -10566,9 +10755,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       draftArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
       draftHash: string;
       frozenPayload: TopicSelectionV1bN6HarnessFrozenInputPayload;
+      blockedCandidateContexts?: Record<string, unknown>[];
+      generatedArtifact?: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
     },
   ): Promise<{ ok: true; value: N6LoopbackTriageResolution } | { ok: false; code: string; message: string }> {
-    const artifact = (input.semantic_artifacts ?? []).find((item) => item.slot_id === 'n6_loopback_triage');
+    const artifact = context.generatedArtifact ?? (input.semantic_artifacts ?? []).find((item) => item.slot_id === 'n6_loopback_triage');
     if (!artifact) {
       return { ok: true, value: null };
     }
@@ -10626,16 +10817,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
         return auditVerification;
       }
     }
-    const admissionExecutionMode = artifact.execution_mode === 'mocked_llm'
-      ? 'mocked_llm'
-      : 'codex_assisted';
+    const admissionExecutionMode = artifact.execution_mode === 'codex_cli' ? 'codex_cli'
+      : artifact.execution_mode === 'mocked_llm' ? 'mocked_llm' : 'codex_assisted';
     let expectedIdentity;
     try {
-      expectedIdentity = this.n6LoopbackTriageRuntime.buildAdmissionExpectedIdentity({
+      expectedIdentity = await this.n6LoopbackTriageRuntime.buildAdmissionExpectedIdentity({
         request: input,
         frozenPayload: context.frozenPayload,
         failedDraftArtifact: context.draftArtifact,
         failedDraftHash: context.draftHash,
+        blockedCandidateContexts: context.blockedCandidateContexts,
         normalizedPayloadHash: payloadHash,
         executionMode: admissionExecutionMode,
         runMode: artifact.run_mode,
@@ -10687,10 +10878,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
         'N6 loopback triage runtime provenance must point to its audit artifact_ref.',
       );
     }
+    if (artifact.execution_mode === 'codex_cli' && !await this.n6LoopbackTriageRuntime.hasCliGenerationReceipt(input, artifact)) {
+      return n6LoopbackTriageRuntimeAuditDrift('CLI triage requires its protected generation receipt.');
+    }
     const auditArtifact = await this.controlPlane.getArtifactRef(artifact.runtime_audit_ref.ref_id);
     if (
       !auditArtifact
       || auditArtifact.artifact_kind !== 'diagnostic'
+      || auditArtifact.checksum !== canonicalHash(auditArtifact.payload)
       || auditArtifact.checksum !== artifact.runtime_audit_hash
       || auditArtifact.workflow_run_id !== input.workflow_run_id
     ) {
@@ -10705,7 +10900,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       );
     }
     const provenance = auditPayload.provenance;
-    const expectedSourceKind = artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
+    const expectedSourceKind = artifact.execution_mode === 'codex_cli' ? 'codex_cli_response' : artifact.execution_mode === 'mocked_llm' ? 'mock_fixture' : 'codex_response';
     if (
       auditPayload.node_id !== input.node_id
       || auditPayload.workflow_run_id !== input.workflow_run_id

@@ -1577,13 +1577,30 @@ test('coordinator forwards an N6 CLI spec to the canonical harness without calle
   const { harness, coordinator } = await driveToN6Initial();
   harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
   const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, max_steps: 1,
-    node_inputs: { [N6]: { execution_spec: { execution_mode: 'codex_cli', model_option_id: null } } },
+    node_inputs: { [N6]: { execution_spec: { execution_mode: 'codex_cli', model_option_id: null }, cli_support_slots: ['n6_loopback_triage'] } },
   });
   assert.equal(report.steps[0]?.node_id, N6);
   const request = harness.invocations.find(request => request.node_id === N6)!;
   assert.equal(request.execution_spec?.execution_mode, 'codex_cli');
+  assert.deepEqual(request.cli_support_slots, ['n6_loopback_triage']);
   assert.equal(request.run_mode, 'product');
   assert.equal(request.semantic_artifacts?.length ?? 0, 0);
+});
+
+test('coordinator rejects invalid CLI support selection before reaching any node', async () => {
+  const { harness, coordinator } = makeSubject();
+  for (const [nodeId, slots, mode] of [
+    [N2, ['n6_loopback_triage'], 'codex_cli'],
+    [N6, ['n7_candidate_grouping'], 'codex_cli'],
+    [N6, ['n6_loopback_triage', 'n6_loopback_triage'], 'codex_cli'],
+    [N6, [], 'codex_cli'],
+    [N7, ['n7_failed_trial_synthesis'], 'provider_llm'],
+  ] as const) {
+    await assert.rejects(coordinator.advanceUntilBlocked({ workflow_run_id: RUN,
+      node_inputs: { [nodeId]: { cli_support_slots: [...slots], execution_spec: { execution_mode: mode } } },
+    }), /cli_support_slots/);
+  }
+  assert.equal(harness.invocations.length, 0);
 });
 
 async function driveToN6Escalation(): Promise<ReturnType<typeof makeSubject>> {

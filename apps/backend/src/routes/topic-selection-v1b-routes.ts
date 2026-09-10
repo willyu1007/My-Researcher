@@ -28,6 +28,7 @@ import {
   topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
   topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
+  topicSelectionV1bCliSupportSlotsSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
   topicSelectionNamedDebateExecutionPlanSchema,
@@ -331,6 +332,7 @@ const workflowRunAdvanceSchema = {
             additionalProperties: false,
             properties: {
               execution_spec: { anyOf: [coordinatorExecutionSpecSchema, { type: 'null' }] },
+              cli_support_slots: topicSelectionV1bCliSupportSlotsSchema,
               draft_payload: { anyOf: [recordPayload, { type: 'null' }] },
               refinement_payload: {
                 anyOf: [topicSelectionV1bN9QuestionRefinementPayloadSchema, { type: 'null' }],

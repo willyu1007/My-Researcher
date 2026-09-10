@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createDefaultTopicSelectionContextPolicyProfileRegistry, TopicSelectionContextPolicyProfileRegistryService } from './topic-selection-context-policy-profile-registry-service.js';
 import test, { type TestContext } from 'node:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -741,6 +742,177 @@ test('Codex early support qualification reviews original evidence and fixed Huma
   } finally { save('artifacts', await ctx.controlPlane.listArtifactRefsByWorkflowRunId(key)); }
 });
 
+test('Codex optional support qualification reads original evidence and failed trial bodies', {
+  skip: !['prepare', 'live'].includes(process.env.TOPIC_SELECTION_CODEX_SUPPORT_QUALIFICATION ?? ''),
+}, async t => {
+  const { qualificationBeirParagraphs } = await import('./test-fixtures/topic-selection-codex-qualification-sources.js');
+  const { qualificationRunner, QualificationPreviewComplete } = await import('./test-fixtures/topic-selection-codex-qualification-runner.js');
+  const source = process.env.TOPIC_SELECTION_QUALIFICATION_ALTERNATIVE_FULLTEXT;
+  const output = process.env.TOPIC_SELECTION_QUALIFICATION_OUTPUT;
+  const model = process.env.TOPIC_SELECTION_CODEX_MODEL;
+  const home = process.env.TOPIC_SELECTION_CODEX_HOME;
+  const runId = process.env.TOPIC_SELECTION_QUALIFICATION_RUN_ID;
+  const slot = process.env.TOPIC_SELECTION_QUALIFICATION_SLOT;
+  const n4Outcome = process.env.TOPIC_SELECTION_QUALIFICATION_N4_OUTCOME;
+  if (!source || !output || !model || !home || !n4Outcome || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
+    || !['triage', 'grouping', 'synthesis', 'admission'].includes(slot ?? '')
+    || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit support qualification configuration is required.');
+  const live = process.env.TOPIC_SELECTION_CODEX_SUPPORT_QUALIFICATION === 'live';
+  const limits = live ? { attempts: null, tokens: null, duration_ms: null,
+    attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
+  const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
+    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, output, limits);
+  t.after(() => runner.shutdown()); t.after(() => budget?.close());
+  const key = `support_${runId}`;
+  const save = (name: string, value: unknown) => writeFileSync(join(directory, `${key}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600, flag: 'wx' });
+  save('manifest', { slot, model, limits, original_paragraphs: true, actual_research_approval: false,
+    controlled_upstream: 'Pinned original N4 output rematerialized; N6 candidates, N8 assessments, semantic failure feedback and Human decisions are controlled fixtures.',
+    target_role: 'Actual CLI output; N7 uses the canonical CLI entry. N6 triage uses its runtime then mixed-fixture gate admission; ordinary CLI opt-in is separately covered by service tests.' });
+  const sources = await qualificationBeirParagraphs(source, TITLE_CARD_ID);
+  const ctx = await seedHarnessV1aBundle({ evidenceUnits: sources.units,
+    needStatement: 'Bounded historical replication of BEIR ANCE/TAS-B versus BM25 on BioASQ and Touché-2020; original reported differences, incomplete relevance judgments and limited scientific novelty must remain explicit.' });
+  const constraint = qualificationConstraint(true);
+  const { n1, n2, n3 } = await runReadyN3(ctx, constraint, key);
+  const outcome: { final_message: string } = JSON.parse(readFileSync(n4Outcome, 'utf8'));
+  assert.equal(sha256Text(outcome.final_message), '24546627a94fd84183536c3bf12f84ce554624f71b61c0c0fd64509af898812d');
+  const n4Input = n4Request(n1, n2, n3);
+  const n4 = await ctx.service.invokeNode({ ...n4Input,
+    semantic_artifacts: [await generateN4RuntimeDraftArtifact(ctx, n4Input, JSON.parse(outcome.final_message))] });
+  assert.equal(n4.route_decision, 'invoke_next', JSON.stringify(n4));
+  const n5Input = earlyCliRequest(n5Request(n4, acceptedSliceSelectionPayload(await selectedN4Option(ctx, n4))), key);
+  const n5 = await ctx.service.invokeNode({ ...n5Input, execution_spec: null, run_mode: null }); // Controlled exact Human selection.
+  assert.equal(n5.route_decision, 'invoke_next', JSON.stringify(n5));
+  const n6Input = await n6Request(ctx, n5, { workflow_run_id: key, node_attempt_id: `${key}_n6` });
+  const draft = await n6Draft(ctx, n6Input);
+  draft.question_frame = { ...draft.question_frame, target_setting: 'Fixed historical BEIR BioASQ and Touché-2020 rankings',
+    target_community: 'Information retrieval researchers', object_scope: 'Archived ANCE, TAS-B and BM25 rankings with original qrels',
+    task_scope: 'Historical nDCG@10 metric replication', intervention_or_approach: 'Rescore fixed historical rankings without retrieval or training',
+    comparison_baseline: 'BM25', observable_outcome: 'Query-level nDCG@10 differences and uncertainty; not a new measured outcome',
+    frame_payload: { controlled_predecessor_fixture: true } };
+  draft.candidates = ['ANCE', 'TAS-B'].map((retriever, index) => ({ ...structuredClone(draft.candidates[0]!),
+    candidate_key: `historical_${index}`, main_question: `What historical nDCG@10 differences between ${retriever} and BM25 are reproduced by the fixed BEIR BioASQ and Touché-2020 ranked lists?`,
+    sub_questions: ['How do incomplete judgments limit interpretation of the historical differences?'],
+    question_type: 'analysis', contribution_hypothesis: 'analysis',
+    expected_claim: 'Historical metric replication only; neither novelty nor current-model behavior is established.',
+    fallback_claim: 'Unreproduced or uncertain differences require reporting unresolved inputs and limitations.',
+    max_claim_strength: constraint.claim_ceiling,
+    answerability_plan: { datasets_or_resources: constraint.available_assets, metrics: ['Query-level nDCG@10 with judged-status reporting and uncertainty'],
+      baselines: ['BM25 on matching historical corpus/query IDs'], ablations_or_comparisons: ['Report each source-tested dataset separately'],
+      evaluation_setting: 'Reproduce fixed historical scores; no new retrieval, training or qrel construction.',
+      dependency_risks: ['Availability is a controlled Human fixture, not independently inspected.'], open_dependencies: [],
+      known_gaps: ['The original paper already reports this comparison; no new scientific contribution is established.'],
+      required_evidence_refs: draft.question_frame.evidence_refs },
+    answerability_verdict: slot === 'triage' ? 'not_answerable' : 'answerable_with_risk',
+    objections: ['Repeating reported results does not establish scientific novelty.'],
+    risk_notes: ['Historical incomplete relevance judgments constrain interpretation.'],
+    human_review_triggers: ['A real researcher must assess whether replication warrants investment.'],
+  }));
+  draft.recommended_candidate_keys = draft.candidates.map(candidate => candidate.candidate_key);
+  if (slot === 'triage') for (const candidate of draft.candidates) {
+    candidate.main_question = `Does retriever architecture cause the historical ${candidate.candidate_key === 'historical_0' ? 'ANCE' : 'TAS-B'} versus BM25 differences across BioASQ and Touché-2020?`;
+    candidate.expected_claim = 'A causal architecture explanation would require interventions; archived rankings alone do not identify it.';
+    candidate.answerability_plan.open_dependencies = ['Architecture-controlled interventions are absent; historical rankings permit metric replication only.'];
+    candidate.answerability_plan.known_gaps = ['The proposed causal question exceeds what the supplied archives and original observational comparison can answer.'];
+  }
+  draft.generation_notes = ['Controlled candidate proposals for isolated support-role qualification, not live N6 model output.'];
+  save('controlled-candidates', draft);
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry,
+    codexCliRunner: runner, codexCliModelId: model });
+  const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, { modelProfileRegistry, agentOrchestrator,
+    evidencePacketResolver: sources.resolver(ctx.evidenceRepository),
+    runnerDependencies: { evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
+      recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
+      researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
+      topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository },
+  });
+  try {
+    if (slot === 'triage') {
+      const failedInput = { ...n6Input, node_attempt_id: `${key}_failed` };
+      const failed = await ctx.service.invokeNode({ ...failedInput, semantic_artifacts: [await recordN6DraftArtifact(ctx, failedInput, draft)] });
+      assert.equal(failed.error_code, 'N6_NO_ADMISSIBLE_TOPIC_QUESTION_CANDIDATE', JSON.stringify(failed));
+      const trace = await ctx.controlPlane.getTraceSnapshot(failed.trace_snapshot_ref!.ref_id);
+      const artifact = await recordN6DraftArtifact(ctx, n6Input, draft);
+      const runtime = new TopicSelectionV1bN6LoopbackTriageRuntimeService(ctx.controlPlane, { modelProfileRegistry, agentOrchestrator,
+        resolveResearchContext: request => service.resolveCodexResearchContext(request) });
+      const generateInput = { request: n6Input, failed_draft_artifact: artifact, failed_draft_hash: artifact.normalized_output_hash!,
+        blocked_candidate_contexts: trace!.payload.blocked_candidate_context as Record<string, unknown>[],
+        execution_mode: 'codex_cli' as const, run_mode: 'product' as const };
+      save('request', generateInput);
+      const generated = await runtime.generateSupportArtifact(generateInput);
+      save('generation', generated);
+      assert.equal(generated.status, 'succeeded', JSON.stringify(generated));
+      if (generated.status !== 'succeeded') return;
+      const result = await service.invokeNode({ ...n6Input, semantic_artifacts: [artifact, generated.semantic_artifact] });
+      save('result', result);
+      assert.equal(result.route_decision, 'loopback', JSON.stringify(result));
+      const count = budget?.snapshot().attempts.length;
+      assert.equal((await runtime.generateSupportArtifact(generateInput)).status, 'succeeded');
+      assert.equal(budget?.snapshot().attempts.length, count);
+    } else {
+      const n6 = await ctx.service.invokeNode({ ...n6Input, semantic_artifacts: [await recordN6DraftArtifact(ctx, n6Input, draft)] });
+      assert.ok(n6.authority_ref && n6.handoff_ref, JSON.stringify(n6));
+      const initial = await n7Request(ctx, n6);
+      let input = initial;
+      if (slot !== 'grouping') {
+        let trial = await ctx.service.invokeNode(initial);
+        for (let index = 0; index < (slot === 'synthesis' ? 2 : 1); index += 1) {
+          const assessmentInput = await n8Request(ctx, trial, { workflow_run_id: key, node_attempt_id: `${key}_value_${index}` });
+          const value = n8ValueDraft(assessmentInput, { readiness_status: 'needs_refinement', recommended_disposition: 'refine_question',
+            total_score: 35, confidence: 0.85,
+            strongest_claim_if_success: 'Reproduce the fixed historical retrieval comparison within its original evaluation boundaries.',
+            fallback_claim_if_success: 'Report unresolved historical input or judgment limitations without a performance conclusion.',
+            hard_gates: n8ValueDraft(assessmentInput).hard_gates.map(gate => ({ ...gate,
+              rationale: 'Controlled structural gate coverage for an explicitly bounded archival comparison does not establish new scientific value.' })),
+            dimension_scores: n8ValueDraft(assessmentInput).dimension_scores.map(score => ({ ...score, score: 35,
+              rationale: 'Controlled low-value judgment: the source already reports this comparison and no independent contribution is established.' })),
+            risk_penalty: { penalty_summary: 'Historical replication has limited scientific novelty and inherits incomplete qrel judgments.' },
+            reviewer_objections: ['The source already reports the comparison; repeating it does not establish a new contribution.'],
+            ceiling_case: 'Reproducible historical scores with transparently bounded interpretation.',
+            base_case: 'An archival scoring check that confirms known observations.',
+            floor_case: 'Unresolved archival alignment prevents interpretation.',
+            risk_notes: ['Availability is controlled scenario input, not independently inspected; scientific novelty remains unestablished.'],
+            value_summary: 'Controlled value fixture: original BEIR prose already reports this historical comparison; new scientific value remains unestablished.',
+            reasoning_memo: { ...n8ValueDraft(assessmentInput).reasoning_memo, recommendation: 'refine_question',
+              value_thesis: 'Historical metric reproduction is bounded but is not a new algorithm or result.',
+              originality: 'The proposed comparison is already reported in the supplied source.',
+              significance: 'Useful as a historical reproducibility check; scientific impact beyond that is unestablished.',
+              claim_leverage: 'Only fixed-model and dataset-specific historical comparisons are supportable.',
+              reviewer_risks: ['Incomplete qrels and the absence of a new contribution constrain research value.'],
+              effort_to_value: 'Archive scoring is bounded but its standalone paper value is weak.',
+              strategic_fit: 'The scope matches the frozen archival slice, with an unresolved novelty objection.',
+              negative_memory_check: 'No additional negative-memory evidence is claimed beyond the supplied trial feedback.',
+              top_objections: ['Historical replication alone does not establish a novel method, mechanism or current-model result.'],
+              uncertainty: 'Actual resource inspection and independent novelty assessment remain outside this fixture.',
+              evidence_backed_rationale: 'BEIR reports retrieval tradeoffs and incomplete judgments; rerunning historical scores does not resolve the scientific novelty objection.',
+              disposition_bridge: 'Controlled semantic-failure feedback requests another candidate; this is not a real researcher decision.' } });
+          const assessed = await ctx.service.invokeNode({ ...assessmentInput,
+            semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, assessmentInput, value)] });
+          assert.ok(assessed.authority_ref && assessed.hashes.authority_hash, JSON.stringify(assessed));
+          input = await n7FeedbackRequest(ctx, initial, trial, 'semantic_candidate_failure', undefined,
+            { ref: assessed.authority_ref, hash: assessed.hashes.authority_hash });
+          if (index === 0 && slot === 'synthesis') trial = await ctx.service.invokeNode(input);
+        }
+      }
+      input = { ...input, workflow_run_id: key, node_attempt_id: `${key}_support`, run_mode: 'product',
+        execution_spec: { execution_mode: 'codex_cli' }, cli_support_slots: [slot === 'grouping' ? 'n7_candidate_grouping'
+          : slot === 'synthesis' ? 'n7_failed_trial_synthesis' : 'n7_n8_debate_admission_review'] };
+      save('request', input); save('research', await service.resolveCodexResearchContext(input));
+      const result = await service.invokeNode(input);
+      save('result', result);
+      assert.equal(result.route_decision, slot === 'synthesis' ? 'loopback' : 'invoke_next', JSON.stringify(result));
+      const count = budget?.snapshot().attempts.length;
+      assert.equal((await service.invokeNode(input)).replay_provenance?.replayed, true);
+      assert.equal(budget?.snapshot().attempts.length, count);
+    }
+  } catch (error) {
+    if (!(error instanceof QualificationPreviewComplete) || live) throw error;
+  } finally { save('artifacts', await ctx.controlPlane.listArtifactRefsByWorkflowRunId(key)); }
+});
+
 // Opt-in here reuses the existing canonical setup without creating a second workflow simulator.
 test('Codex product qualification with pinned research sources', {
   skip: !['prepare', 'live'].includes(process.env.TOPIC_SELECTION_CODEX_QUALIFICATION ?? ''),
@@ -1102,8 +1274,148 @@ async function qualifyExactRefinement(
   return { node: 'exact_refinement', controlled_disposition_and_human_fixture: true, overclaim, refinement, debate, gate };
 }
 
-for (const generationMode of ['initial_from_n5', 'regeneration_after_n6_gate_failure', 'regeneration_after_n7_loopback'] as const) {
-test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stops`, async (t) => {
+test('N7 CLI explicitly groups candidates and synthesizes complete exhausted trial history', async t => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const n6Input = await n6Request(ctx, n5);
+  const draft = await n6Draft(ctx, n6Input);
+  draft.candidates.push({ ...structuredClone(draft.candidates[0]!), candidate_key: 'second_candidate',
+    main_question: 'Can a bounded alternative make evidence review more reproducible?', expected_claim: 'The alternative evaluates reproducibility.' });
+  draft.recommended_candidate_keys.push('second_candidate');
+  const n6 = await ctx.service.invokeNode({ ...n6Input, semantic_artifacts: [await recordN6DraftArtifact(ctx, n6Input, draft)] });
+  const initial = await n7Request(ctx, n6);
+  const home = mkdtempSync(join(tmpdir(), 'n7-support-harness-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let calls = 0;
+  const contexts: Array<Record<string, unknown>> = [];
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls += 1;
+    const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as { slot_id: string; context_packet: { research_context: Record<string, unknown> } };
+    contexts.push(packet.context_packet.research_context);
+    const output = packet.slot_id === 'n7_candidate_grouping' ? { ...n7GroupingPayload(initial), candidate_relationships: {} }
+      : packet.slot_id === 'n7_n8_debate_admission_review' ? n7DebateAdmissionPayload()
+      : { exhausted_candidate_refs: initial.frozen_input.payload.admissible_candidate_refs,
+        failure_reason_codes: ['value_not_supported'], synthesis_summary: 'Both bounded candidates failed their recorded value trials.',
+        n6_regeneration_hints: ['Address the recorded failure reasons before proposing another candidate.'],
+        affected_refs: initial.frozen_input.payload.admissible_candidate_refs };
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'n7-support' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
+      stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, { modelProfileRegistry,
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+    evidencePacketResolver: { resolve: async input => ({ schema_version: 'TopicSelectionResearchEvidencePacket@v1',
+      title_card_id: TITLE_CARD_ID, participant_role: input.participant_role, query_intent: input.query_intent,
+      items: [], source_refs: input.evidence_unit_refs, total_excerpt_chars: 0, packet_hash: canonicalHash(input) }) },
+    runnerDependencies: { evidenceMapRepository: ctx.evidenceRepository, needValidationRepository: ctx.needRepository,
+      recheckRiskMemoryRepository: ctx.recheckRepository, researchCheckpointService: ctx.researchCheckpointService,
+      researchSliceRepository: ctx.researchSliceRepository, searchResourceRepository: ctx.searchRepository,
+      topicQuestionRepository: ctx.topicQuestionRepository, topicPackageRepository: ctx.topicPackageRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository, v1bIntakeRepository: ctx.v1bRepository },
+  });
+  const groupInput: TopicSelectionV1bWorkflowHarnessRunRequest = { ...initial, run_mode: 'product',
+    execution_spec: { execution_mode: 'codex_cli' }, cli_support_slots: ['n7_candidate_grouping', 'n7_n8_debate_admission_review'] };
+  const record = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane);
+  ctx.controlPlane.recordArtifactRef = async input => {
+    if (input.stable_key?.startsWith('n7-cli-input:')) throw new Error('Interrupted before the combined receipt.');
+    return record(input);
+  };
+  await assert.rejects(service.invokeNode(groupInput), /Interrupted/);
+  ctx.controlPlane.recordArtifactRef = record;
+  assert.equal(calls, 2);
+  await assert.rejects(service.invokeNode({ ...groupInput, cli_support_slots: undefined }), /existing attempt/);
+  assert.equal(calls, 2, 'Changing slots after an interrupted attempt must stop before model work.');
+  const first = await service.invokeNode(groupInput);
+  assert.equal(first.route_decision, 'invoke_next', JSON.stringify(first));
+  assert.equal(calls, 2, 'Recovery reuses both completed role receipts.');
+  assert.equal((await service.invokeNode(groupInput)).replay_provenance?.replayed, true);
+  await assert.rejects(service.invokeNode({ ...groupInput, cli_support_slots: undefined }), /existing attempt/);
+  assert.equal(calls, 2);
+  const technical = await n7FeedbackRequest(ctx, initial, first, 'technical_failure');
+  await assert.rejects(service.invokeNode({ ...technical, run_mode: 'product', execution_spec: groupInput.execution_spec,
+    cli_support_slots: ['n7_failed_trial_synthesis'] }), /technical/i);
+  assert.equal(calls, 2);
+  const assessmentInput = await n8Request(ctx, first);
+  const assessmentDraft = n8ValueDraft(assessmentInput, { readiness_status: 'needs_refinement', recommended_disposition: 'refine_question',
+    reasoning_memo: { ...n8ValueDraft(assessmentInput).reasoning_memo, recommendation: 'refine_question',
+      evidence_backed_rationale: 'The recorded comparison lacks evidence for its proposed generalization.' } });
+  const assessmentResult = await ctx.service.invokeNode({ ...assessmentInput,
+    semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, assessmentInput, assessmentDraft)] });
+  assert.ok(assessmentResult.authority_ref && assessmentResult.hashes.authority_hash, JSON.stringify(assessmentResult));
+  const feedback = await n7FeedbackRequest(ctx, initial, first, 'semantic_candidate_failure', undefined, {
+    ref: assessmentResult.authority_ref, hash: assessmentResult.hashes.authority_hash,
+  });
+  const defaultInput = { ...feedback, run_mode: 'product' as const, execution_spec: groupInput.execution_spec };
+  const readMemo = ctx.valueAssessmentRepository.findReasoningMemoById.bind(ctx.valueAssessmentRepository);
+  ctx.valueAssessmentRepository.findReasoningMemoById = async id => {
+    const memo = await readMemo(id);
+    return memo ? { ...memo, title_card_id: 'foreign-title' } : null;
+  };
+  await assert.rejects(service.resolveCodexResearchContext(defaultInput), /bodies.*drifted/);
+  ctx.valueAssessmentRepository.findReasoningMemoById = readMemo;
+  const readSnapshot = ctx.valueAssessmentRepository.findInputSnapshotById.bind(ctx.valueAssessmentRepository);
+  ctx.valueAssessmentRepository.findInputSnapshotById = async id => {
+    const snapshot = await readSnapshot(id);
+    return snapshot ? { ...snapshot, question_contract: { ...snapshot.question_contract, expected_claim: 'drifted original claim' } } : null;
+  };
+  await assert.rejects(service.resolveCodexResearchContext(defaultInput), /bodies.*drifted/);
+  ctx.valueAssessmentRepository.findInputSnapshotById = readSnapshot;
+  assert.equal(calls, 2);
+  const legacyContextConfig = createDefaultTopicSelectionContextPolicyProfileRegistry();
+  const legacyContext = legacyContextConfig.profiles.find(profile => profile.invocation_slot_id === 'n7_n8_debate_admission_review')!;
+  legacyContext.token_budget_policy.estimated_input_token_target = 18000;
+  const legacyRegistry = new TopicSelectionContextPolicyProfileRegistryService({ registry: legacyContextConfig });
+  const resolve = TopicSelectionContextPolicyProfileRegistryService.prototype.resolveProfile;
+  let legacyBudget = true;
+  const profileMock = t.mock.method(TopicSelectionContextPolicyProfileRegistryService.prototype, 'resolveProfile',
+    function (this: TopicSelectionContextPolicyProfileRegistryService, input: Parameters<typeof resolve>[0]) {
+      return resolve.call(legacyBudget && input.context_policy_profile_id === legacyContext.context_policy_profile_id ? legacyRegistry : this, input);
+    });
+  ctx.controlPlane.recordArtifactRef = async input => {
+    if (input.workflow_run_id === defaultInput.workflow_run_id && input.stable_key?.startsWith('cli-node-commit:')) {
+      throw new Error('Interrupted before N7 authority commit.');
+    }
+    return record(input);
+  };
+  await assert.rejects(service.invokeNode(defaultInput), /Interrupted before N7 authority commit/);
+  ctx.controlPlane.recordArtifactRef = record;
+  legacyBudget = false;
+  await assert.rejects(service.invokeNode(defaultInput), /drifted before a verified completion/);
+  assert.equal(calls, 3, 'A new context policy cannot consume uncommitted old-policy output.');
+  legacyBudget = true;
+  const second = await service.invokeNode(defaultInput);
+  legacyBudget = false;
+  profileMock.mock.restore();
+  assert.equal(second.route_decision, 'invoke_next', JSON.stringify(second));
+  assert.equal(calls, 3);
+  await assert.rejects(service.invokeNode({ ...defaultInput, cli_support_slots: ['n7_candidate_grouping'] }), /existing attempt/);
+  assert.equal((await service.invokeNode(defaultInput)).replay_provenance?.replayed, true, 'A completed 18k-policy result replays under the new 32k default.');
+  assert.equal(calls, 3);
+  const exhausted = await n7FeedbackRequest(ctx, initial, second);
+  const synthesisInput: TopicSelectionV1bWorkflowHarnessRunRequest = { ...exhausted, run_mode: 'product',
+    execution_spec: groupInput.execution_spec, cli_support_slots: ['n7_failed_trial_synthesis'] };
+  const result = await service.invokeNode(synthesisInput);
+  assert.equal(result.route_decision, 'loopback', JSON.stringify(result));
+  assert.equal(result.error_code, 'N7_CANDIDATE_TRIALS_EXHAUSTED');
+  const history = contexts.at(-1)!.trial_history as Array<{ contract: { source_candidate_id: string }; feedback: { feedback_summary: string }; decision: unknown; answerability_plan: unknown }>;
+  assert.equal(history.length, 2);
+  assert.equal(new Set(history.map(trial => trial.contract.source_candidate_id)).size, 2);
+  assert.ok(history.every(trial => trial.decision && trial.answerability_plan && trial.feedback.feedback_summary));
+  assert.match(JSON.stringify(history), /The recorded comparison lacks evidence for its proposed generalization/);
+  assert.equal(calls, 4);
+  assert.equal((await service.invokeNode(synthesisInput)).replay_provenance?.replayed, true);
+  assert.equal(calls, 4);
+});
+
+for (const [generationMode, triage] of [
+  ['initial_from_n5', null], ['regeneration_after_n6_gate_failure', null], ['regeneration_after_n7_loopback', null],
+  ['initial_from_n5', 'blocked'], ['initial_from_n5', 'admitted'],
+] as const) {
+test(`canonical N6/N7/N8 CLI composes ${generationMode}, triage=${triage}, recovery and Human stops`, async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'harness-n6-cli-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const ctx = await seedHarnessV1aBundle();
@@ -1120,8 +1432,11 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
     assert.equal(failed.error_code, 'N6_NO_ADMISSIBLE_TOPIC_QUESTION_CANDIDATE');
     baseRequest = n6InputWithN6GateFailureProjection(baseRequest, await n6GateFailureRetryProjectionRef(ctx, failed));
   }
-  const request = { ...baseRequest, execution_spec: { execution_mode: 'codex_cli' as const, model_option_id: null }, run_mode: 'product' as const };
+  const request: TopicSelectionV1bWorkflowHarnessRunRequest = { ...baseRequest,
+    ...(triage ? { cli_support_slots: ['n6_loopback_triage'] } : {}),
+    execution_spec: { execution_mode: 'codex_cli', model_option_id: null }, run_mode: 'product' };
   const draft = await n6Draft(ctx, request);
+  if (triage === 'blocked') draft.candidates[0]!.answerability_verdict = 'not_answerable';
   if (generationMode !== 'initial_from_n5') {
     draft.candidates[0] = { ...draft.candidates[0]!, candidate_key: 'cli_regenerated_candidate' };
     draft.recommended_candidate_keys = ['cli_regenerated_candidate'];
@@ -1138,7 +1453,7 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
     assert.ok(packet.context_packet.research_context.frozen_domain.researchSlice);
     if (packet.role_slot?.startsWith('n6_debate_')) assert.equal(packet.context_packet.generation_mode, generationMode);
     if (packet.role_slot) assert.equal(packet.context_packet.prior_role_outputs.length, calls <= 4 ? (calls < 3 ? 0 : calls - 1) : calls - 9);
-    const output = packet.slot_id === 'n7_n8_debate_admission_review' ? { debate_level: 'compact_assessment_debate',
+    const output = packet.slot_id === 'n6_loopback_triage' ? n6LoopbackTriagePayload(request) : packet.slot_id === 'n7_n8_debate_admission_review' ? { debate_level: 'compact_assessment_debate',
       recommended_profile_id: 'topic-selection.v1b.assess-topic-value.compact.v1', high_value_signal_codes: [], risk_signal_codes: [], rationale: 'The frozen slice permits a bounded assessment.' } : packet.role_slot?.startsWith('n8_debate_') ? { schema_version: 'TopicSelectionV1bN8BoundedDebateRoleOutput@v1', role_slot: packet.role_slot,
       ...(packet.role_slot === 'n8_debate_value_critic' ? { critic_findings: [] } : { assessment_draft: valueDraft,
         ...(packet.role_slot === 'n8_debate_assessor_draft' ? {} : { repair_actions: [] }) }),
@@ -1186,6 +1501,31 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, recovery and Human stop
     try { await assert.rejects(service.resolveCodexResearchContext(request), /proposal or feedback body.*drifted/); }
     finally { ctx.controlPlane.getArtifactRef = read; }
     assert.equal(calls, 0, 'Regeneration body drift must stop before model work.');
+  }
+  if (triage === 'blocked') {
+    const record = ctx.controlPlane.recordArtifactRef.bind(ctx.controlPlane);
+    ctx.controlPlane.recordArtifactRef = async input => {
+      if (input.stable_key?.startsWith('n6-cli-triage:') && !input.stable_key.includes(':context:')) {
+        throw new Error('Interrupted before triage receipt.');
+      }
+      return record(input);
+    };
+    await assert.rejects(service.invokeNode(request), /Interrupted before triage receipt/);
+    ctx.controlPlane.recordArtifactRef = record;
+    assert.equal(calls, 5);
+    const result = await service.invokeNode(request);
+    assert.equal(result.route_decision, 'loopback', JSON.stringify(result));
+    assert.equal(calls, 5, 'One requested triage follows the four actual Debate roles only after semantic gate failure.');
+    assert.ok(result.trace_snapshot_ref);
+    const trace = await ctx.controlPlane.getTraceSnapshot(result.trace_snapshot_ref.ref_id);
+    assert.equal(typeof trace?.payload.triage_payload_hash, 'string');
+    assert.ok(trace?.payload.triage_artifact_ref);
+    const triageRef = trace.payload.triage_artifact_ref as TopicSelectionFunctionalRef;
+    const triageArtifact = await ctx.controlPlane.getArtifactRef(triageRef.ref_id);
+    assert.equal(canonicalHash(triageArtifact?.payload), trace.payload.triage_payload_hash);
+    assert.equal((await makeService().invokeNode(request)).replay_provenance?.replayed, true);
+    assert.equal(calls, 5);
+    return;
   }
   let result: Awaited<ReturnType<typeof service.invokeNode>>;
   if (generationMode === 'initial_from_n5') {
@@ -2667,6 +3007,7 @@ async function n7FeedbackRequest(
   },
   feedbackClass: TopicSelectionV1bN8ToN7FeedbackPayload['feedback_class'] = 'semantic_candidate_failure',
   producedFeedback?: { artifact_ref: TopicSelectionFunctionalRef; artifact_hash: string; payload_hash: string },
+  assessment?: { ref: TopicSelectionFunctionalRef; hash: string },
 ): Promise<TopicSelectionV1bWorkflowHarnessRunRequest> {
   if (!n7Result.authority_ref || !n7Result.handoff_ref || !n7Result.hashes.handoff_hash || !n7Result.hashes.authority_hash) {
     throw new Error('N7 feedback fixture requires admitted N7 result.');
@@ -2698,8 +3039,8 @@ async function n7FeedbackRequest(
     topic_question_candidate_set_ref: n7HandoffPayload.topic_question_candidate_set_ref,
     topic_question_candidate_set_hash: n7HandoffPayload.topic_question_candidate_set_hash,
     n8_gate_result_hash: 'f'.repeat(64),
-    value_assessment_ref: null,
-    value_assessment_hash: null,
+    value_assessment_ref: assessment?.ref ?? null,
+    value_assessment_hash: assessment?.hash ?? null,
   };
   const feedbackArtifact = producedFeedback ?? await recordN8FeedbackArtifact(ctx, initialInput, feedback);
   const payload: TopicSelectionV1bN7HarnessFrozenInputPayload = {

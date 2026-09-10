@@ -1,3 +1,4 @@
+import { assertV1aCodexReferences } from './topic-selection-v1a-codex-context-service.js';
 import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
@@ -179,20 +180,20 @@ export class TopicSelectionV1bN7SupportRuntimeService {
     });
   }
 
-  cliAdmissionIdentity(runMode: TopicSelectionAgentRunMode): string {
-    const binding = this.slotBinding('n7_n8_debate_admission_review');
+  cliAdmissionIdentity(runMode: TopicSelectionAgentRunMode, slotId: TopicSelectionV1bN7SupportSlotId = 'n7_n8_debate_admission_review',
+    completedContextProfileHash?: string): string {
+    const binding = this.slotBinding(slotId);
     return this.hash({ binding, runMode, prompt: configuredPrompt(binding.slot_id),
       profile: this.resolveModelProfile(binding, 'codex_cli', runMode).profile_hash,
-      contextProfile: this.resolveRuntimeProfile(binding).profile_hash,
+      contextProfile: completedContextProfileHash ?? this.resolveRuntimeProfile(binding).profile_hash,
       runner: this.agentOrchestrator.codexCliExecutionIdentity });
   }
 
   async generateSupportArtifact<T extends TopicSelectionV1bN7RuntimeSupportPayload>(
     input: GenerateTopicSelectionV1bN7RuntimeSupportInput<T>,
   ): Promise<TopicSelectionV1bN7RuntimeSupportGenerationResult<T>> {
-    if (input.execution_mode === 'codex_cli' && (input.slot_id !== 'n7_n8_debate_admission_review'
-      || input.codex_response != null || input.mocked_output != null)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI currently generates only N8 Debate admission support, without external answers.');
+    if (input.execution_mode === 'codex_cli' && (input.codex_response != null || input.mocked_output != null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'N7 CLI generates its support without external answers.');
     }
     const frozenPayload = this.assertN7FrozenPayload(input.request);
     const binding = this.slotBinding(input.slot_id);
@@ -278,6 +279,14 @@ export class TopicSelectionV1bN7SupportRuntimeService {
       };
     }
 
+    if (input.execution_mode === 'codex_cli') {
+      assertV1aCodexReferences(invocation.structured_output, contextPacket);
+      if (input.slot_id === 'n7_candidate_grouping') {
+        const grouping = invocation.structured_output as TopicSelectionV1bCandidateGroupingSupportPayload;
+        assertV1aCodexReferences({ selected: grouping.selected_candidate_ref, priority: grouping.priority_order,
+          groups: grouping.duplicate_or_overlap_groups }, { candidates: contextPacket.frozen_input_payload.admissible_candidate_refs });
+      }
+    }
     const semanticArtifact = await this.recordSemanticSupportArtifact({
       request: input.request,
       binding,

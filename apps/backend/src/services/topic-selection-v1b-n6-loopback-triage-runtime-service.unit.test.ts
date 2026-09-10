@@ -313,7 +313,7 @@ test('v1b N6 loopback triage runtime rejects a failed-draft artifact whose hash 
 // The substring assertions additionally pin the schema-mirroring contract surface — the three
 // loopback_target_code routes and their conditional (allOf) shapes.
 const N6_LOOPBACK_TRIAGE_SYSTEM_BODY_GOLDEN =
-  '142e31fefa7c2abce199a2b3ad244fb1d26b0fccf667c1b268de7e84d1b24b10';
+  '5f14278650b4b22ee1e85c3e93bbdcf96b4ec5a8a55e76d2038ff0f1e0d6f983';
 
 test('v1b N6 loopback-triage system prompt body is product-grade and drift-anchored', () => {
   const body = buildV1bN6LoopbackTriageSystemContent();

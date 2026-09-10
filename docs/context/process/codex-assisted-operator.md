@@ -9,7 +9,7 @@ separates externally authored operation from product-driven CLI execution.
   app. The backend accepts an externally produced, contract-shaped `codex_response` and records its
   workflow, attempt, hash, approval, and reuse provenance.
 - The separate `codex_cli` executor has an app-owned runner, fresh attempt threads and persisted
-  execution traces. Its qualified sampling, extraction, need-discovery, N2/N3/N5 support, N4/N6/N7-admission/N8 and exact-delta profiles admit product mode.
+  execution traces. Its qualified sampling, extraction, need-discovery, N2/N3/N5 support, N4/N6/N7-support/N8 and exact-delta profiles admit product mode.
   Other topic-selection profiles remain closed; `codex_assisted` still means external output.
 - The current operator path is Codex calling the canonical local HTTP APIs directly. GUI actions,
   writing-center work, direct database access, and a parallel workflow state file are outside this
@@ -17,13 +17,13 @@ separates externally authored operation from product-driven CLI execution.
 
 ## Product-driven CLI operation
 
-N3-support/N4/N6/N7-admission/N8 canonical harness `invocations` and coordinator `advance` consume
+N3-support/N4/N6/N7-support/N8 canonical harness `invocations` and coordinator `advance` consume
 `execution_spec: { execution_mode: "codex_cli", model_option_id: null }`. This branch defaults to
 `product`, compiles frozen research/evidence through existing owners, and generates its own outputs.
 It cannot be combined with caller drafts or Debate answers. Other coordinator execution modes/nodes
-remain reserved. The default registry admits the 13 profiles used by this coordinator slice; no registry override
+remain reserved. The default registry admits the 16 profiles used by this coordinator slice; no registry override
 is needed. Sampling and evidence/need discovery/adjudication/confirmation add nine enabled profiles through their v1a entries
-below; three evidence-convergence, two optional Arena roles and N2/N5 Human-input support bring the total to 29. Seven selection/promotion profiles remain closed.
+below; three evidence-convergence, two optional Arena roles and N2/N5 Human-input support bring the total to 32. The four v1c promotion/feedback profiles remain closed.
 
 N4 accepts the same CLI execution spec on its frozen `N3ToN4Handoff@v1` request. The runtime loads
 N1 intake, Human constraints, N3 readiness and the original role-bound evidence. Its model draft
@@ -61,9 +61,34 @@ attempt; the product does not automatically repair or repeat that ambiguous writ
 and blocked CLI completions support exact replay. Caller-authored audits or traces cannot establish
 CLI execution or completion.
 
-N7 consumes the CLI setting to generate `n7_n8_debate_admission_review` support on initial and
-N8-feedback entry. Its mechanical contract selection and Human boundary remain unchanged;
-completed entry requests reuse their support and gate results.
+N6/N7 accept optional `cli_support_slots` alongside the CLI execution spec, both on canonical
+invocations and inside coordinator `node_inputs[N6 or N7]`. The array must be nonempty and unique;
+external drafts, support answers, Debate answers and refinement payloads cannot accompany it.
+
+- N6 accepts `["n6_loopback_triage"]`. It invokes triage only when the generated portfolio has an
+  actual semantic candidate failure, passing the failed draft, gate reasons and original evidence.
+  Admitted portfolios and technical/structural refusals do not spend a triage call. Omission keeps
+  the existing fallback. Triage recommends recovery; the deterministic gate chooses the route.
+- N7 omission preserves `n7_n8_debate_admission_review`. An explicit array runs only the selected
+  roles in its order: `n7_candidate_grouping`, `n7_n8_debate_admission_review`, and/or
+  `n7_failed_trial_synthesis`. Grouping requires a remaining candidate; synthesis requires all
+  candidates to have exhausted semantic trials. Technical N8 failure requires N8 recovery, and
+  gate-rejected feedback accepts only admission review. Exact Human refinement recovery uses the
+  separate frontier below and does not accept this array.
+
+N7 reads original evidence and the complete frozen trial chain, including available contracts,
+plans, assessments, reasoning memos and evidence bodies. Missing assessments stay explicit.
+Scientific content is preserved while duplicate operational fields are omitted after validation.
+Grouping can order admitted candidates but cannot establish scientific superiority or bypass the
+question Human checkpoint. Failed-trial synthesis retains every failed candidate for N6 recovery.
+
+Completed requests reuse support and gate results. A common reservation prevents switching role
+sets or switching between omitted and explicit slots under an existing attempt; use a new attempt
+identity for changed work. Missing outer receipts recover completed role receipts without another
+model call. Historical completed N7 requests from the former 18k context target replay only when
+the original request/runtime identity and protected completed gate trace match; an unfinished
+request cannot bypass a changed context policy. New targets are 32k for grouping/admission, 48k for
+synthesis and 40k for N6 triage, within the existing 128k window. These are per-context limits.
 
 At the question-checkpoint `n6_refinement_delta_debate` recovery frontier, coordinator `advance`
 also consumes the N7 CLI setting. It recovers the exact persisted Human refinement and executes

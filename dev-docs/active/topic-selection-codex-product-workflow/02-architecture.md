@@ -80,6 +80,35 @@ does not expire, and recovery must inspect that authority before choosing any ne
 is no automatic repair of this ambiguous partial commit. Existing external-output replay remains
 separate; historical staging qualification does not require a domain migration.
 
+### Optional N6 triage and N7 trial support
+
+The shared `cli_support_slots` request field selects existing support slots without making optional
+review mandatory. N6 triage runs only after an actual all-candidate semantic refusal, with the
+failed normalized draft and exact blocked-candidate contexts. The existing resolver checks its
+protected CLI receipt and lineage-limited affected refs before selecting regeneration, escalation
+or Human slice reselection. Admitted portfolios spend no triage call.
+
+N7 omission preserves admission-only execution and its historical request/receipt identity. Explicit
+slots choose only the requested grouping/admission/synthesis roles. A common immutable reservation
+binds the role choice before model work across both receipt namespaces. Per-role receipts recover
+missing combined receipts; exact completed gates replay before reading mutable context bodies.
+Grouping refs must name actual frozen admissible candidates. Technical feedback cannot become
+scientific failure or exhausted-trial synthesis.
+
+Trial context walks the exact feedback → prior handoff → selection snapshot → prior feedback chain.
+It verifies scope, contract/plan authority hashes, selected candidate lineage and full assessment,
+memo, snapshot and evidence bodies. Repeated handoff refs, model/audit bookkeeping and verified
+snapshot copies are omitted; all scientific fields, objections, evidence, claim ceilings and Human
+boundaries remain. The contract's internal content hash is omitted from semantic projection because
+its preimage differs from the already verified handoff authority hash. Missing assessment remains
+null. Context/receipt hashes bind the actual compiled source; drift before completion refuses reuse.
+
+The former ref-only targets now allow 40k N6 triage, 32k N7 grouping/admission and 48k synthesis in
+the existing 128k window. Historical completed default N7 receipts may substitute only their frozen
+context-profile hash when reconstructing identity, and only alongside a checksum-valid protected
+completed trace for the exact replay key. Changed requests, prompt/model/runner identities and
+unfinished work cannot use this compatibility path; ordinary replay authority validation still runs.
+
 ## Migration and operation
 
 Open each Codex slice only with its consumer, prompt/evidence contract, profile admission, output provenance and decisive verification aligned. Preserve historical operator/provider records under their actual source kind. Do not convert completed role artifacts into purported CLI executions.

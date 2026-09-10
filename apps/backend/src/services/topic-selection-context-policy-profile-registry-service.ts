@@ -976,7 +976,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         invocation_slot_id: TOPIC_SELECTION_V1B_N6_INVOCATION_SLOT_IDS.loopback_triage,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n6_loopback_triage_context',
-        estimated_input_token_target: 18000,
+        estimated_input_token_target: 40000,
         estimated_output_token_budget: 1200,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,
@@ -1012,7 +1012,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         invocation_slot_id: TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS.candidate_grouping,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n7_topic_question_hardening',
-        estimated_input_token_target: 18000,
+        estimated_input_token_target: 32000,
         estimated_output_token_budget: 1200,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,
@@ -1042,7 +1042,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         invocation_slot_id: TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS.failed_trial_synthesis,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n7_topic_question_hardening',
-        estimated_input_token_target: 20000,
+        estimated_input_token_target: 48000,
         estimated_output_token_budget: 1400,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,
@@ -1075,7 +1075,7 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         invocation_slot_id: TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS.n8_debate_admission_review,
         functional_template: 'support_only_semantic',
         context_family: 'v1b_n7_topic_question_hardening',
-        estimated_input_token_target: 18000,
+        estimated_input_token_target: 32000,
         estimated_output_token_budget: 1200,
         preserved_fact_kinds: [
           ...COMMON_PRESERVED_FACT_KINDS,

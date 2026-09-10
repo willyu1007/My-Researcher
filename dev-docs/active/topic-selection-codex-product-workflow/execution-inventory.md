@@ -4,7 +4,7 @@ Inventory established at `a5263023`, reconciled with the current Phase 4 impleme
 
 ## Model profiles
 
-The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), Phase 4 opens N4 (#15) and optional N2/N3/N5 support (#18–20), leaving seven closed (29 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
+The default registry has **36 topic-selection profiles** after excluding PaperImplementation. The Phase 2 default-registry change opens 11 profiles (16, 17, 24–32) for `codex_cli/product`; Phase 3 also opens sampling (#1), extraction (#2), single-agent need discovery (#3) and its four Debate profiles (#6–7, #13–14), plus adjudication/confirmation (#4–5) and three convergence roles (#10–12), plus optional Arena (#8–9), Phase 4 opens N4 (#15), optional N2/N3/N5 support (#18–20), N6 triage and N7 grouping/synthesis (#21–23), leaving four v1c profiles closed (32 enabled total). Default-registry real regeneration and final-gate refusal passed; the prior N7/N8 real audit profile hashes match these defaults. “External” below means a caller accepts operator-authored outputs; it does not mean product-driven CLI execution exists.
 
 | # | Exact profile ID | Product owner / current gap | Delivery / acceptance |
 |---|---|---|---|
@@ -28,9 +28,9 @@ The default registry has **36 topic-selection profiles** after excluding PaperIm
 | 18 | `topic-selection.v1b.constraint-profile-support.codex.v1` | Product CLI enabled; real original-evidence reviews preserve exact accepted Human constraints and resource assumptions | Phase 4 / CX-04 |
 | 19 | `topic-selection.v1b.intake-readiness-support.codex.v1` | Product CLI enabled; actual recheck/risk bodies distinguish covered and uncovered cases; deterministic readiness retains authority | Phase 4 / CX-04 |
 | 20 | `topic-selection.v1b.slice-selection-support.codex.v1` | Product CLI enabled; full option portfolio and original evidence review exact Human selection or request-more-options; completed replay is qualified | Phase 4 / CX-04 |
-| 21 | `topic-selection.v1b.n6-loopback-triage-support.codex.v1` | External support today; preserve existing loopback targets/currentness | Phase 4 / CX-04 |
-| 22 | `topic-selection.v1b.candidate-grouping-support.codex.v1` | External support today; no candidate authority writes | Phase 4 / CX-04 |
-| 23 | `topic-selection.v1b.failed-trial-synthesis-support.codex.v1` | External support today; retain trial history and non-advance outcomes | Phase 4 / CX-04 |
+| 21 | `topic-selection.v1b.n6-loopback-triage-support.codex.v1` | Product CLI enabled on explicit opt-in after semantic gate failure; actual failed draft/gate reasons and original evidence qualified; protected recovery retains route authority | Phase 4 / CX-04 |
+| 22 | `topic-selection.v1b.candidate-grouping-support.codex.v1` | Product CLI enabled on explicit opt-in; exact admissible candidates grouped using actual bodies and original evidence, with no scientific-superiority claim | Phase 4 / CX-04 |
+| 23 | `topic-selection.v1b.failed-trial-synthesis-support.codex.v1` | Product CLI enabled on explicit opt-in after exhausted semantic trials; complete actual contract/assessment history, exact failure coverage and non-advance qualified | Phase 4 / CX-04 |
 | 24 | `topic-selection.v1b.n8-debate-admission-support.codex.v1` | Canonical N7 CLI support integrated; protected generation receipt required; product CLI qualified | Phase 2 / CX-02 |
 | 25 | `topic-selection.v1b.n6-refinement-delta-admission.v1` | Exact Human delta CLI review derives admission from three actual roles; no extra model call; product CLI qualified | Phase 2 / CX-02 |
 | 26 | `topic-selection.v1b.n8-bounded-debate.v1` | Four ordered CLI roles integrated; repair and final must both resolve substantive Critic findings; product CLI qualified | Phase 2 / CX-02 |

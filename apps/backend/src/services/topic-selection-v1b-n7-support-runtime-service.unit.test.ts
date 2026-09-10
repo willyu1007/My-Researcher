@@ -402,8 +402,8 @@ test('v1b N7 support runtime records a runtime_verified artifact from a mocked n
 // substring guard pins the two debate_level literals the admission-review slot must carry verbatim
 // (they drive the real N8 execution-plan cost).
 const N7_SUPPORT_SYSTEM_BODY_GOLDEN = {
-  n7_candidate_grouping: '5341c315809a7f1558a5854b83680f07d46644d812fc77826056b631b0521369',
-  n7_failed_trial_synthesis: 'c013e630dfd773d47da8d4f066ca2d1f84fece37a1d1eebcf04b00aa814e5480',
+  n7_candidate_grouping: '2782df31ce23c6409a5db4d35adc9821a91d614860c5602ed1b767d44ed03479',
+  n7_failed_trial_synthesis: 'ba244280d45daf0913ac8edc0019e9460b681d221874d6d7e553195f22ec46a3',
   n7_n8_debate_admission_review: 'a91ad1dc08f49c2c7929a94e9a6ff0b01002d9a9c3a80f46f80360d6c8435bbd',
 } as const;
 
@@ -449,6 +449,51 @@ test('v1b N7 support system prompts are product-grade and drift-anchored per slo
   assert.ok(!failedTrial.includes('debate_level'), 'failed-trial slot must not mention debate_level.');
 });
 
+
+test('N7 CLI grouping and synthesis bind complete nested refs to their actual context', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'n7-support-cli-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const { controlPlane } = makeSubject();
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
+  let output: TopicSelectionV1bCandidateGroupingSupportPayload | TopicSelectionV1bN8FailedTrialSynthesisSupportPayload = candidateGroupingOutput({ candidate_relationships: {} });
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls += 1;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'n7-support-thread' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
+      stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const runtime = new TopicSelectionV1bN7SupportRuntimeService(controlPlane, { modelProfileRegistry,
+    resolveResearchContext: async () => ({ original_evidence: 'The original comparison concerns a bounded setting.' }),
+    agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),
+  });
+  const generate = (attempt: string, slot: 'n7_candidate_grouping' | 'n7_failed_trial_synthesis' = 'n7_candidate_grouping') => runtime.generateSupportArtifact({
+    request: makeRequest({ node_attempt_id: attempt, run_mode: 'product' }), slot_id: slot, execution_mode: 'codex_cli',
+  });
+  const grouping = await generate('grouping');
+  assert.equal(grouping.status, 'succeeded', JSON.stringify(grouping));
+  for (const [index, drift] of [{ ref_id: 'foreign' }, { ref_type: 'evidence_unit' }, { title_card_id: 'foreign' }, { version_id: 'foreign' }].entries()) {
+    output = candidateGroupingOutput({ candidate_relationships: {} });
+    output.duplicate_or_overlap_groups[0]!.candidate_refs[0] = { ...output.priority_order[0]!, ...drift };
+    await assert.rejects(generate(`nested-${index}`), /ref/i);
+  }
+  for (const field of ['candidate_refs', 'canonical_candidate_ref'] as const) {
+    output = candidateGroupingOutput({ candidate_relationships: {} });
+    const nonCandidate = frozenPayload().selected_research_slice_ref;
+    const group = output.duplicate_or_overlap_groups[0]!;
+    if (field === 'candidate_refs') group.candidate_refs = [nonCandidate];
+    else group.canonical_candidate_ref = nonCandidate;
+    await assert.rejects(generate(`non-candidate-${field}`), /ref/i);
+  }
+  output = failedTrialOutput();
+  assert.equal((await generate('synthesis', 'n7_failed_trial_synthesis')).status, 'succeeded');
+  output = failedTrialOutput({ affected_refs: [ref('topic_question_candidate', 'invented')] });
+  await assert.rejects(generate('synthesis-drift', 'n7_failed_trial_synthesis'), /ref/i);
+  assert.equal(calls, 9);
+});
 
 test('N7 CLI admission support resolves evidence, reuses a completed attempt and rejects source drift/external answers', async t => {
   const home = mkdtempSync(join(tmpdir(), 'n7-cli-'));
