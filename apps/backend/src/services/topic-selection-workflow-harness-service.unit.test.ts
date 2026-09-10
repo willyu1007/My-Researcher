@@ -6,6 +6,10 @@ import { join } from 'node:path';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
 import { TopicSelectionV1aCodexContextService } from './topic-selection-v1a-codex-context-service.js';
 import { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
+import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
+import { TopicSelectionResearchGapProjectionService } from './topic-selection-research-gap-projection-service.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
+import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   TopicSelectionFunctionalRef,
@@ -177,6 +181,7 @@ class ForcedBlockedCompressionRuntime extends TopicSelectionCompressionRuntimeSe
 }
 
 async function makeRuntime(options: {
+  productCheckpoints?: boolean;
   contextPacketCache?: TopicSelectionContextPacketCacheService;
   compressionRuntime?: TopicSelectionCompressionRuntimeService;
 } = {}) {
@@ -199,6 +204,9 @@ async function makeRuntime(options: {
       now: () => '2026-05-19T00:00:00.000Z',
     },
   );
+  const checkpointRepository = new InMemoryTopicSelectionResearchCheckpointRepository();
+  const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
+  const checkpoints = new TopicSelectionResearchCheckpointService(checkpointRepository, controlPlane, { arenaRepository });
   const evidenceRepository = new InMemoryTopicSelectionEvidenceMapRepository();
   const evidenceMaps = new TopicSelectionEvidenceMapService(
     evidenceRepository,
@@ -206,6 +214,7 @@ async function makeRuntime(options: {
     searchResourceRepository,
     literature,
     {
+      checkpointControl: options.productCheckpoints ? checkpoints : undefined,
       idFactory: (prefix) => `${prefix}_${++sequence}`,
       now: () => '2026-05-19T00:00:00.000Z',
     },
@@ -223,13 +232,16 @@ async function makeRuntime(options: {
     evidenceMaps,
     searchResources,
     {
+      checkpointGuard: options.productCheckpoints ? checkpoints : undefined,
+      gapCheckpointProjector: options.productCheckpoints ? new TopicSelectionResearchGapProjectionService({ arenaRepository,
+        candidateRepository: needValidationRepository, checkpointService: checkpoints, controlPlane }) : undefined,
       idFactory: (prefix) => `${prefix}_${++sequence}`,
       now: () => '2026-05-19T00:00:00.000Z',
     },
   );
   const needCandidateBatchPersistence = new TopicSelectionPersistNeedCandidateBatchService(
     needValidationRepository,
-    { now: () => '2026-05-19T00:00:00.000Z' },
+    { now: () => '2026-05-19T00:00:00.000Z', checkpointGuard: options.productCheckpoints ? checkpoints : undefined },
   );
   const llmGateway = new StubLlmGateway(rankedBatch());
   const agentOrchestrator = new TopicSelectionAgentOrchestratorService({
@@ -272,6 +284,7 @@ async function makeRuntime(options: {
   const workflowHarness = buildHarness(agentOrchestrator);
 
   return {
+    checkpoints, checkpointRepository,
     buildCliHarness: (runner: TopicSelectionCodexCliRunnerService, modelProfileRegistry: TopicSelectionModelProfileRegistryService) =>
       buildHarness(new TopicSelectionAgentOrchestratorService({ controlPlane, llmGateway, modelProfileRegistry,
         codexCliRunner: runner, codexCliModelId: runner.executionIdentity.model }), modelProfileRegistry),
@@ -614,17 +627,21 @@ function makeLiterature(id: string, overrides: Partial<LiteratureRecord> = {}): 
   };
 }
 
+type OriginalSourceFixture = { title: string; url: string; text: string; paragraphs?: string[] };
+
 async function seedSnapshotRuntime(options: {
+  productCheckpoints?: boolean;
+  sources?: OriginalSourceFixture[];
   mature?: boolean;
   missingLiterature?: boolean;
   compressionRuntime?: TopicSelectionCompressionRuntimeService;
 } = {}) {
   const ctx = await makeRuntime({
-    compressionRuntime: options.compressionRuntime,
+    ...options,
   });
   const titleCard = await ctx.titleCards.createTitleCard({
-    working_title: 'Risk-aware RAG adaptation',
-    brief: 'Find a bounded research need for RAG and fine-tuning decisions.',
+    working_title: options.sources ? 'Reliable retrieval and context use' : 'Risk-aware RAG adaptation',
+    brief: options.sources ? 'Compare source-tested retrieval and context-use capability needs.' : 'Find a bounded research need for RAG and fine-tuning decisions.',
   });
   const literatureId = options.missingLiterature ? 'missing_lit_001' : 'lit_001';
   if (!options.missingLiterature) {
@@ -635,7 +652,7 @@ async function seedSnapshotRuntime(options: {
           abstractText: null,
           keyContentDigest: null,
         }));
-    if (mature) {
+    if (mature && !options.sources) {
       await ctx.literature.upsertLiteratureSource({
         id: 'source_001',
         literatureId: 'lit_001',
@@ -656,12 +673,22 @@ async function seedSnapshotRuntime(options: {
       updatedAt: '2026-05-19T00:00:00.000Z',
     });
   }
+  for (const [index, source] of (options.sources ?? []).entries()) {
+    const id = `lit_00${index + 1}`;
+    const record = makeLiterature(id, { title: source.title, abstractText: null, keyContentDigest: null });
+    if (index > 0) await ctx.literature.createLiterature(record);
+    else await ctx.literature.updateLiterature(record);
+    await ctx.literature.upsertLiteratureSource({ id: `source_00${index + 1}`, literatureId: id, provider: 'arxiv',
+      sourceItemId: source.url, sourceUrl: source.url, rawPayload: { source_hash: sha256Text(source.text) }, fetchedAt: '2026-09-10T00:00:00.000Z' });
+    await ctx.literature.upsertPipelineState({ id: `pipeline_state_00${index + 1}`, literatureId: id,
+      citationComplete: true, abstractReady: true, keyContentReady: true, dedupStatus: 'unique', updatedAt: '2026-09-10T00:00:00.000Z' });
+  }
   await ctx.titleCards.updateEvidenceBasket(titleCard.title_card_id, {
-    add_literature_ids: [literatureId],
+    add_literature_ids: options.sources?.map((_, index) => `lit_00${index + 1}`) ?? [literatureId],
   });
   const topicSeed = await ctx.searchResources.createTopicSeedFromTitleCard({
     title_card_id: titleCard.title_card_id,
-    intent_summary: 'Seed v1a with a bounded RAG/fine-tuning research intent.',
+    intent_summary: options.sources ? 'Compare bounded retrieval and context-use capability needs in the supplied original studies.' : 'Seed v1a with a bounded RAG/fine-tuning research intent.',
     scope_notes: 'Use only the current title-card topic scope.',
     created_by: 'system',
     policy_version_id: 'v1',
@@ -703,11 +730,9 @@ function snapshotScenarioInput(
   };
 }
 
-async function seedSearchPlanRuntime(options: {
-  compressionRuntime?: TopicSelectionCompressionRuntimeService;
-} = {}) {
+async function seedSearchPlanRuntime(options: Parameters<typeof seedSnapshotRuntime>[0] = {}) {
   const ctx = await seedSnapshotRuntime({
-    compressionRuntime: options.compressionRuntime,
+    ...options,
   });
   const snapshotResult = await ctx.workflowHarness.runSnapshotLiteratureResourcePoolScenario(snapshotScenarioInput({
     title_card_id: ctx.titleCard.title_card_id,
@@ -807,11 +832,9 @@ function searchPlanScenarioInput(
   };
 }
 
-async function seedRecordSearchRunRuntime(options: {
-  compressionRuntime?: TopicSelectionCompressionRuntimeService;
-} = {}) {
+async function seedRecordSearchRunRuntime(options: Parameters<typeof seedSnapshotRuntime>[0] = {}) {
   const ctx = await seedSearchPlanRuntime({
-    compressionRuntime: options.compressionRuntime,
+    ...options,
   });
   const blueprint = searchPlanBlueprint({
     title_card_id: ctx.titleCard.title_card_id,
@@ -819,10 +842,21 @@ async function seedRecordSearchRunRuntime(options: {
     literature_resource_pool_snapshot_ref: ctx.literatureSnapshotRef,
     expected_snapshot_hash: ctx.snapshotHash,
   });
+  if (options?.productCheckpoints) {
+    blueprint.query_intents = ['Source-tested retrieval and context-use limitations', 'Known baselines and disconfirming findings'];
+    blueprint.method_family_targets = ['information_retrieval', 'multi_document_question_answering'];
+    blueprint.coverage_intents = (['support', 'baseline', 'challenge'] as const).map((role, index) => ({
+      coverage_key: role, intent_type: role, query: `${role} evidence for source-tested retrieval and context-use capabilities`,
+      rationale: `Inspect original ${role} findings before comparing research needs.`, required: true, priority: index + 1,
+      expected_evidence_role: role, target_source_types: ['paper'], refs: [],
+    }));
+    blueprint.role_coverage_expectation = { support: 1, baseline: 1, challenge: 1 };
+  }
   const searchPlanResult = await ctx.workflowHarness.runCreateSearchPlanScenario(searchPlanScenarioInput(blueprint, {
     title_card_id: ctx.titleCard.title_card_id,
     workflow_run_id: 'workflow_run_record_search_plan',
     node_attempt_id: 'node_attempt_record_search_plan',
+    expectations: { status: 'succeeded', coverage_row_count: blueprint.coverage_intents.length, plan_version: 'v1' },
   }));
   assert.equal(searchPlanResult.node_result.status, 'succeeded');
   assert.ok(searchPlanResult.node_result.search_plan_ref);
@@ -1102,6 +1136,8 @@ function validationManualLocator(input: {
 }
 
 async function seedNeedValidationSearchRuntime(options: {
+  productCheckpoints?: boolean;
+  sources?: OriginalSourceFixture[];
   originalFulltext?: string;
   candidateNeed?: string;
   unmetNeed?: string;
@@ -1113,25 +1149,35 @@ async function seedNeedValidationSearchRuntime(options: {
   compressionRuntime?: TopicSelectionCompressionRuntimeService;
 } = {}) {
   const ctx = await seedRecordSearchRunRuntime({
-    compressionRuntime: options.compressionRuntime,
+    ...options,
   });
   const titleCardId = ctx.titleCard.title_card_id;
   const literatureRef = ctx.literatureSnapshot.literature_refs[0]!;
   const sourceRef = ctx.literatureSnapshot.content_source_refs[0]!;
-  const manualLocatorRef = options.originalFulltext
+  const manualLocatorRef = options.originalFulltext || options.sources?.length
     ? refForTitleCard('fulltext_paragraph', 'paragraph_001', titleCardId)
     : refForTitleCard('manual_locator', 'manual_validate_need_001', titleCardId);
-  if (options.originalFulltext) {
-    const text = options.originalFulltext;
+  const paragraphRefs: TopicSelectionFunctionalRef[] = [];
+  const originalSources: Pick<OriginalSourceFixture, 'text' | 'paragraphs'>[] = options.sources ?? (options.originalFulltext ? [{ text: options.originalFulltext }] : []);
+  for (const [index, source] of originalSources.entries()) {
+    const text = source.text;
+    const suffix = `00${index + 1}`;
     const dates = { createdAt: '2026-05-19T00:00:00.000Z', updatedAt: '2026-05-19T00:00:00.000Z' };
     await ctx.literature.upsertFulltextExtractionBundle({
-      document: { id: 'document_001', literatureId: 'lit_001', sourceAssetId: 'asset_001', normalizedText: text,
+      document: { id: `document_${suffix}`, literatureId: `lit_${suffix}`, sourceAssetId: `asset_${suffix}`, normalizedText: text,
         normalizedTextPath: null, normalizedTextChecksum: sha256Text(text), parserName: 'controlled-test', parserVersion: 'v1',
         parserArtifactPath: null, parserArtifactMimeType: null, status: 'READY', diagnostics: [], ...dates },
-      sections: [{ id: 'section_001', documentId: 'document_001', sectionId: 'section_001', title: 'Results', level: 1,
+      sections: [{ id: `section_${suffix}`, documentId: `document_${suffix}`, sectionId: `section_${suffix}`, title: 'Results', level: 1,
         orderIndex: 1, startOffset: 0, endOffset: text.length, pageStart: 1, pageEnd: 1, checksum: sha256Text(text), ...dates }],
-      paragraphs: [{ id: 'paragraph_001', documentId: 'document_001', paragraphId: 'paragraph_001', sectionId: 'section_001',
-        orderIndex: 1, text, startOffset: 0, endOffset: text.length, pageNumber: 1, checksum: sha256Text(text), confidence: 1, ...dates }],
+      paragraphs: (source.paragraphs ?? [text]).map((paragraph, paragraphIndex) => {
+        const start = text.indexOf(paragraph);
+        assert.ok(paragraph.trim() && start >= 0, 'Every selected paragraph must be an exact original-source substring.');
+        const id = `paragraph_${suffix}${paragraphIndex ? `_${paragraphIndex + 1}` : ''}`;
+        paragraphRefs.push(refForTitleCard('fulltext_paragraph', id, titleCardId));
+        return { id, documentId: `document_${suffix}`, paragraphId: id, sectionId: `section_${suffix}`,
+          orderIndex: paragraphIndex + 1, text: paragraph, startOffset: start, endOffset: start + paragraph.length,
+          pageNumber: 1, checksum: sha256Text(paragraph), confidence: 1, ...dates };
+      }),
       anchors: [],
     });
   }
@@ -1145,6 +1191,22 @@ async function seedNeedValidationSearchRuntime(options: {
     source_ref: sourceRef,
     locator_ref: manualLocatorRef,
   });
+  if (options.sources?.length) {
+    const bindings = ctx.coverageRowIntentRefs.flatMap(row => ctx.literatureSnapshot.literature_refs.map((literature, index) => ({
+      coverage_row_intent_ref: row, literature_ref: literature, source_refs: [ctx.literatureSnapshot.content_source_refs[index]!],
+      binding_kind: 'retrieval_hit' as const, result_rank: index + 1,
+    })));
+    bundle.evidence_map_input_refs = [...ctx.literatureSnapshot.literature_refs, ...ctx.literatureSnapshot.content_source_refs,
+      ...paragraphRefs];
+    bundle.evidence_bindings = bindings;
+    bundle.coverage_observations = ctx.coverageRowIntentRefs.map(row => ({ coverage_row_intent_ref: row, status: 'succeeded',
+      result_count: options.sources!.length, source_count: options.sources!.length, missing_reason_codes: [], notes: 'Controlled retrieval of pinned original sections.' }));
+    bundle.coverage_assessments = ctx.coverageRowIntentRefs.map(row => ({ coverage_row_intent_ref: row, verdict: 'satisfied',
+      issue_codes: [], confidence: 0.9, assessed_by: 'system' }));
+    bundle.result_accounting = { ...bundle.result_accounting, total_result_count: options.sources.length, unique_literature_count: options.sources.length };
+    bundle.source_health_summary = { ...bundle.source_health_summary, source_count: options.sources.length };
+    bundle.query_provenance = ctx.searchPlan.query_intents.map(query => ({ query, source: 'controlled-source-fixture' }));
+  }
   const searchRunResult = await ctx.workflowHarness.runRecordSearchRunScenario({
     scenario_id: 'topic-selection.real-e2e.canary.v1',
     scenario_case_id: 'record-search-run-for-validate-need',
@@ -3265,6 +3327,96 @@ function useJsonArtifactStorage(ctx: Pick<ValidateNeedAdjudicationSeed, 'control
   ctx.controlPlaneRepository.createArtifactRef = record => create(JSON.parse(JSON.stringify(record)));
 }
 
+test('checkpoint-bound source extraction enforces evidence review and substantive candidate alternatives', async t => {
+  const sources = [{ title: 'Controlled QA study', url: 'https://example.test/qa', text: 'Middle-position answers fail. The baseline uses edge positions. The finding is limited to tested models.' },
+    { title: 'Controlled retrieval study', url: 'https://example.test/retrieval', text: 'Cross-domain retrieval degrades. A separate source paragraph.', paragraphs: ['Cross-domain retrieval degrades.', 'A separate source paragraph.'] }];
+  const ctx = await seedNeedValidationSearchRuntime({ sources, productCheckpoints: true });
+  const title = ctx.titleCard.title_card_id;
+  const handoff = ctx.searchRunResult.node_result.downstream_handoff!;
+  assert.equal(handoff.evidence_map_input_refs.filter(ref => ref.ref_type === 'fulltext_paragraph').length, 3);
+  const home = await fs.mkdtemp(join(tmpdir(), 'checkpoint-cli-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const draft = evidenceMapExtractionDraft({ title_card_id: title, handoff, literature_ref: ctx.literatureRef,
+    source_ref: ctx.sourceRef, coverage_row_intent_ref: ctx.coverageRowIntentRefs[0]!,
+    input_refs_hash: ctx.evidenceMapMaterializer.inputRefsHashForSearchRunHandoff(handoff) }, { producer_kind: 'codex_cli' });
+  draft.draft_units = (['support', 'baseline', 'challenge'] as const).map((role, index) => ({ ...draft.draft_units[0]!,
+    client_unit_key: role, evidence_role: role, coverage_row_intent_ref: ctx.coverageRowIntentRefs[index]!,
+    locator: { locator_type: 'paragraph', locator_ref: ctx.manualLocatorRef, paragraph_ref: ctx.manualLocatorRef,
+      literature_ref: ctx.literatureRef, source_ref: ctx.sourceRef }, source_statement: sources[0]!.text.split('. ')[index]!.replace(/\.$/, '') + '.',
+  }));
+  const alternativeRef = ctx.literatureSnapshot.literature_refs[1]!;
+  const alternativeSourceRef = ctx.literatureSnapshot.content_source_refs[1]!;
+  const alternativeParagraphRef = refForTitleCard('fulltext_paragraph', 'paragraph_002', title);
+  draft.draft_units.push({ ...draft.draft_units[0]!, client_unit_key: 'retrieval_support', literature_ref: alternativeRef,
+    source_refs: [alternativeSourceRef], source_statement: sources[1]!.paragraphs![0]!,
+    locator: { locator_type: 'paragraph', locator_ref: alternativeParagraphRef, paragraph_ref: alternativeParagraphRef,
+      literature_ref: alternativeRef, source_ref: alternativeSourceRef } });
+  draft.draft_links = [{ source_unit_key: 'support', target_unit_key: 'challenge', link_type: 'refines', rationale: 'The limitation bounds the reported position failure.' }];
+  let calls = 0;
+  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
+    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    calls++;
+    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'checkpoint-test-thread' }),
+      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+  });
+  t.after(() => runner.shutdown());
+  const profiles = new TopicSelectionModelProfileRegistryService();
+  const extracted = await ctx.buildCliHarness(runner, profiles).runBuildEvidenceMapScenario({ scenario_id: 'topic-selection.real-e2e.canary.v1',
+    title_card_id: title, workflow_run_id: 'checkpoint-extraction', node_attempt_id: 'checkpoint-extraction', search_run_handoff: handoff,
+    execution_mode: 'codex_cli', run_mode: 'product', policy_version: 'v1', output_schema_version: 'v1' });
+  assert.equal(extracted.node_result.status, 'succeeded', JSON.stringify(extracted.node_result));
+  assert.equal(calls, 1);
+  const mapRef = extracted.node_result.evidence_map_ref!;
+  await ctx.evidenceMaps.assessEvidenceStrength({ evidence_map_id: mapRef.ref_id, target_ref: mapRef, purpose: 'need_validation',
+    role_bundle: { support_unit_ids: extracted.node_result.evidence_map_records!.evidence_units.filter(unit => unit.evidence_role === 'support').map(unit => unit.evidence_unit_id) }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
+  const bundle = await ctx.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
+  const compiler = new TopicSelectionV1aCodexContextService({ literature: ctx.literature, searchResources: ctx.searchResources,
+    evidenceMaps: ctx.evidenceMaps, researchEvidence: new TopicSelectionResearchEvidencePacketService({ literatureRepository: ctx.literature,
+      evidenceMapRepository: ctx.evidenceRepository, directEvidenceReadinessResolver: async ids => new Map(ids.map(id => [id,
+        { ready: true, reason: 'EVIDENCE_READY' as const, freshness: 'fresh' as const, freshness_detail: null }])) }) });
+  const discoveryInput = scenarioInput({
+      title_card_id: title, topic_scope_ref: ctx.topicSeedRef, evidence_map_ref: mapRef, evidence_strength_ref: bundle.strength_assessment_refs[0]!,
+      search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref], persist_admitted_candidates: false,
+    });
+  const compiled = await compiler.discovery(discoveryInput);
+  assert.equal(JSON.stringify(compiled).split(sources[0]!.text).length - 1, 1, 'The single agent receives each original excerpt once across its two context packets.');
+  const debate = await compiler.discovery({ ...discoveryInput, executor_kind: 'multi_agent_debate' });
+  for (const payload of [debate.exploration_payload, debate.arbiter_payload]) {
+    const serialized = JSON.stringify(payload);
+    assert.equal(serialized.split(sources[0]!.text).length - 1, 1, 'Repeated evidence units share one intact original excerpt in each role context.');
+    assert.ok(serialized.includes('The finding is limited to tested models.'));
+    assert.ok(serialized.includes('Cross-domain retrieval degrades.'));
+  }
+
+  const input = { title_card_id: title, evidence_map_id: mapRef.ref_id, candidate_need: 'Reliable QA', unmet_need_statement: 'Source-tested QA fails in the middle.',
+    mechanism_type: 'method_gap' as const, scope_notes: 'Controlled source-tested models only.', prior_art_status: 'unknown' as const, mechanism_payload: {} };
+  await assert.rejects(ctx.needService.createNeedCandidateFromEvidenceMap(input), /has not advanced/);
+  assert.deepEqual(await ctx.needValidationRepository.listNeedCandidatesByTitleCardId(title), []);
+  const checkpoint = await ctx.checkpointRepository.findCurrentCheckpoint(title, 'evidence_landscape');
+  assert.ok(checkpoint);
+  assert.ok(checkpoint.allowed_actions.includes('advance'));
+  await ctx.checkpoints.recordDecision(checkpoint.research_checkpoint_id, { decision_key: 'controlled-evidence-review', decision: 'advance',
+    actor: { actor_type: 'human', actor_id: 'controlled_fixture' }, confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+    rationale: 'Controlled Human reviewed the exact source and its limitation.', review_payload: { review_kind: 'evidence_landscape',
+      nearest_work_reviewed: true, disconfirming_evidence_reviewed: true, source_quality_reviewed: true, limitations: ['Synthetic source fixture.'] } });
+  const first = await ctx.needService.createNeedCandidateFromEvidenceMap(input);
+  await ctx.needService.createNeedCandidateFromEvidenceMap({ ...input, candidate_need: 'Reliable QA reworded', unmet_need_statement: 'The same source-tested position failure.' });
+  const duplicateCheckpoint = await ctx.checkpointRepository.findCurrentCheckpoint(title, 'gap_selection');
+  assert.ok(duplicateCheckpoint);
+  assert.equal(duplicateCheckpoint.allowed_actions.includes('advance'), false, 'Two empty mechanism payloads cannot establish distinct alternatives.');
+  await ctx.needService.createNeedCandidateFromEvidenceMap({ ...input, candidate_need: 'Reliable cross-domain retrieval',
+    unmet_need_statement: 'Source-tested cross-domain retrieval degrades.', mechanism_payload: { research_object: 'retrieval', comparison: 'across domains', outcome: 'relevance' } });
+  const gap = await ctx.checkpointRepository.findCurrentCheckpoint(title, 'gap_selection');
+  assert.ok(gap);
+  assert.ok(gap.allowed_actions.includes('advance'));
+  assert.notEqual(gap.target_snapshot_hash, duplicateCheckpoint.target_snapshot_hash);
+  await assert.rejects(ctx.checkpoints.assertGapSelectionConfirmation({ title_card_id: title, selected_candidate: first, review: {
+    research_checkpoint_id: duplicateCheckpoint.research_checkpoint_id, confirmed_candidate_pool_hash: duplicateCheckpoint.target_snapshot_hash,
+    selected_candidate_ref: refForTitleCard('need_candidate', first.need_candidate_id, title, first.candidate_version),
+    direct_prior_art_pressure_reviewed: true, disconfirming_evidence_reviewed: true, candidate_reviews: [],
+  } }), /current|superseded|stale/);
+});
+
 test('Codex discovery qualification persists its actual candidate through frozen v1b lineage', {
   skip: process.env.TOPIC_SELECTION_CODEX_LINEAGE_QUALIFICATION !== 'live',
 }, async t => {
@@ -3277,16 +3429,29 @@ test('Codex discovery qualification persists its actual candidate through frozen
   if (!sourceFile || !outputRoot || !model || !home || !runId || !/^[a-zA-Z0-9_-]{1,40}$/.test(runId)
     || process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED !== '1') throw new Error('Explicit live lineage qualification configuration is required.');
   const selectedCase = process.env.TOPIC_SELECTION_QUALIFICATION_CASE ?? 'bounded_capability';
-  assert.ok(['bounded_capability', 'evaluation_overlap', 'extracted_capability'].includes(selectedCase));
+  assert.ok(['bounded_capability', 'evaluation_overlap', 'extracted_capability', 'checkpoint_comparison', 'checkpoint_debate'].includes(selectedCase));
   const source = JSON.parse(await fs.readFile(sourceFile, 'utf8')) as { url: string; text: string };
   assert.equal(source.url, 'https://arxiv.org/html/2307.03172v3#S2.SS3');
   assert.equal(sha256Text(source.text), '137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21');
-  const useExtraction = selectedCase === 'extracted_capability';
-  const seed = await seedNeedValidationSearchRuntime({ originalFulltext: source.text });
+  const productCheckpoints = selectedCase.startsWith('checkpoint_');
+  const useExtraction = selectedCase === 'extracted_capability' || productCheckpoints;
+  const sources: OriginalSourceFixture[] = [{ ...source, title: 'Lost in the Middle: How Language Models Use Long Contexts' }];
+  if (productCheckpoints) {
+    const alternativeFile = process.env.TOPIC_SELECTION_QUALIFICATION_ALTERNATIVE_FULLTEXT;
+    assert.ok(alternativeFile, 'Comparative qualification requires a pinned independent original source.');
+    const alternative = JSON.parse(await fs.readFile(alternativeFile, 'utf8')) as OriginalSourceFixture;
+    assert.equal(alternative.url, 'https://arxiv.org/html/2104.08663v4#S5');
+    assert.equal(sha256Text(alternative.text), '9857965c203b4935ec628a8ff203f3fe6666580d12d12f63607ca618c31b7070');
+    assert.ok(alternative.paragraphs?.length, 'The comparative fixture must preserve original paragraph boundaries.');
+    assert.equal(sha256Text(JSON.stringify(alternative.paragraphs)), '2024b3b422976030b018733e711bff634697eb3eb6e3828b3b2e62a69defff72');
+    sources.push(alternative);
+  }
+  const seed = await seedNeedValidationSearchRuntime({ originalFulltext: source.text, productCheckpoints,
+    sources: productCheckpoints ? sources : undefined });
   useJsonArtifactStorage(seed);
   const title = seed.titleCard.title_card_id;
   assert.deepEqual(await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title), []);
-  await seed.literature.upsertLiteratureSource({ id: 'source_001', literatureId: 'lit_001', provider: 'arxiv', sourceItemId: '2307.03172v3',
+  if (!productCheckpoints) await seed.literature.upsertLiteratureSource({ id: 'source_001', literatureId: 'lit_001', provider: 'arxiv', sourceItemId: '2307.03172v3',
     sourceUrl: source.url, rawPayload: { source_hash: sha256Text(source.text) }, fetchedAt: '2026-09-10T00:00:00.000Z' });
   const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
@@ -3295,9 +3460,9 @@ test('Codex discovery qualification persists its actual candidate through frozen
   t.after(() => budget?.close());
   const save = async (name: string, value: unknown) => fs.writeFile(join(directory, `${runId}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'discovery-to-v1b', source: source.url,
-    source_hash: sha256Text(source.text), controlled_search: true, evidence_roles: useExtraction ? 'model_extracted' : 'controlled', source_count: 1,
+    source_hash: sha256Text(source.text), controlled_search: true, evidence_roles: useExtraction ? 'model_extracted' : 'controlled', source_count: sources.length, sources: sources.map(source => ({ url: source.url, hash: sha256Text(source.text), selected_paragraph_count: source.paragraphs?.length ?? 1, selected_paragraphs_hash: sha256Text(JSON.stringify(source.paragraphs ?? [source.text])) })),
     selected_case: selectedCase, candidate_is_model_generated: true, controlled_human_input: true, actual_human_decision: false,
-    app_checkpoint_guard_not_exercised: true, repositories: 'in-memory with JSON artifact storage', model, limits,
+    app_checkpoint_guard_not_exercised: !productCheckpoints, repositories: 'in-memory with JSON artifact storage', model, limits,
     started_at: new Date().toISOString() }, null, 2), { mode: 0o600, flag: 'wx' });
   const profiles = new TopicSelectionModelProfileRegistryService();
   const harness = seed.buildCliHarness(runner, profiles);
@@ -3334,28 +3499,47 @@ test('Codex discovery qualification persists its actual candidate through frozen
     }, assessment_workflow_version: 'v1', policy_version_id: 'v1' });
   const bundle = await seed.evidenceMaps.getNeedValidationEvidenceBundle(mapRef.ref_id);
     await save('evidence', { search_run: seed.searchRunResult, evidence_map: evidence.evidenceMap, evidence_units: evidence.evidenceUnits, bundle });
+    if (productCheckpoints) {
+      const checkpoint = await seed.checkpointRepository.findCurrentCheckpoint(title, 'evidence_landscape');
+      assert.ok(checkpoint);
+      const packet = await seed.checkpoints.getPacket(checkpoint.research_checkpoint_id);
+      await save('evidence-checkpoint', { checkpoint, packet });
+      assert.ok(checkpoint.allowed_actions.includes('advance'), JSON.stringify(packet.packet_payload));
+      const decision = { decision_key: id('evidence_review'), decision: 'advance' as const,
+        actor: { actor_type: 'human' as const, actor_id: 'controlled_comparison_fixture' }, confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+        rationale: 'Controlled Human fixture reviewed original source findings, their baselines and scope limitations. Historical studies establish bounded capability observations, not current-model failure or solution novelty.',
+        review_payload: { review_kind: 'evidence_landscape' as const, nearest_work_reviewed: true,
+          disconfirming_evidence_reviewed: true, source_quality_reviewed: true,
+          limitations: ['Controlled retrieval and parser; incomplete broader prior art, no verification of current models or proposed repairs.'] } };
+      await save('evidence-human-input', decision);
+      await save('evidence-decision', await seed.checkpoints.recordDecision(checkpoint.research_checkpoint_id, decision));
+    }
     const request = scenarioInput({ title_card_id: title, workspace_id: null, input_snapshot_id: evidence.evidenceMap.input_snapshot_id,
       workflow_run_id: id('discovery'), node_attempt_id: id('discovery'), topic_scope_ref: seed.topicSeedRef,
       evidence_map_ref: mapRef, evidence_strength_ref: bundle.strength_assessment_refs[0]!,
-      execution_mode: 'codex_cli', run_mode: 'product', executor_kind: 'single_agent', mocked_output: null,
+      execution_mode: 'codex_cli', run_mode: 'product', executor_kind: selectedCase === 'checkpoint_debate' ? 'multi_agent_debate' : 'single_agent', mocked_output: null,
       resource_sample_set_ref: null, candidate_pool_projection_ref: null,
       search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref],
       persist_admitted_candidates: true, persistence_context: { search_run_ref: bundle.search_run_ref,
         search_plan_ref: bundle.search_plan_ref, literature_snapshot_ref: bundle.literature_snapshot_ref }, expectations: {},
       exploration_payload: { ...explorationPayload(), topic_scope: {
-        intent: selectedCase === 'evaluation_overlap'
+        intent: productCheckpoints
+          ? 'Compare bounded unmet capabilities in reliable information retrieval and context use, confined to the historical configurations and conditions actually tested by the supplied studies. Inspect source-tested retrieval robustness across domains and multi-document QA with relevant information in the middle. These are candidate need directions, not claims that a new benchmark is missing or that a proposed repair is novel. Retain substantively distinct viable alternatives when the evidence supports them; the researcher will compare them. Account for BEIR annotation-selection bias when interpreting retrieval scores. Do not force advancement or assert current-model failures.'
+          : selectedCase === 'evaluation_overlap'
           ? 'Discover a bounded need for position-sensitive evaluation before selecting long-context QA configurations. The source documents failures to use relevant middle-position information. Inspect whether that supports a need; do not claim a novel repair or force advancement.'
           : 'Discover a bounded unmet capability in reliable multi-document question answering when the answer-bearing document is in the middle of context, confined to the model configurations and conditions actually tested in this source. Distinguish the documented capability failure from the already-published evaluation method. A candidate research need is not a claim to a novel solution, nor evidence that current models still fail. Do not force advancement if the supplied findings do not support this need.',
-        evidence_boundary: useExtraction
+        evidence_boundary: productCheckpoints
+          ? 'Two original studies, with model-extracted units; each source retains its own model, task, metric and annotation boundaries. Multiple units from one paper are not independent corroboration. No comprehensive current prior-art search, data-access verification or repair validation is claimed.'
+          : useExtraction
           ? 'Evidence units were extracted by the model from one original results section. Multiple units are not independent sources. Broader prior art, current model behavior, dataset access and repair efficacy are unverified.'
           : 'One original results section reused in four controlled role slots. These are not independent sources. Broader prior art, current model behavior, dataset access and efficacy of any repair are unverified.',
-      }, resource_sample_digest: { status: 'not_supplied' }, search_coverage_digest: { status: 'one_original_results_section',
+      }, resource_sample_digest: { status: 'not_supplied' }, search_coverage_digest: { status: productCheckpoints ? 'two_original_studies' : 'one_original_results_section',
         limitations: [useExtraction ? 'Controlled retrieval; no independent prior-art coverage.' : 'Controlled retrieval and role assignments; no independent prior-art coverage.'] } },
       arbiter_payload: { ...arbiterPayload(), role_level_summaries: [] },
     });
     const discovered = await harness.runGenerateNeedCandidateScenario(request);
     await save('discovery', discovered);
-    assert.equal(discovered.adapter_result.invocation_result.status, 'succeeded', JSON.stringify(discovered.adapter_result));
+    assert.equal(discovered.adapter_result.invocation_result.status, 'succeeded', JSON.stringify({ blocker_codes: discovered.adapter_result.blocker_codes, error_code: discovered.adapter_result.error_code }));
     const persistence = discovered.adapter_result.persist_need_candidate_batch_result;
     const attemptCount = budget!.snapshot().attempts.length;
     assert.deepEqual(await seed.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(request), discovered);
@@ -3367,14 +3551,18 @@ test('Codex discovery qualification persists its actual candidate through frozen
       return;
     }
     assert.ok(persistence?.persisted_candidates.length, JSON.stringify({ routing: discovered.adapter_result.supplemental_round_routing_decision, batch: discovered.adapter_result.ranked_candidate_draft_batch }));
-    assert.equal(persistence.persisted_candidates.length, 1);
-    const candidate = persistence.persisted_candidates[0]!;
-    const draft = discovered.adapter_result.ranked_candidate_draft_batch!.drafts[0]!;
+    if (productCheckpoints) assert.ok(persistence.persisted_candidates.length >= 2, 'Product gap review requires two genuinely distinct viable candidates.');
+    else assert.equal(persistence.persisted_candidates.length, 1);
+    const batch = discovered.adapter_result.ranked_candidate_draft_batch!;
+    const selectedDraftId = batch.portfolio_disposition?.candidate_dispositions.find(item => item.disposition === 'selected')?.candidate_key;
+    const draft = batch.drafts.find(draft => draft.draft_id === selectedDraftId) ?? batch.drafts[0]!;
+    const candidate = persistence.persisted_candidates.find(candidate => candidate.candidate_need === draft.candidate_need)!;
+    assert.ok(candidate);
     assert.equal(candidate.candidate_need, draft.candidate_need);
     assert.equal(candidate.unmet_need_statement, draft.unmet_need_statement);
     assert.deepEqual(candidate.evidence_role_bundle, draft.evidence_role_bundle);
     assert.deepEqual(candidate.evidence_map_ref, mapRef);
-    assert.equal((await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title)).length, 1);
+    assert.equal((await seed.needValidationRepository.listNeedCandidatesByTitleCardId(title)).length, persistence.persisted_candidates.length);
     const readiness = await seed.needService.assessCandidateReadiness({ need_candidate_id: candidate.need_candidate_id, assessed_by: 'system' });
     await save('readiness', readiness);
     assert.equal(readiness.recommendation, 'ready_for_validation', JSON.stringify(readiness));
@@ -3394,12 +3582,39 @@ test('Codex discovery qualification persists its actual candidate through frozen
     // An explicit controlled Human input follows actual N7 output. No model may author this decision.
     const confirmation = humanConfirmationInput(ctx, { accountable_human_ref: { actor_type: 'human', actor_id: 'controlled_lineage_fixture' },
       rationale: `Controlled Human fixture: I accept the exact candidate and validate adjudication at the stated evidence boundary. Checks reviewed: ${supportPacket.required_human_checks.join(', ')}. I accept exactly the listed residual risks, including single-source coverage and unverified novelty, data access and repair efficacy. This is not an actual research approval.` });
+    if (productCheckpoints) {
+      const checkpoint = await seed.checkpointRepository.findCurrentCheckpoint(title, 'gap_selection');
+      assert.ok(checkpoint);
+      await save('gap-checkpoint', { checkpoint, packet: await seed.checkpoints.getPacket(checkpoint.research_checkpoint_id) });
+      assert.ok(checkpoint.allowed_actions.includes('advance'));
+      confirmation.gap_selection_review = {
+        research_checkpoint_id: checkpoint.research_checkpoint_id, confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+        selected_candidate_ref: refForTitleCard('need_candidate', candidate.need_candidate_id, title, candidate.candidate_version),
+        direct_prior_art_pressure_reviewed: true, disconfirming_evidence_reviewed: true,
+        candidate_reviews: persistence.persisted_candidates.map(item => ({
+          need_candidate_ref: refForTitleCard('need_candidate', item.need_candidate_id, title, item.candidate_version),
+          disposition: item.need_candidate_id === candidate.need_candidate_id ? 'selected' : 'viable_alternative',
+          distinct_from_selected_axes: item.need_candidate_id === candidate.need_candidate_id ? [] : ['research_object', 'comparison', 'outcome'],
+          rationale: 'Controlled Human comparison fixture: source-tested retrieval ranking across domains and QA answer generation under context-position changes target different research objects, comparisons and outcomes. Preference is limited to this fixture; neither study proves current-model failure or a novel solution.',
+          rejection_reason: null,
+        })),
+      };
+      await assert.rejects(seed.checkpoints.assertGapSelectionConfirmation({ title_card_id: title, selected_candidate: candidate,
+        review: { ...confirmation.gap_selection_review, confirmed_candidate_pool_hash: '0'.repeat(64) } }), /stale/);
+      await assert.rejects(seed.checkpoints.assertGapSelectionConfirmation({ title_card_id: title, selected_candidate: candidate,
+        review: { ...confirmation.gap_selection_review, candidate_reviews: confirmation.gap_selection_review.candidate_reviews.filter(review => review.disposition === 'selected') } }), /every candidate/);
+    }
     const confirmationInput = humanConfirmNeedScenarioInput(ctx, adjudicated, { execution_mode: 'codex_cli', run_mode: 'product',
       workflow_run_id: id('confirmation'), node_attempt_id: id('confirmation'), confirmation_input: confirmation, expectations: {} });
     await save('human-input', confirmationInput);
     const confirmed = await harness.runHumanConfirmNeedScenario(confirmationInput);
     await save('confirmation', confirmed);
     assert.equal(confirmed.node_result.status, 'ready', JSON.stringify(confirmed.node_result));
+    if (productCheckpoints) {
+      const checkpoint = await seed.checkpoints.assertTransitionAllowed({ title_card_id: title, checkpoint_kind: 'gap_selection' });
+      assert.equal(checkpoint.decision_authority_ref?.ref_type, 'human_confirmed_decision');
+      await save('gap-decision', checkpoint);
+    }
     const afterConfirmation = budget!.snapshot().attempts.length;
     assert.deepEqual(await seed.buildCliHarness(runner, profiles).runHumanConfirmNeedScenario(confirmationInput), confirmed);
     assert.equal(budget!.snapshot().attempts.length, afterConfirmation);
@@ -3755,6 +3970,13 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
     if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
     calls++;
     assert.ok(options.stdin.includes(original), 'The actual original source crosses the model boundary.');
+    if (calls === 2) {
+      const schemaPath = args[args.indexOf('--output-schema') + 1]!;
+      const schema = JSON.parse(await fs.readFile(schemaPath, 'utf8'));
+      const mechanism = schema.properties.drafts.items.properties.mechanism_payload.anyOf[0];
+      assert.deepEqual(Object.keys(mechanism.properties).sort(), ['comparison', 'intervention', 'mechanism', 'outcome', 'research_object']);
+      assert.equal(mechanism.additionalProperties, false);
+    }
     return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'v1a-test-thread' }),
       JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
   });
@@ -3781,6 +4003,15 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
   batch.drafts[0]!.evidence_role_bundle = { support_unit_refs: extracted.node_result.evidence_unit_refs, challenge_unit_refs: [], baseline_unit_refs: [], context_unit_refs: [] };
   batch.drafts[0]!.strength_assessment_refs = [bundle.strength_assessment_refs[0]!];
   batch.drafts[0]!.conflict_refs = [];
+  batch.drafts[0]!.mechanism_payload = { research_object: 'RAG generation', mechanism: 'position sensitivity', intervention: null, comparison: 'edge vs middle context', outcome: 'answer accuracy' };
+  batch.drafts.push({ ...batch.drafts[0]!, draft_id: 'draft_002', rank: 2,
+    candidate_need: 'Improve cross-domain retrieval robustness.', unmet_need_statement: 'The tested retriever does not generalize across source-tested domains.',
+    mechanism_payload: { research_object: 'retrieval', mechanism: 'domain shift', intervention: null, comparison: 'BM25 vs dense retrieval', outcome: 'retrieval relevance' } });
+  batch.portfolio_disposition = { outcome: 'selected', rationale: 'Controlled fixture preserves a comparison of two viable needs.', confidence: 0.8,
+    evidence_refs: extracted.node_result.evidence_unit_refs, rejection_reasons: [], reopening_conditions: [],
+    candidate_dispositions: batch.drafts.map((draft, index) => ({ candidate_key: draft.draft_id,
+      disposition: index === 0 ? 'selected' : 'parked', rationale: 'Controlled comparative priority.', evidence_refs: extracted.node_result.evidence_unit_refs,
+      drop_reason_code: null, reopening_conditions: index === 0 ? [] : ['Reconsider retrieval priority after researcher comparison.'] })) };
   output = batch;
   const discovery = scenarioInput({ title_card_id: ctx.titleCard.title_card_id, node_attempt_id: 'cli-need-1',
     workflow_run_id: 'cli-need-workflow', topic_scope_ref: ctx.topicSeedRef, evidence_map_ref: evidenceMapRef,
@@ -3790,10 +4021,11 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
     resource_sample_set_ref: null, search_snapshot_refs: [bundle.search_run_ref], resource_snapshot_refs: [bundle.literature_snapshot_ref] });
   const result = await harness.runGenerateNeedCandidateScenario(discovery);
   assert.equal(result.adapter_result.status, 'succeeded');
-  assert.equal(result.adapter_result.persist_need_candidate_batch_result?.persisted_candidates.length, 1);
+  assert.deepEqual(result.adapter_result.persist_need_candidate_batch_result?.persisted_candidates.map(candidate => candidate.mechanism_payload), batch.drafts.map(draft => draft.mechanism_payload));
+  assert.equal(result.adapter_result.persist_need_candidate_batch_result?.persisted_candidates.length, 2);
   assert.deepEqual(await ctx.buildCliHarness(runner, profiles).runGenerateNeedCandidateScenario(discovery), result);
   assert.equal(calls, 2);
-  assert.equal((await ctx.needValidationRepository.listNeedCandidatesByTitleCardId(ctx.titleCard.title_card_id)).length, 1);
+  assert.equal((await ctx.needValidationRepository.listNeedCandidatesByTitleCardId(ctx.titleCard.title_card_id)).length, 2);
   assert.equal(ctx.llmGateway.calls.length, 0);
   const persistenceContext = { search_run_ref: bundle.search_run_ref, search_plan_ref: bundle.search_plan_ref,
     literature_snapshot_ref: bundle.literature_snapshot_ref };

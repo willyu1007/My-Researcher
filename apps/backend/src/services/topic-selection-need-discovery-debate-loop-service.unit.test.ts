@@ -503,7 +503,7 @@ const NEED_DISCOVERY_PROMPT_BODY_GOLDEN = {
   explorer: '0dbd8bd8a4a0326ed1c60d9bea15dc384e8730025517acc3c18e5ed9a1d90947',
   deep_critic: '0913eff513051de8098ee29c5d72f546868821602cbdf7c1589abe95e84049d4',
   arbiter_issue_frame: '30fe92b201fc87f5d96fbb395acda717acf420bcb19e24d049eab7da71c91022',
-  arbiter_final: '7957f4e6abb7dc4c991983ec033c6e6c4d9318a29c4a9fea6d9cb6242c3a7bbb',
+  arbiter_final: '058b20d783fa925dc9a8e377658e37d56da3f5d4f154e3234abc8412942be5ef',
 };
 test('need-discovery packets carry exact role identity and actual Explorer outputs to the Critic', async () => {
   const ctx = await makeRuntime({ llmGateway: new ProviderDebateGateway(), executionMode: 'provider_llm' });

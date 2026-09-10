@@ -688,8 +688,8 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
         exploration_context: input.explorationContext.payload_hash,
         arbiter_context: input.arbiterContext.payload_hash,
       },
-      exploration_context: this.compactPayload(input.explorationContext.payload),
-      arbiter_context: this.compactPayload(input.arbiterContext.payload),
+      exploration_context: this.compactContext(input.explorationContext.payload),
+      arbiter_context: this.compactContext(input.arbiterContext.payload),
       preserved_fact_inventory: factInventory,
       compression_notes: {
         strategy: 'deterministic structural compaction; refs remain authoritative',
@@ -1087,6 +1087,13 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
     }
 
     return inventory;
+  }
+
+  /** Evidence bodies and their bindings are indivisible; the budget gate must reject if they cannot fit. */
+  private compactContext(payload: TopicSelectionNeedDiscoveryContextPacket['payload']): unknown {
+    return Object.fromEntries(Object.entries(payload).map(([key, value]) => [key,
+      key === 'evidence_signal_digest' || key === 'evidence_ref_table' ? value : this.compactPayload(value, 1),
+    ]));
   }
 
   private compactPayload(value: unknown, depth = 0): unknown {

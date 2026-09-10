@@ -305,3 +305,27 @@ an open legacy session. Role outputs, risk findings, deterministic advisory synt
 Human checkpoint retain their established owners. Provisional Scout proposals require a reframe
 outcome; disagreement is retained rather than converted to consensus. This enables optional
 support only, without a ResearchArena decision-quality activation claim.
+
+## Phase 3 comparative need discovery
+
+A selected v1a portfolio contains one or more admissible candidates, exactly one model-selected
+recommendation, and grounded parked alternatives when the evidence supports substantively different
+needs. A single viable framing must not be split merely to satisfy the gap checkpoint. Prompt v5
+(single agent) and v4 (final synthesis) distinguish model preference from Human selection.
+The public v1 mechanism payload keeps its existing JSON-record compatibility; its explicit semantic
+branch exposes nullable research-object, mechanism, intervention, comparison and outcome strings to
+strict CLI output schemas. Empty or merely reworded payloads do not prove distinct alternatives.
+
+The Codex context compiler projects verified evidence packets with a shared excerpt-hash catalog,
+full per-unit quote/locator/role/integrity fields and the original source-packet hash. Single-agent
+exploration and arbitration share the source body; independent Debate recipients each receive the
+body they need. N7 uses the same projection for the exact frozen selection. Original packet authority
+is unchanged. Single-agent structural compression preserves the complete evidence digest and ref
+table; if intact evidence exceeds the existing budget, invocation is blocked. Ordinary source prose
+such as `task-shifts` is not classified as an `sk-` credential token.
+
+The qualification helper optionally composes the app's EvidenceLandscape and GapSelection owners.
+It binds stored original paragraph refs, requires an exact evidence-review decision before candidate
+persistence, and carries the current whole candidate-pool hash and versioned candidate reviews into
+Human confirmation. Its retrieval/readiness/parser setup and Human decisions remain controlled
+fixtures; exact identity checks are not proof of scientific validity or actual researcher approval.

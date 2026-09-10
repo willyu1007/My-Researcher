@@ -567,7 +567,7 @@ an explicitly local profile override, not a new real-model qualification. Those 
   and Human input is explicitly a fixture. The app evidence/gap checkpoint guard is not configured
   in this helper; this is a consumer chain, not full product checkpoint approval. Further inspection
   found the selected-portfolio prompt incorrectly requires a single draft, and the strict CLI schema
-  renders mechanism_payload as an empty object. Both must be aligned before qualifying the existing
+  renders mechanism_payload as an empty object. The following unit aligns both interfaces before qualifying the existing
   two-distinct-viable-candidates gap checkpoint. CX-03 stays open.
 - Verification: 132 focused harness/binding checks passed with three opt-in skips; the subsequent
   cross-link correction passed the two affected source-polarity tests; backend no-emit typecheck,
@@ -575,9 +575,47 @@ an explicitly local profile override, not a new real-model qualification. Those 
   separately passed. No build, dev server or database schema change was used.
 - Through 156: 3,217,196 reported tokens (95,977 across 152–156), the same nine unknown-usage historical calls and no pending attempt. Aggregate ceilings remain null; per-call deadline is 600 seconds.
 
+## Comparative checkpoint preparation and evidence preservation
+
+- Need Discovery single-agent v5 and final-synthesis v4 allow a selected candidate plus substantive
+  parked alternatives. CLI strict schemas expose five nullable mechanism axes while an `anyOf`
+  fallback preserves legacy nested JSON payloads. The actual fake CLI output schema and two-draft
+  persistence/replay are checked; prompt/scenario versions and both rendered hash anchors agree.
+- The helper now wires the actual evidence/gap checkpoint owners: early candidate creation is
+  refused, evidence Human review binds the current snapshot, empty/reworded mechanism payloads do
+  not create an advancing pool, and stale pool confirmation is rejected. Existing CLI eligibility
+  tests use shipped product mode rather than duplicating the default executor registration.
+- Evidence projection shares identical original excerpts by hash. Single-agent callers receive one
+  source copy across their context pair; independent Debate recipients retain their own copy. Review
+  found structural compression would truncate deep quote/locator/hash bindings and long source text;
+  the fixed adapter preserves the entire evidence digest/table. A test covering 12 units and a long
+  source reproduced the loss before the fix. Intact evidence still must pass the normal token gate.
+- Attempts 157–159 (`checkpoint_comparison_v2_live` through `v4_live`) successfully extract the two
+  pinned sources and reach an advancing evidence checkpoint, but N6 is blocked before model work.
+  157/158 expose a false credential match inside `task-shifts`; a word boundary fixes that match while
+  standalone/quoted credential and Bearer checks remain. 158/159 also exceed the compressed input
+  budget; these are safe stops, not comparative-candidate qualification. They used 29,458 / 30,113 /
+  30,910 reported tokens. Through 159: 3,307,677 reported tokens, nine historical unknown-usage calls.
+- The two-section BEIR fixture incorrectly represented all text as one paragraph, producing repeated
+  overlapping 8,000-character evidence windows. The new private `beir-paragraphs.json` preserves 17
+  original arXiv S5/S6 paragraphs (9,345 characters), each a unique exact ordered substring of the
+  unchanged 12,465-character source. Body SHA-256: `9857965c203b4935ec628a8ff203f3fe6666580d12d12f63607ca618c31b7070`;
+  paragraph-array SHA-256: `2024b3b422976030b018733e711bff634697eb3eb6e3828b3b2e62a69defff72`.
+  Source: https://arxiv.org/html/2104.08663v4#S5 (also S6). Selection includes generalization gains,
+  latency/index tradeoffs and annotation bias; complete tables are not selected. SearchRun binds all
+  paragraph refs and the manifest pins both body and selection. Parser/retrieval readiness is still
+  controlled, not an ingestion qualification.
+- Current offline verification: 228 passed, three opt-in live skips; backend no-emit typecheck, five
+  LLM config tests and workflow matrix consistency pass. Independent review rechecked legacy payload
+  compatibility, checkpoint wiring, the source projection, lossless compression and paragraph pins.
+- `checkpoint_comparison_v5_live` is running serially against the corrected paragraph fixture and
+  current production code. Its outcome and the changed final-synthesis prompt's real qualification
+  remain pending. Fixed Human reviews must be inspected against every actual persisted candidate;
+  snapshot identity alone does not establish viable alternatives or true comparison axes.
+
 ## Outstanding verification
 
-- Correct the Need Discovery portfolio/payload interface and qualify substantive candidate alternatives
+- Qualify the corrected Need Discovery portfolio/payload interface with substantive candidate alternatives
   through the real evidence/gap checkpoint owners. The consumer-only lineage does not close CX-03 or whole-flow acceptance.
 - An interrupted domain commit without a completion receipt still requires authority inspection;
   no automatic partial-write recovery is claimed. Recovery and Human gates retain their owners.

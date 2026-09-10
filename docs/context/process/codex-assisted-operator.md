@@ -105,6 +105,12 @@ profile registry; a configured runner is required.
   and a `persistence_context` whose SearchRun, SearchPlan and literature-snapshot refs exactly match
   the current evidence map. A mismatch is rejected before model execution. Candidate
   admission/persistence and Human confirmation keep their usual gates.
+  A model-selected portfolio may retain substantive parked alternatives; model preference is not
+  Human approval. Mechanism axes describe source-grounded distinctions, with unknown axes left null.
+  The existing gap checkpoint still requires genuinely distinct viable alternatives and exact Human
+  comparison; a second rewording does not satisfy it. The product shares repeated source excerpts
+  while preserving all quote/locator bindings, including during single-agent compression. An intact
+  evidence context that exceeds the existing budget stops before model work.
 
 Reuse the exact workflow/node-attempt identity and request after a lost response; completed results
 replay without another model invocation. Changed input or an unfinished claim returns 409. Inspect

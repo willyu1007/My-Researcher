@@ -25,7 +25,6 @@ import {
 import {
   TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
   TopicSelectionModelProfileRegistryService,
-  createDefaultTopicSelectionModelProfileRegistry,
 } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
 import {
@@ -1316,29 +1315,16 @@ function codexCliRunner(): TopicSelectionCodexCliRunnerService {
   );
 }
 
-/** Only a profile that opens the line makes it reachable; every shipped profile declares
- *  codex_cli ineligible, which is what keeps T-151 Phase 1 inert in the product. */
-function registryOpeningCodexCli(): TopicSelectionModelProfileRegistryService {
-  const registry = createDefaultTopicSelectionModelProfileRegistry();
-  for (const profile of registry.profiles) {
-    if (profile.profile_id === TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID) {
-      profile.allowed_execution_modes = [...profile.allowed_execution_modes, 'codex_cli'];
-      profile.run_mode_eligibility.codex_cli = ['acceptance', 'product'];
-    }
-  }
-  return new TopicSelectionModelProfileRegistryService({ registry });
-}
-
 void test('codex_cli line carries an authoritative runner identity and persists its trace', async () => {
   const { orchestrator } = makeOrchestrator({
-    modelProfileRegistry: registryOpeningCodexCli(),
+    modelProfileRegistry: new TopicSelectionModelProfileRegistryService(),
     codexCliRunner: codexCliRunner(),
     codexCliModelId: 'gpt-6-astra',
   });
 
   const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
     ...baseInvocation(),
-    execution_mode: 'codex_cli',
+    run_mode: 'product', execution_mode: 'codex_cli',
   });
 
   assert.equal(result.status, 'succeeded');
@@ -1364,7 +1350,7 @@ void test('a restarted CLI consumer reuses the persisted attempt and refuses cha
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   let calls = 0;
   const makeConsumer = () => new TopicSelectionAgentOrchestratorService({
-    controlPlane, modelProfileRegistry: registryOpeningCodexCli(), codexCliModelId: 'gpt-6-astra',
+    controlPlane, modelProfileRegistry: new TopicSelectionModelProfileRegistryService(), codexCliModelId: 'gpt-6-astra',
     codexCliRunner: new TopicSelectionCodexCliRunnerService({
       codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
     }, async args => {
@@ -1373,7 +1359,7 @@ void test('a restarted CLI consumer reuses the persisted attempt and refuses cha
       return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
     }),
   });
-  const request = { ...baseInvocation(), execution_mode: 'codex_cli' as const };
+  const request = { ...baseInvocation(), run_mode: 'product' as const, execution_mode: 'codex_cli' as const };
   const first = await makeConsumer().invokeStructuredOutput<CandidateDraftBatch>(request);
   const replay = await makeConsumer().invokeStructuredOutput<CandidateDraftBatch>(request);
   assert.equal(first.status, 'succeeded');
@@ -1405,15 +1391,15 @@ void test('CLI replay rejects an attempt recorded before native tool restriction
       Object.defineProperty(runner, 'executionIdentity', { get: () => identity });
     }
     return new TopicSelectionAgentOrchestratorService({ controlPlane,
-      modelProfileRegistry: registryOpeningCodexCli(), codexCliModelId: 'gpt-6-astra', codexCliRunner: runner });
+      modelProfileRegistry: new TopicSelectionModelProfileRegistryService(), codexCliModelId: 'gpt-6-astra', codexCliRunner: runner });
   };
-  const request = { ...baseInvocation(), execution_mode: 'codex_cli' as const };
+  const request = { ...baseInvocation(), run_mode: 'product' as const, execution_mode: 'codex_cli' as const };
   assert.equal((await makeConsumer(true).invokeStructuredOutput(request)).status, 'succeeded');
   await assert.rejects(makeConsumer().invokeStructuredOutput(request), /attempt.*(identity|input)/i);
   assert.equal(calls, 1, 'Policy drift must neither replay nor replace the old attempt.');
 });
 
-void test('codex_cli line stays inert while no profile admits it', async () => {
+void test('codex_cli rejects a run mode outside shipped eligibility', async () => {
   const { orchestrator } = makeOrchestrator({
     codexCliRunner: codexCliRunner(),
     codexCliModelId: 'gpt-6-astra',
@@ -1422,7 +1408,7 @@ void test('codex_cli line stays inert while no profile admits it', async () => {
   await assert.rejects(
     orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
       ...baseInvocation(),
-      execution_mode: 'codex_cli',
+      run_mode: 'acceptance', execution_mode: 'codex_cli',
     }),
   );
 });
@@ -1455,7 +1441,7 @@ void test('a codex_cli attempt gets a handle that is offered to the model and di
   const scopes = new TopicSelectionMcpScopeStore(() => 'handle_under_test');
   const { runner, seen } = capturingCodexRunner();
   const { orchestrator } = makeOrchestrator({
-    modelProfileRegistry: registryOpeningCodexCli(),
+    modelProfileRegistry: new TopicSelectionModelProfileRegistryService(),
     codexCliRunner: runner,
     codexCliModelId: 'gpt-6-astra',
     mcpScopeStore: scopes,
@@ -1464,7 +1450,7 @@ void test('a codex_cli attempt gets a handle that is offered to the model and di
 
   const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
     ...baseInvocation(),
-    execution_mode: 'codex_cli',
+    run_mode: 'product', execution_mode: 'codex_cli',
     mcp_evidence: MCP_EVIDENCE,
     mcp_read_budget: 4,
   });
@@ -1483,7 +1469,7 @@ void test('a codex_cli attempt without evidence runs toolless rather than half-c
   const scopes = new TopicSelectionMcpScopeStore(() => 'handle_unused');
   const { runner, seen } = capturingCodexRunner();
   const { orchestrator } = makeOrchestrator({
-    modelProfileRegistry: registryOpeningCodexCli(),
+    modelProfileRegistry: new TopicSelectionModelProfileRegistryService(),
     codexCliRunner: runner,
     codexCliModelId: 'gpt-6-astra',
     mcpScopeStore: scopes,
@@ -1492,7 +1478,7 @@ void test('a codex_cli attempt without evidence runs toolless rather than half-c
 
   const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
     ...baseInvocation(),
-    execution_mode: 'codex_cli',
+    run_mode: 'product', execution_mode: 'codex_cli',
   });
 
   assert.equal(result.status, 'succeeded');
@@ -1503,15 +1489,14 @@ void test('a codex_cli attempt without evidence runs toolless rather than half-c
 void test('a codex_cli invocation blocked before it runs keeps its identity and reports the blocker', async () => {
   const { runner, seen } = capturingCodexRunner();
   const { orchestrator } = makeOrchestrator({
-    modelProfileRegistry: registryOpeningCodexCli(),
+    modelProfileRegistry: new TopicSelectionModelProfileRegistryService(),
     codexCliRunner: runner,
     codexCliModelId: 'gpt-6-astra',
   });
 
   const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
     ...baseInvocation(),
-    execution_mode: 'codex_cli',
-    run_mode: 'product',
+    run_mode: 'product', execution_mode: 'codex_cli',
     messages: [
       { role: 'system', content: 'Return JSON only.' },
       { role: 'user', content: 'raw_provider_log includes api_key=local-secret and must be blocked.' },

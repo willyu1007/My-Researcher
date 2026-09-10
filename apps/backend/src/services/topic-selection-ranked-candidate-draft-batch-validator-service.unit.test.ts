@@ -248,6 +248,8 @@ test('ranked candidate draft batch validator accepts exactly one selected candid
     ],
   };
 
+  selectedBatch.drafts[0]!.mechanism_payload = { research_object: { population: 'source-tested models' }, comparison: ['baseline', 'intervention'] };
+
   const report = validator.validate({
     node_input: nodeInput(),
     ranked_candidate_draft_batch: selectedBatch,

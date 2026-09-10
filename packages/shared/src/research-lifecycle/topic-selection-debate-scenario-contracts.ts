@@ -466,7 +466,7 @@ export function createTopicSelectionV1aGenerateNeedCandidateDebateScenarioContra
         output_contract: 'RankedCandidateDraftBatch@v1',
         schema_name: 'topic_selection_ranked_candidate_draft_batch',
         prompt_template_id: 'topic-selection-need-discovery-arbiter-final',
-        prompt_template_version: 'v3',
+        prompt_template_version: 'v4',
         instance_policy: {
           min_instances: 1,
           max_instances: 1,

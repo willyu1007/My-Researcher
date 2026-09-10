@@ -1,3 +1,4 @@
+import type { TopicSelectionResearchEvidencePacket } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type { TopicSelectionValidationDecisionSupportPacketRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import type { TopicSelectionEvidenceMapExtractionContextPacket, TopicSelectionEvidenceMapExtractionDraft, TopicSelectionEvidenceSourceLocator } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
@@ -14,6 +15,17 @@ import { TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID } from 
 
 type ExtractionSource = { literature_ref: TopicSelectionFunctionalRef; source_ref: TopicSelectionFunctionalRef;
   locator: TopicSelectionEvidenceSourceLocator; text: string; text_hash: string };
+
+/** A model-facing projection: retain every quote and locator, and share identical excerpts by hash. */
+function compileEvidencePackets(packets: TopicSelectionResearchEvidencePacket[]) {
+  return {
+    excerpts_by_hash: Object.fromEntries(packets.flatMap(packet => packet.items.map(item => [item.excerpt_hash, item.resolved_excerpt]))),
+    evidence_packets: packets.map(({ packet_hash, schema_version: _schema, total_excerpt_chars: _chars, items, ...packet }) => ({
+      ...packet, source_packet_hash: packet_hash,
+      items: items.map(({ resolved_excerpt: _excerpt, ...item }) => item),
+    })),
+  };
+}
 
 const refIdentity = (ref: TopicSelectionFunctionalRef) => canonicalHash({ ref_type: ref.ref_type, ref_id: ref.ref_id,
   title_card_id: ref.title_card_id ?? null, version_id: ref.version_id ?? null, legacy_ref: ref.legacy_ref ?? null });
@@ -171,12 +183,16 @@ export class TopicSelectionV1aCodexContextService {
           target_claim: 'Evidence may establish a candidate research question, never a Human confirmation or an empirical result.',
         } }));
     }
+    const evidence = compileEvidencePackets(packets);
+    // Single-agent drafting receives both packets together; only Debate gives the arbiter its own source copy.
+    const independentArbiter = input.executor_kind === 'multi_agent_debate';
     return { ...input, context_input_refs: [...(input.context_input_refs ?? [input.topic_scope_ref, input.evidence_map_ref,
       input.evidence_strength_ref, ...input.search_snapshot_refs, ...input.resource_snapshot_refs]), ...evidenceRefs],
-      exploration_payload: { ...input.exploration_payload, evidence_signal_digest: { evidence_packets: packets,
+      exploration_payload: { ...input.exploration_payload, evidence_signal_digest: { ...evidence,
         evidence_map_ref: bundle.evidence_map_ref, conflict_sets: conflicts, strength_assessments: currentAssessments } },
       arbiter_payload: { ...input.arbiter_payload, evidence_ref_table: [
-        ...packets.flatMap(packet => packet.items.map(item => ({ evidence_ref: item.evidence_unit_ref, role: item.evidence_role, source: item }))),
+        ...(independentArbiter ? [{ excerpts_by_hash: evidence.excerpts_by_hash }] : []),
+        ...evidence.evidence_packets.flatMap(packet => packet.items.map(item => ({ evidence_ref: item.evidence_unit_ref, role: item.evidence_role, ...(independentArbiter ? { source: item } : {}) }))),
         ...bundle.strength_assessment_refs.map(ref => ({ evidence_ref: ref, role: 'strength', assessment: currentAssessments.find(record => record.evidence_strength_assessment_id === ref.ref_id) })),
         ...bundle.conflict_set_refs.map(ref => ({ evidence_ref: ref, role: 'conflict', conflict: conflicts.find(record => record.evidence_conflict_set_id === ref.ref_id) })),
       ] },
@@ -223,7 +239,7 @@ export class TopicSelectionV1aCodexContextService {
         throw new AppError(409, 'VERSION_CONFLICT', 'CLI adjudication source belongs to another evidence map.');
       }
     }
-    return { evidence_packets: packets, strength_assessments: strengthAssessments, conflict_sets: conflictSets };
+    return { ...compileEvidencePackets(packets), strength_assessments: strengthAssessments, conflict_sets: conflictSets };
   }
 }
 

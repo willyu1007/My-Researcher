@@ -366,6 +366,23 @@ test('compression runtime creates ref-backed hash-checked quality-gated report',
   assert.ok(result.report.preserved_fact_kinds.includes('method_family_gap'));
 });
 
+test('compression preserves task-shift source prose while still rejecting credential tokens', () => {
+  const { profile, profile_hash } = resolvedProfile();
+  const runtime = new TopicSelectionCompressionRuntimeService();
+  const check = (statement: string) => runtime.createReport({
+    context_policy_profile: profile, context_policy_profile_hash: profile_hash,
+    compression_report_ref: ref('artifact_ref', 'source-prose-check'), source_refs: [ref('evidence_unit', 'support_001')],
+    input_context: inputContext(), compressed_context: { ...compressedContext(), source_statement: statement },
+    summary: 'Preserved source prose and exact evidence refs.', compression_executor_kind: 'deterministic_structural',
+    required_preserved_facts: requiredFacts(), compressed_preserved_facts: requiredFacts(),
+    estimated_input_tokens_before_override: 35_000, estimated_input_tokens_after_override: 20_000,
+  });
+  assert.equal(check('The method is not robust across different domains and task-shifts.').quality_gate_result, 'passed');
+  for (const statement of ['sk-example-test-token', 'Quoted "sk-example-test-token"', 'Bearer example-test-token']) {
+    assert.ok(check(statement).blocker_codes.includes('COMPRESSION_FORBIDDEN_PERSISTED_PAYLOAD'));
+  }
+});
+
 test('compression quality gate blocks when required risk gap and recheck facts are dropped', () => {
   const { profile, profile_hash } = resolvedProfile();
   const runtime = new TopicSelectionCompressionRuntimeService();

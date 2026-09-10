@@ -478,7 +478,7 @@ test('generate-need-candidate adapter succeeds without persistence for a none-vi
 // re-baseline (no harness/replay/e2e guard pins this v1a prompt body; these are its only coverage).
 // Re-baseline ONLY for a deliberate, separately-justified wording change — NOT for mechanical edits.
 const GENERATE_NEED_CANDIDATE_PROMPT_BODY_GOLDEN = {
-  system: 'aef4ff3d100e0f6558771b2d0e2a93436fbd1933afbb926f2eff0ff29f3b0f72',
+  system: '44d30624a42473d12df2de076bd95c57431b3f0d7cd3565d7070c3ea422f1522',
   user: 'b1dca968e9950cea2097c7a9dbaa8b1670e2d868dc71d880606d0c723ddacac3',
 };
 test('generate-need-candidate single-agent prompt body is byte-identity drift-anchored (T-128 W-04)', async () => {
@@ -597,6 +597,33 @@ test('generate-need-candidate adapter compresses and re-renders single-agent con
   assert.match(JSON.stringify(compressionArtifact.payload), /"quality_gate_result":"warned"|"quality_gate_result":"passed"/);
   assert.match(JSON.stringify(compressionArtifact.payload), /"source_refs"/);
   assert.match(JSON.stringify(compressionArtifact.payload), /"compressed_context_hash"/);
+});
+
+test('single-agent compression preserves the complete source catalog and quote bindings', async () => {
+  const excerpt = 'Original source with a bounded limitation. '.repeat(30);
+  const digest = {
+    excerpts_by_hash: { [sha256Text(excerpt)]: excerpt },
+    evidence_packets: [{ source_packet_hash: 'original-packet', items: Array.from({ length: 12 }, (_, index) => ({
+      evidence_unit_ref: ref('evidence_unit', `unit_${index}`), evidence_role: index === 11 ? 'challenge' : 'support',
+      quote: `Source claim ${index}`, excerpt_hash: sha256Text(excerpt),
+      locator: { locator_type: 'paragraph', paragraph_ref: ref('fulltext_paragraph', 'paragraph_1') },
+    })) }],
+  };
+  const evidenceTable = [...arbiterPayload().evidence_ref_table, { evidence_ref: ref('evidence_unit', 'unit_11'), role: 'challenge', source: digest.evidence_packets[0]!.items[11]! }];
+  const { adapter, compiledContext, llmGateway } = await makeHarness('provider_llm', {
+    exploration_payload: { ...explorationPayload(), evidence_signal_digest: digest },
+    arbiter_payload: { ...arbiterPayload(), evidence_ref_table: evidenceTable },
+  });
+  const result = await adapter.generateRankedCandidateDraftBatch({
+    title_card_id: 'title_card_001', node_input: nodeInput(compiledContext), run_mode: 'product',
+    runtime_token_budget_overrides: { estimated_input_tokens_override: 80_000, estimated_input_tokens_after_compression_override: 12_000 },
+  });
+  assert.equal(result.status, 'succeeded', JSON.stringify({ error: result.error_code, blockers: result.blocker_codes }));
+  assert.equal(llmGateway.calls.length, 1);
+  const message = JSON.parse(llmGateway.calls[0]!.messages[1]!.content);
+  const compressed = message.context_packets.compressed_context;
+  assert.deepEqual(compressed.exploration_context.evidence_signal_digest, digest);
+  assert.deepEqual(compressed.arbiter_context.evidence_ref_table, evidenceTable);
 });
 
 test('generate-need-candidate adapter blocks when compressed context remains over budget', async () => {

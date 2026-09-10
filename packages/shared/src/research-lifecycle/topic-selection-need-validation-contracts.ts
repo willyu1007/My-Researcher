@@ -2001,7 +2001,20 @@ const topicSelectionNeedCandidateDraftSchema = {
     unmet_need_statement: stringId,
     mechanism_type: { enum: [...TOPIC_SELECTION_NEED_MECHANISM_TYPES] },
     mechanism_summary: nullableString,
-    mechanism_payload: objectPayload,
+    mechanism_payload: {
+      // Keep v1 free-form payloads valid while exposing semantic axes to strict output providers.
+      anyOf: [{
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          research_object: nullableString,
+          mechanism: nullableString,
+          intervention: nullableString,
+          comparison: nullableString,
+          outcome: nullableString,
+        },
+      }, objectPayload],
+    },
     scope_notes: nullableString,
     non_goal_notes: nullableString,
     prior_art_status: { enum: [...TOPIC_SELECTION_NEED_PRIOR_ART_STATUSES] },

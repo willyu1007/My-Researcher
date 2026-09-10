@@ -150,7 +150,7 @@
       "system": "prompts/v1c/n6-feedback-normalization/system.md"
     },
     "topic-selection-generate-need-candidate": {
-      "version": "v4",
+      "version": "v5",
       "system": "prompts/v1a/generate-need-candidate/system.md"
     },
     "topic-selection-need-discovery-explorer": {
@@ -166,7 +166,7 @@
       "system": "prompts/v1a/need-discovery-arbiter-issue-frame/system.md"
     },
     "topic-selection-need-discovery-arbiter-final": {
-      "version": "v3",
+      "version": "v4",
       "system": "prompts/v1a/need-discovery-arbiter-final/system.md"
     },
     "topic-selection-resource-sampling-classification": {

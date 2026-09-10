@@ -59,7 +59,7 @@ const FORBIDDEN_COMPRESSED_PAYLOAD_KEY_PATTERNS = [
 
 const FORBIDDEN_COMPRESSED_PAYLOAD_VALUE_PATTERNS = [
   /Bearer\s+[A-Za-z0-9._~+/=-]+/iu,
-  /sk-[A-Za-z0-9_-]+/iu,
+  /\bsk-[A-Za-z0-9_-]+/iu,
   /\bapi[_-]?key\s*[:=]\s*[^\s,;}]+/iu,
 ] as const;
 
