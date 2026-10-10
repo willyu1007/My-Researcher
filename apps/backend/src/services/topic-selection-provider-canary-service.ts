@@ -727,13 +727,15 @@ export class TopicSelectionProviderCanaryService {
     };
   }
 
-  /** The shipped registry declares codex_cli ineligible everywhere, which is what keeps the line
-   *  inert. The canary opens it for the one profile it exercises and nothing else. */
+  /** The shipped registry admits codex_cli for `product` runs only. The canary makes sure the one
+   *  profile it exercises admits the line under the canary's own run mode, and changes nothing else. */
   private codexCliCanaryRegistry(): TopicSelectionModelProfileRegistryService {
     const registry = createDefaultTopicSelectionModelProfileRegistry();
     for (const profile of registry.profiles) {
       if (profile.profile_id === TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID) {
-        profile.allowed_execution_modes = [...profile.allowed_execution_modes, 'codex_cli'];
+        if (!profile.allowed_execution_modes.includes('codex_cli')) {
+          profile.allowed_execution_modes = [...profile.allowed_execution_modes, 'codex_cli'];
+        }
         profile.run_mode_eligibility.codex_cli = [this.canaryRunMode];
       }
     }
