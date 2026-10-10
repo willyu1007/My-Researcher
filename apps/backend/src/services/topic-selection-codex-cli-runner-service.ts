@@ -175,7 +175,7 @@ export interface TopicSelectionCodexCliRunnerConfig {
   app_server_recycle_after?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 600_000;
+const DEFAULT_TIMEOUT_MS = 1_200_000;
 const DEFAULT_APP_SERVER_RECYCLE_AFTER = 32;
 
 /** No approval of any kind: the same grant the `exec` path spells as `approval_policy={granular=…}`.
@@ -785,7 +785,7 @@ export class TopicSelectionCodexCliRunnerService {
  *    TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
  *    TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT  same values, for judgment roles (default xhigh)
  *    TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
- *    TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
+ *    TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout (default 1200000)
  *    TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
  *
  *  Returns null when the line is not configured, which leaves it unavailable rather than

@@ -50,7 +50,7 @@ TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6.1-sol
 TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
 TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT  same values, for judgment roles (default xhigh)
 TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
-TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
+TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout (default 1200000)
 TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
 ```
 

@@ -10857,11 +10857,11 @@ components:
           type: integer
           minimum: 1000
           maximum: 3600000
-          default: 120000
+          default: 1800000
           description: >-
             A timed-out invocation may still be in flight. Inspect state and halt before retrying; timeout
             is not proof of cancellation.
-        run_timeout_ms: {type: integer, minimum: 1000, maximum: 7200000, default: 600000}
+        run_timeout_ms: {type: integer, minimum: 1000, maximum: 7200000, default: 3600000}
         created_by:
           enum: [human, llm, system, hybrid]
         run_mode:

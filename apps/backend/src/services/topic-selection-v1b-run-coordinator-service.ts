@@ -687,8 +687,10 @@ export class TopicSelectionV1bRunCoordinatorService {
       operatorArtifactsCache ??= await this.deps.controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
       return operatorArtifactsCache;
     };
-    const nodeTimeoutMs = input.node_timeout_ms ?? 120_000;
-    const runTimeoutMs = input.run_timeout_ms ?? 600_000;
+    // Soft timers sized above one full Codex attempt (1200 s); a timeout returns early and leaves
+    // the invocation in flight, it never cancels.
+    const nodeTimeoutMs = input.node_timeout_ms ?? 1_800_000;
+    const runTimeoutMs = input.run_timeout_ms ?? 3_600_000;
     const startedAt = Date.now();
     const steps: TopicSelectionV1bRunAdvanceStep[] = [];
 
