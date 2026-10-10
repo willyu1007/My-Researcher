@@ -2,8 +2,8 @@
 //
 // The server's own model is MCP 2026-07-28: stateless, no initialize handshake, per-request
 // protocol version and client capabilities in `_meta`, and a mandatory `server/discover`. Codex
-// 0.153.4 — the latest published build — still speaks the handshake-based `2025-06-18`, so this
-// module also accepts that handshake and translates its envelope. The shim is confined to the
+// (0.153.4 through 0.162.1, probed 2026-10-10) still speaks the handshake-based `2025-06-18`, so
+// this module also accepts that handshake and translates its envelope. The shim is confined to the
 // envelope: both paths dispatch into the same tool surface, so a tool cannot behave differently
 // depending on how it was reached, and deleting the shim later changes nothing below it.
 

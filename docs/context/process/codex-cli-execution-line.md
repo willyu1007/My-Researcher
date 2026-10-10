@@ -146,7 +146,8 @@ missing.
 - The server speaks MCP `2026-07-28` natively — stateless, `server/discover`, per-request version in
   `_meta`, `resultType: "complete"` — and accepts the handshake-based revisions through a shim at
   the envelope only. A request that declares no version is treated as an older client. Codex
-  0.153.4 negotiates `2025-06-18`; the shim can go once it negotiates the native revision.
+  0.153.4 through 0.162.1 (probed 2026-10-10) negotiate `2025-06-18`; the shim can go once it
+  negotiates the native revision.
 - Reaching the endpoint is not reaching data. Every tool call carries a handle that the product
   mints per invocation attempt over that attempt's frozen evidence, authors into its own prompt,
   and releases in a finally. A handle reaches only its own scope: a research-role handle is refused
