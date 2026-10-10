@@ -39,6 +39,7 @@ import {
   sha256Text,
 } from './literature-content-processing-utils.js';
 import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 
 const NOW = TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP;
 
@@ -472,10 +473,9 @@ test('v1c N4 delegated-promotion-decision system prompt is product-grade and byt
 
 
 test('CLI N4 preserves original context and replays receipt interruption before exact Human acceptance', async t => {
-  const { mkdtempSync, rmSync, readFileSync } = await import('node:fs');
+  const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
   const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
   const { TopicSelectionV1cN4DelegatedPromotionDecisionService } = await import('./topic-selection-v1c-n4-delegated-promotion-decision-service.js');
   const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
@@ -491,17 +491,14 @@ test('CLI N4 preserves original context and replays receipt interruption before 
   assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-    assert.match(options.stdin, /Original evidence limits the promotion claim/);
-    const schemaFile = args[args.indexOf('--output-schema') + 1]!;
-    const outputSchema = JSON.parse(readFileSync(schemaFile, 'utf8'));
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt, output_schema }) => {
+    assert.match(prompt, /Original evidence limits the promotion claim/);
+    const outputSchema = output_schema as { properties: { cited_refs: { items: { properties: { legacy_ref: { anyOf?: unknown } } } } } };
     const legacySchema = outputSchema.properties.cited_refs.items.properties.legacy_ref;
     if (handoff.promotion_gate_check_ref.legacy_ref != null) assert.ok(legacySchema.anyOf);
     else assert.deepEqual(legacySchema, { type: 'null' });
     calls += 1;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `delegated-${calls}` }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });

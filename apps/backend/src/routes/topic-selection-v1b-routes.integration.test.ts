@@ -94,6 +94,7 @@ import {
   TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
   TOPIC_SELECTION_NEED_ADJUDICATION_SINGLE_AGENT_PROFILE_ID,
 } from '../services/topic-selection-model-profile-registry-service.js';
+import { fakeCodexCliRunner } from '../services/test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 
 
 function uniqueId(prefix: string): string {
@@ -3782,7 +3783,6 @@ test('T-153 CLI product HTTP composes managed sources through intake and feedbac
   const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { TopicSelectionCodexCliRunnerService } = await import('../services/topic-selection-codex-cli-runner-service.js');
   const database = process.env.T153_PRODUCT_HTTP_DATABASE;
   if (database) {
     const url = new URL(process.env.DATABASE_URL!);
@@ -3797,15 +3797,12 @@ test('T-153 CLI product HTTP composes managed sources through intake and feedbac
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const replies: unknown[] = [];
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'controlled-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     assert.ok(replies.length, 'Unexpected model execution or unprotected replay.');
     calls++;
     const reply = replies.shift();
-    const output: unknown = typeof reply === 'function' ? reply(JSON.parse(options.stdin.split('[user]\n')[1]!)) : reply;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `t153-http-${calls}` }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
-      stderr: '', exit_code: 0, timed_out: false };
+    const output: unknown = typeof reply === 'function' ? reply(JSON.parse(prompt.split('[user]\n')[1]!)) : reply;
+    return JSON.stringify(output);
   });
   const previousRoot = process.env.LITERATURE_CONTENT_PROCESSING_ROOT;
   process.env.LITERATURE_CONTENT_PROCESSING_ROOT = join(home, 'content');

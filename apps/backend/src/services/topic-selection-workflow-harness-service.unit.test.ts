@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { TopicSelectionV1aCodexContextService } from './topic-selection-v1a-codex-context-service.js';
 import { TopicSelectionResearchEvidencePacketService } from './topic-selection-research-evidence-packet-service.js';
 import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
@@ -3211,7 +3212,7 @@ test('Codex upstream qualification extracts pinned sources and runs single-agent
     createdAt: '2026-09-09T00:00:00.000Z', updatedAt: '2026-09-09T00:00:00.000Z' });
   const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
   t.after(() => runner.shutdown());
   t.after(() => budget?.close());
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'upstream', source: source.url,
@@ -3353,11 +3354,9 @@ test('checkpoint-bound source extraction enforces evidence review and substantiv
       literature_ref: alternativeRef, source_ref: alternativeSourceRef } });
   draft.draft_links = [{ source_unit_key: 'support', target_unit_key: 'challenge', link_type: 'refines', rationale: 'The limitation bounds the reported position failure.' }];
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async () => {
     calls++;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'checkpoint-test-thread' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(draft);
   });
   t.after(() => runner.shutdown());
   const profiles = new TopicSelectionModelProfileRegistryService();
@@ -3459,7 +3458,7 @@ test('Codex discovery qualification persists its actual candidate through frozen
     sourceUrl: source.url, rawPayload: { source_hash: sha256Text(source.text) }, fetchedAt: '2026-09-10T00:00:00.000Z' });
   const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
   t.after(() => runner.shutdown());
   t.after(() => budget?.close());
   const save = async (name: string, value: unknown) => fs.writeFile(join(directory, `${runId}-${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
@@ -3675,7 +3674,7 @@ test('Codex validation qualification adjudicates original fulltext and reviews f
   assert.equal(sha256Text(source.text), '137142ef95c94e507f94143696032678652f761aa8fa2fdcaa1493d2d9285e21');
   const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
   t.after(() => runner.shutdown());
   t.after(() => budget?.close());
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'need-validation', source: source.url,
@@ -3759,12 +3758,9 @@ test('product CLI adjudication blocks invented evidence before domain writes', a
   const packet = needAdjudicationRecommendationPacket(ctx, {}, { execution_mode: 'codex_cli',
     source_refs: [refForTitleCard('evidence_unit', 'invented', ctx.titleCard.title_card_id)] });
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async () => {
     calls++;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'ref-test' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(packet) } })].join('\n'),
-      stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(packet);
   });
   t.after(() => runner.shutdown());
   const input = validateNeedAdjudicationScenarioInput(ctx, packet, { execution_mode: 'codex_cli', run_mode: 'product', mocked_output: null, expectations: {} });
@@ -3786,20 +3782,18 @@ test('product CLI adjudication and Human review replay completed submissions', a
   const packet = needAdjudicationRecommendationPacket(ctx, {}, { execution_mode: 'codex_cli' });
   let calls = 0;
   let reviewInput: TopicSelectionWorkflowHarnessHumanConfirmNeedInput | null = null;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls++;
     let output: unknown = packet;
     if (reviewInput) {
-      const context = JSON.parse(options.stdin.split('[user]\n')[1]!) as { output_lineage: Partial<HumanConfirmationSemanticReview> };
-      assert.ok(options.stdin.includes(reviewInput.confirmation_input.rationale));
+      const context = JSON.parse(prompt.split('[user]\n')[1]!) as { output_lineage: Partial<HumanConfirmationSemanticReview> };
+      assert.ok(prompt.includes(reviewInput.confirmation_input.rationale));
       output = humanConfirmationSemanticReviewOutput(ctx, reviewInput, context.output_lineage);
     } else {
-      assert.ok(options.stdin.includes(original), 'Adjudication reads the original evidence, not just its reference.');
-      assert.ok(options.stdin.includes('strength_assessments'));
+      assert.ok(prompt.includes(original), 'Adjudication reads the original evidence, not just its reference.');
+      assert.ok(prompt.includes('strength_assessments'));
     }
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'adjudication-thread' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const profiles = new TopicSelectionModelProfileRegistryService();
@@ -3850,11 +3844,9 @@ test('product CLI validation preserves risk and Human gates and blocks unsafe re
       if (failure === 'risk_drop') packet.residual_risk_refs = [];
       if (failure === 'reference_version') packet.source_refs[0]!.version_id = 'invented-version';
       let calls = 0;
-      const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
-        if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async () => {
         calls++;
-        return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'gates-thread' }),
-          JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(packet) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+        return JSON.stringify(packet);
       });
       t.after(() => runner.shutdown());
       const harness = ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService());
@@ -3881,14 +3873,12 @@ test('product CLI validation preserves risk and Human gates and blocks unsafe re
       if (failure === 'incomplete_human') input.confirmation_input.accepted_risk_refs = [];
       if (failure === 'input_scope') input.adjudication_result_ref = { ...input.adjudication_result_ref, title_card_id: 'another-title' };
       let calls = 0;
-      const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-        if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
         calls++;
-        const context = JSON.parse(options.stdin.split('[user]\n')[1]!) as { output_lineage: Partial<HumanConfirmationSemanticReview> };
+        const context = JSON.parse(prompt.split('[user]\n')[1]!) as { output_lineage: Partial<HumanConfirmationSemanticReview> };
         const review = humanConfirmationSemanticReviewOutput(ctx, input, context.output_lineage);
         if (failure === 'review_lineage') review.context_packet_ref = { ...review.context_packet_ref, version_id: 'invented' };
-        return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'review-thread' }),
-          JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(review) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+        return JSON.stringify(review);
       });
       t.after(() => runner.shutdown());
       const harness = ctx.buildCliHarness(runner, new TopicSelectionModelProfileRegistryService());
@@ -3936,13 +3926,11 @@ for (const storage of ['inline', 'file'] as const) test(`product CLI extraction 
   draft.draft_units[0]!.locator = { locator_type: 'paragraph', locator_ref: ctx.manualLocatorRef,
     paragraph_ref: ctx.manualLocatorRef, literature_ref: ctx.literatureRef, source_ref: ctx.sourceRef };
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls++;
-    assert.ok(options.stdin.includes(original));
-    assert.equal(options.stdin.includes(unselected), false, 'Unbound paragraph text stays outside the model context.');
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'paragraph-test' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    assert.ok(prompt.includes(original));
+    assert.equal(prompt.includes(unselected), false, 'Unbound paragraph text stays outside the model context.');
+    return JSON.stringify(draft);
   });
   t.after(() => runner.shutdown());
   const profiles = new TopicSelectionModelProfileRegistryService();
@@ -3988,19 +3976,17 @@ test('product CLI extracts repository quotes, discovers a need and replays each 
     input_refs_hash: ctx.evidenceMapMaterializer.inputRefsHashForSearchRunHandoff(ctx.searchRunHandoff) }, { producer_kind: 'codex_cli' });
   let output: unknown = draft;
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt, output_schema }) => {
     calls++;
-    assert.ok(options.stdin.includes(original), 'The actual original source crosses the model boundary.');
+    assert.ok(prompt.includes(original), 'The actual original source crosses the model boundary.');
     if (calls === 2) {
-      const schemaPath = args[args.indexOf('--output-schema') + 1]!;
-      const schema = JSON.parse(await fs.readFile(schemaPath, 'utf8'));
+      type ObjectSchema = { properties: Record<string, ObjectSchema>; items: ObjectSchema; anyOf: ObjectSchema[]; additionalProperties: unknown };
+      const schema = output_schema as ObjectSchema;
       const mechanism = schema.properties.drafts.items.properties.mechanism_payload.anyOf[0];
       assert.deepEqual(Object.keys(mechanism.properties).sort(), ['comparison', 'intervention', 'mechanism', 'outcome', 'research_object']);
       assert.equal(mechanism.additionalProperties, false);
     }
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'v1a-test-thread' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const profiles = new TopicSelectionModelProfileRegistryService();

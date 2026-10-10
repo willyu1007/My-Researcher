@@ -21,6 +21,7 @@ import {
 import { TopicSelectionV1cN2BoundedDebateRuntimeService } from './topic-selection-v1c-n2-bounded-debate-runtime-service.js';
 import { TopicSelectionV1cPromotionGateService } from './topic-selection-v1c-promotion-gate-service.js';
 import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from './topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 
 const NOW = '2026-06-02T00:00:00.000Z';
 
@@ -398,7 +399,6 @@ test('CLI promotion Debate reads prior bodies and recovers all four turns after 
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
   const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
   const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
   const home = mkdtempSync(join(tmpdir(), 'promotion-cli-'));
@@ -415,18 +415,16 @@ test('CLI promotion Debate reads prior bodies and recovers all four turns after 
   const slots = Object.keys(outputs) as TopicSelectionV1cN2BoundedDebateRoleSlotId[];
   let calls = 0;
   let corruptRef = false;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-    assert.match(options.stdin, /Original evidence contradicts broad superiority/);
-    if (!corruptRef && calls % 4 > 0) assert.match(options.stdin, /Support draft preserves bounded claim/);
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+    assert.match(prompt, /Original evidence contradicts broad superiority/);
+    if (!corruptRef && calls % 4 > 0) assert.match(prompt, /Support draft preserves bounded claim/);
     const output = structuredClone(outputs[corruptRef ? slots[0]! : slots[calls % 4]!]);
     calls += 1;
     if (corruptRef) {
       const points = output.support_points as Array<{ source_refs: TopicSelectionFunctionalRef[] }>;
       points[0]!.source_refs[0]!.legacy_ref = { ref_id: 'foreign-legacy-object' };
     }
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `promotion-debate-${calls}` }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const repository = new InMemoryTopicSelectionV1cPromotionGateRepository();

@@ -24,7 +24,7 @@ import { TopicSelectionControlPlaneService } from './topic-selection-control-pla
 import { TopicSelectionContextPolicyProfileRegistryService } from './topic-selection-context-policy-profile-registry-service.js';
 import { TopicSelectionModelProfileRegistryService, createDefaultTopicSelectionModelProfileRegistry } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { TopicSelectionBoundedDebateCoreService } from './topic-selection-bounded-debate-core-service.js';
 import { recordDebateDerivedDraft, verifyDebateDerivedDraft } from './topic-selection-debate-draft-derivation-service.js';
 import { TopicSelectionPromptPacketRuntimeService } from './topic-selection-prompt-packet-runtime-service.js';
@@ -81,20 +81,13 @@ test('CLI role replay keeps prior output refs stable and does not repeat the fou
   const makeCore = () => new TopicSelectionBoundedDebateCoreService({ controlPlane,
     agentOrchestrator: new TopicSelectionAgentOrchestratorService({
       controlPlane, modelProfileRegistry, codexCliModelId: 'gpt-6-astra',
-      codexCliRunner: new TopicSelectionCodexCliRunnerService({
-        codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
-      }, async (args, options) => {
-        if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+      codexCliRunner: fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
         calls += 1;
-        const packet: { role_slot: TopicSelectionV1bN6DivergentDebateRoleSlotId } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+        const packet: { role_slot: TopicSelectionV1bN6DivergentDebateRoleSlotId } = JSON.parse(prompt.split('[user]\n')[1]!);
         const slot = packet.role_slot;
-        const stdout = [
-          { type: 'thread.started', thread_id: `thread-${calls}` },
-          { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify({
-            ...outputFor(slot, calls), ...(slot === 'n6_debate_arbiter' ? { repair_actions: [], synthesized_candidate_set: e2eCandidateSetDraft() } : {}),
-          }) } },
-        ].map(event => JSON.stringify(event)).join('\n');
-        return { stdout, stderr: '', exit_code: 0, timed_out: false };
+        return JSON.stringify({
+          ...outputFor(slot, calls), ...(slot === 'n6_debate_arbiter' ? { repair_actions: [], synthesized_candidate_set: e2eCandidateSetDraft() } : {}),
+        });
       }),
     }),
   });

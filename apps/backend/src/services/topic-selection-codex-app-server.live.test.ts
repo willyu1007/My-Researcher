@@ -22,7 +22,6 @@ import {
 } from './topic-selection-codex-app-server-client.js';
 import {
   TopicSelectionCodexCliRunnerService,
-  defaultCodexCliSpawn,
   type TopicSelectionCodexAppServerFactory,
   type TopicSelectionCodexAppServerSession,
   type TopicSelectionCodexCliRunOutcome,
@@ -302,8 +301,7 @@ function runnerWithThreadConfig(extra: Record<string, unknown>): TopicSelectionC
     };
   };
   return new TopicSelectionCodexCliRunnerService(
-    { codex_home: codexHome!, model: model!, reasoning_effort: effort, binary, transport: 'app_server', timeout_ms: TURN_TIMEOUT_MS },
-    defaultCodexCliSpawn,
+    { codex_home: codexHome!, model: model!, reasoning_effort: effort, binary, timeout_ms: TURN_TIMEOUT_MS },
     factory,
   );
 }

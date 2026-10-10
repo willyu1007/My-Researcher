@@ -18,7 +18,7 @@ test('qualification counts failed calls, avoids double-counting cached/reasoning
   assert.throws(() => new CodexQualificationBudget(dir, limits), /EEXIST/);
   assert.throws(() => budget.begin({ ...input, invocation_attempt_id: 'parallel' }), /serially/);
   const outcome: TopicSelectionCodexCliRunOutcome = { status: 'failed', error_code: 'CODEX_CLI_TIMEOUT', message: 'Timeout',
-    runner_version: 'test', transport: 'app_server', codex_home: null, thread_id: 'one',
+    runner_version: 'test', codex_home: null, thread_id: 'one',
     usage: { input_tokens: 40, output_tokens: 10, cached_input_tokens: 30, reasoning_output_tokens: 8, cache_write_input_tokens: 0 },
     tool_calls: [], trace_events: [], stderr_tail: '' };
   now = 100;
@@ -57,7 +57,7 @@ test('qualification stops launching calls at the overall deadline', t => {
   const budget = new CodexQualificationBudget(dir, { attempts: 10, tokens: 1000, duration_ms: 100, attempt_ms: 50 }, () => now);
   budget.begin({ invocation_attempt_id: 'one', prompt: 'diagnostic', output_schema: {} });
   now = 100;
-  budget.finish({ status: 'succeeded', runner_version: 'test', transport: 'app_server', codex_home: null,
+  budget.finish({ status: 'succeeded', runner_version: 'test', codex_home: '/fake/home',
     thread_id: 'one', final_message: '{}', usage: { input_tokens: 1, output_tokens: 1, cached_input_tokens: 0,
       reasoning_output_tokens: 0, cache_write_input_tokens: 0 }, tool_calls: [], trace_events: [] });
   assert.throws(() => budget.begin({ invocation_attempt_id: 'two', prompt: 'diagnostic', output_schema: {} }), /exhausted/);
@@ -71,7 +71,7 @@ test('operator can remove aggregate ceilings without erasing unknown usage or pr
   const original = new CodexQualificationBudget(dir, limits, () => now);
   original.begin({ invocation_attempt_id: 'failed', prompt: 'diagnostic', output_schema: {} });
   original.finish({ status: 'failed', error_code: 'CODEX_CLI_TIMEOUT', message: 'Timeout',
-    runner_version: 'test', transport: 'app_server', codex_home: null, thread_id: 'failed',
+    runner_version: 'test', codex_home: null, thread_id: 'failed',
     usage: null, tool_calls: [], trace_events: [], stderr_tail: '' });
   original.close();
   now = 200;

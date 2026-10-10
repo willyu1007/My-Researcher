@@ -40,7 +40,7 @@ import {
   TopicSelectionResourceSamplingService,
 } from './topic-selection-resource-sampling-service.js';
 import { sha256Text } from './literature-content-processing-utils.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 
 const NOW = '2026-05-17T08:00:00.000Z';
@@ -74,7 +74,7 @@ test('Codex sampling qualification with pinned abstracts and durable commit reco
   const limits = { attempts: null, tokens: null, duration_ms: null,
     attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
   t.after(() => runner.shutdown());
   t.after(() => budget?.close());
   await fs.writeFile(join(directory, `${runId}-manifest.json`), JSON.stringify({ kind: 'sampling', model, limits,
@@ -531,15 +531,11 @@ async function makeCliSampling(t: TestContext, outcome: 'success' | 'timeout' = 
   profile.run_mode_eligibility.codex_cli = ['product'];
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls++;
-    if (outcome === 'timeout') return { stdout: '', stderr: '', exit_code: -1, timed_out: true };
-    assert.match(options.stdin, /RAG improves answer grounding/);
-    return { stdout: [
-      { type: 'thread.started', thread_id: 'sampling-thread' },
-      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } },
-    ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    if (outcome === 'timeout') return { timeout: true };
+    assert.match(prompt, /RAG improves answer grounding/);
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const gateway = new StubLlmGateway(new Error('Unexpected provider call'));

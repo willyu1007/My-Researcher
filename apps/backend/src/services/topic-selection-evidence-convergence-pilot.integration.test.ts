@@ -3,7 +3,7 @@ import test from 'node:test';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   LiteratureRetrieveRequest,
@@ -919,11 +919,10 @@ test(`bounded ${caseId} pilot preserves retrieval -> admission -> successor -> l
   const priorBodies: TopicSelectionEvidenceConvergenceRoundRoleOutput[] = [];
   const home = await fs.mkdtemp(join(tmpdir(), 'convergence-cli-'));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
-  let runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  let runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     cliCalls++;
-    if (caseId === 'timeout') return { stdout: '', stderr: '', exit_code: null, timed_out: true };
-    const context = JSON.parse(options.stdin.split('<evidence_convergence_round>\n')[1]!.split('\n</evidence_convergence_round>')[0]!) as {
+    if (caseId === 'timeout') return { timeout: true };
+    const context = JSON.parse(prompt.split('<evidence_convergence_round>\n')[1]!.split('\n</evidence_convergence_round>')[0]!) as {
       participant_role: TopicSelectionEvidenceConvergenceRoundRole;
       evidence_packet: { items: Array<{ resolved_excerpt: string }> };
       prior_role_outputs: Array<{ structured_output: TopicSelectionEvidenceConvergenceRoundRoleOutput }>;
@@ -940,9 +939,7 @@ test(`bounded ${caseId} pilot preserves retrieval -> admission -> successor -> l
     if (caseId === 'invalid_ref') output.cited_evidence_unit_refs[0]!.version_id = 'forged-version';
     if (caseId === 'invalid_role') output.participant_role = 'synthesis_arbiter';
     priorBodies.push(output);
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `convergence-${cliCalls}` }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
-      stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   let liveBudget: import('./test-fixtures/topic-selection-codex-qualification-budget.js').CodexQualificationBudget | null = null;
   let liveDirectory: string | null = null;
@@ -953,8 +950,7 @@ test(`bounded ${caseId} pilot preserves retrieval -> admission -> successor -> l
     const codexHome = process.env.TOPIC_SELECTION_CODEX_HOME;
     assert.ok(outputRoot && model && codexHome && process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED === '1');
     const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
-    const qualification = qualificationRunner({ codex_home: codexHome, model, reasoning_effort: 'high', transport: 'app_server',
-      binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    const qualification = qualificationRunner({ codex_home: codexHome, model, reasoning_effort: 'high', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
     runner = qualification.runner;
     liveBudget = qualification.budget;
     liveDirectory = qualification.directory;

@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import type {
   TopicSelectionFunctionalRef,
@@ -458,12 +458,9 @@ test('N7 CLI grouping and synthesis bind complete nested refs to their actual co
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let output: TopicSelectionV1bCandidateGroupingSupportPayload | TopicSelectionV1bN8FailedTrialSynthesisSupportPayload = candidateGroupingOutput({ candidate_relationships: {} });
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async args => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async () => {
     calls += 1;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'n7-support-thread' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
-      stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const runtime = new TopicSelectionV1bN7SupportRuntimeService(controlPlane, { modelProfileRegistry,
@@ -503,16 +500,11 @@ test('N7 CLI admission support resolves evidence, reuses a completed attempt and
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let researchContext = { evidence: 'The study contradicts the proposed generalization beyond the selected slice.' };
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
-    async (args, options) => {
-      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-      calls += 1;
-      assert.ok(options.stdin.includes(researchContext.evidence));
-      return { stdout: [
-        { type: 'thread.started', thread_id: 'n7-thread' },
-        { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(debateAdmissionReviewOutput()) } },
-      ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
-    });
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+    calls += 1;
+    assert.ok(prompt.includes(researchContext.evidence));
+    return JSON.stringify(debateAdmissionReviewOutput());
+  });
   const makeRuntime = () => new TopicSelectionV1bN7SupportRuntimeService(controlPlane, {
     modelProfileRegistry, resolveResearchContext: async () => researchContext,
     agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),

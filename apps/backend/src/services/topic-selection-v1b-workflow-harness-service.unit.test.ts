@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import {
   TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER,
@@ -150,10 +150,9 @@ async function n4CliFixture(t: TestContext, earlySupport = false, withRisks = fa
   let draft: TopicSelectionV1bResearchSliceOptionSetDraftPayload | TopicSelectionV1bEarlySemanticSupportPayload = n4Draft();
   let evidenceRevision = 0;
   let evidenceReads = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls += 1;
-    const packet: { slot_id: string; context_packet: { research_context: { frozen_domain: Record<string, unknown>; evidence_packets: unknown[] } } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+    const packet: { slot_id: string; context_packet: { research_context: { frozen_domain: Record<string, unknown>; evidence_packets: unknown[] } } } = JSON.parse(prompt.split('[user]\n')[1]!);
     researchMessages.push(packet.context_packet.research_context.frozen_domain);
     assert.ok(packet.context_packet.research_context.frozen_domain.snapshot);
     if (!earlySupport) {
@@ -162,8 +161,7 @@ async function n4CliFixture(t: TestContext, earlySupport = false, withRisks = fa
       assert.ok(packet.context_packet.research_context.frozen_domain.readiness);
     }
     assert.equal(packet.context_packet.research_context.evidence_packets.length, 1);
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'n4-thread' }), JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'),
-      stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(draft);
   });
   const makeService = (controlPlane = ctx.controlPlane) => new TopicSelectionV1bWorkflowHarnessService(controlPlane, {
     modelProfileRegistry,
@@ -580,7 +578,7 @@ test('Codex N4 qualification uses original comparison evidence and retains Human
   const limits = live ? { attempts: null, tokens: null, duration_ms: null,
     attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
     timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, outputRoot, limits);
   t.after(() => runner.shutdown());
   t.after(() => budget?.close());
@@ -664,7 +662,7 @@ test('Codex early support qualification reviews original evidence and fixed Huma
   const limits = live ? { attempts: null, tokens: null, duration_ms: null,
     attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
     timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, output, limits);
   t.after(() => runner.shutdown()); t.after(() => budget?.close());
   const key = `early_${runId}`;
@@ -761,7 +759,7 @@ test('Codex optional support qualification reads original evidence and failed tr
   const limits = live ? { attempts: null, tokens: null, duration_ms: null,
     attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
     timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, output, limits);
   t.after(() => runner.shutdown()); t.after(() => budget?.close());
   const key = `support_${runId}`;
@@ -940,7 +938,7 @@ test('Codex product qualification with pinned research sources', {
     attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS),
   } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
     timeout_ms: limits?.attempt_ms ?? 180_000 }, outputRoot, limits);
   t.after(() => runner.shutdown());
   t.after(() => budget?.close());
@@ -1290,10 +1288,9 @@ test('N7 CLI explicitly groups candidates and synthesizes complete exhausted tri
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   const contexts: Array<Record<string, unknown>> = [];
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls += 1;
-    const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as { slot_id: string; context_packet: { research_context: Record<string, unknown> } };
+    const packet = JSON.parse(prompt.split('[user]\n')[1]!) as { slot_id: string; context_packet: { research_context: Record<string, unknown> } };
     contexts.push(packet.context_packet.research_context);
     const output = packet.slot_id === 'n7_candidate_grouping' ? { ...n7GroupingPayload(initial), candidate_relationships: {} }
       : packet.slot_id === 'n7_n8_debate_admission_review' ? n7DebateAdmissionPayload()
@@ -1301,9 +1298,7 @@ test('N7 CLI explicitly groups candidates and synthesizes complete exhausted tri
         failure_reason_codes: ['value_not_supported'], synthesis_summary: 'Both bounded candidates failed their recorded value trials.',
         n6_regeneration_hints: ['Address the recorded failure reasons before proposing another candidate.'],
         affected_refs: initial.frozen_input.payload.admissible_candidate_refs };
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'n7-support' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
-      stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   t.after(() => runner.shutdown());
   const service = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, { modelProfileRegistry,
@@ -1446,10 +1441,9 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, triage=${triage}, recov
   let calls = 0;
   let evidenceReads = 0;
   let valueDraft: TopicSelectionV1bTopicValueAssessmentDraftPayload | null = null;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls += 1;
-    const packet: { slot_id?: string; role_slot: string; context_packet: { generation_mode?: string; research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+    const packet: { slot_id?: string; role_slot: string; context_packet: { generation_mode?: string; research_context: { frozen_domain: { researchSlice: unknown } }; prior_role_outputs: unknown[] } } = JSON.parse(prompt.split('[user]\n')[1]!);
     assert.ok(packet.context_packet.research_context.frozen_domain.researchSlice);
     if (packet.role_slot?.startsWith('n6_debate_')) assert.equal(packet.context_packet.generation_mode, generationMode);
     if (packet.role_slot) assert.equal(packet.context_packet.prior_role_outputs.length, calls <= 4 ? (calls < 3 ? 0 : calls - 1) : calls - 9);
@@ -1461,10 +1455,7 @@ test(`canonical N6/N7/N8 CLI composes ${generationMode}, triage=${triage}, recov
       ...(packet.role_slot === 'n6_debate_explorer' ? { candidate_seeds: [{ seed_id: `seed-${calls}`, question_framing: 'Measure retrieval errors.', evidence_refs: [] }] }
         : packet.role_slot === 'n6_debate_critic' ? { critic_findings: [] } : { synthesized_candidate_set: draft, repair_actions: [] }),
     };
-    return { stdout: [
-      { type: 'thread.started', thread_id: `n6-thread-${calls}` },
-      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } },
-    ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   const makeService = (controlPlane = ctx.controlPlane) => new TopicSelectionV1bWorkflowHarnessService(controlPlane, {
     modelProfileRegistry,
@@ -9384,17 +9375,13 @@ test(`v1b workflow harness N9 refine_question prevents package creation and emit
     const registry = createDefaultTopicSelectionModelProfileRegistry();
     const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
     let calls = 0;
-    const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-      const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as {
+    const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+      const packet = JSON.parse(prompt.split('[user]\n')[1]!) as {
         role_slot: string; context_packet: { prior_role_outputs: unknown[]; research_context: { frozen_domain: { reviewedRefinement: unknown } } };
       };
       assert.equal(packet.context_packet.prior_role_outputs.length, calls++);
       assert.ok(packet.context_packet.research_context.frozen_domain.reviewedRefinement);
-      return { stdout: [
-        { type: 'thread.started', thread_id: `reviewed-delta-${calls}` },
-        { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(role_outputs[packet.role_slot]!.mocked_output.output) } },
-      ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+      return JSON.stringify(role_outputs[packet.role_slot]!.mocked_output.output);
     });
     const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane: ctx.controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
     reviewService = new TopicSelectionV1bWorkflowHarnessService(ctx.controlPlane, {
@@ -9569,7 +9556,7 @@ test('Codex v1c qualification reads published evidence and recovers promotion su
   const live = process.env.TOPIC_SELECTION_CODEX_V1C_QUALIFICATION === 'live';
   const limits = live ? { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) } : null;
   const { runner, budget, directory } = qualificationRunner({ codex_home: home, model, reasoning_effort: 'high',
-    transport: 'app_server', binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
+    binary: process.env.TOPIC_SELECTION_CODEX_BINARY,
     timeout_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) }, output, limits);
   t.after(() => runner.shutdown()); t.after(() => budget?.close());
   const key = `v1c_${runId}`;

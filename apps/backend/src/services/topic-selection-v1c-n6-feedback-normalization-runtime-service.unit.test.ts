@@ -48,6 +48,7 @@ import {
   TopicSelectionV1cPaperProjectBridgeService,
 } from './topic-selection-v1c-paper-project-bridge-service.js';
 import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 
 const NOW = TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP;
 
@@ -494,7 +495,6 @@ test('CLI feedback recovers model output, records once, and blocks ambiguous dom
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
   const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
   const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
   const home = mkdtempSync(join(tmpdir(), 'feedback-cli-')); t.after(() => rmSync(home, { recursive: true, force: true }));
@@ -508,13 +508,11 @@ test('CLI feedback recovers model output, records once, and blocks ambiguous dom
   assert.deepEqual(profile.run_mode_eligibility.codex_cli, ['product']);
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-    assert.ok(options.stdin.includes(bridge.handoff.working_copy_payload.problem_statement));
-    assert.match(options.stdin, /Reviewer check invalidates/);
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+    assert.ok(prompt.includes(bridge.handoff.working_copy_payload.problem_statement));
+    assert.match(prompt, /Reviewer check invalidates/);
     calls += 1;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `feedback-${calls}` }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   }); t.after(() => runner.shutdown());
   const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });
   const repository = new InMemoryTopicSelectionV1cDownstreamFeedbackRecheckRepository();

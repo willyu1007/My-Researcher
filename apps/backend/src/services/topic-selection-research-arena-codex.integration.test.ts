@@ -20,7 +20,7 @@ import { TopicSelectionResearchCheckpointService } from './topic-selection-resea
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionRiskFindingService } from './topic-selection-risk-finding-service.js';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import { qualificationSources } from './test-fixtures/topic-selection-codex-qualification-sources.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
@@ -149,11 +149,10 @@ test(`Arena CLI ${caseId} preserves original evidence, independent roles and rec
   let calls = 0;
   const home = await fs.mkdtemp(join(tmpdir(), 'arena-cli-'));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
-  let runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  let runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls++;
-    if (caseId === 'timeout') return { stdout: '', stderr: '', exit_code: null, timed_out: true };
-    const context = JSON.parse(options.stdin.split('<research_arena_input>\n')[1]!.split('\n</research_arena_input>')[0]!);
+    if (caseId === 'timeout') return { timeout: true };
+    const context = JSON.parse(prompt.split('<research_arena_input>\n')[1]!.split('\n</research_arena_input>')[0]!);
     assert.equal(context.candidates[0].candidate_need, candidate.candidate_need);
     assert.equal(context.evidence_packet.items[0].resolved_excerpt, sourceText);
     assert.equal(context.prior_role_outputs, undefined);
@@ -166,7 +165,7 @@ test(`Arena CLI ${caseId} preserves original evidence, independent roles and rec
         evidence_unit_refs: [unitRef], literature_refs: [ref('literature_record', 'lit_1')] }],
       new_candidate_proposals: [], concessions: [], unresolved_minority_report: null };
     if (caseId === 'invalid_ref') output.candidate_reviews[0]!.candidate_ref.legacy_ref = { id: 'wrong-identity' };
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `arena-${calls}` }), JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   });
   let liveBudget: import('./test-fixtures/topic-selection-codex-qualification-budget.js').CodexQualificationBudget | null = null;
   let liveDirectory: string | null = null;
@@ -177,8 +176,7 @@ test(`Arena CLI ${caseId} preserves original evidence, independent roles and rec
     const codexHome = process.env.TOPIC_SELECTION_CODEX_HOME;
     assert.ok(outputRoot && model && codexHome && process.env.TOPIC_SELECTION_QUALIFICATION_UNCAPPED === '1');
     const limits = { attempts: null, tokens: null, duration_ms: null, attempt_ms: Number(process.env.TOPIC_SELECTION_QUALIFICATION_ATTEMPT_MS) };
-    const qualification = qualificationRunner({ codex_home: codexHome, model, reasoning_effort: 'high', transport: 'app_server',
-      binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
+    const qualification = qualificationRunner({ codex_home: codexHome, model, reasoning_effort: 'high', binary: process.env.TOPIC_SELECTION_CODEX_BINARY, timeout_ms: limits.attempt_ms }, outputRoot, limits);
     runner = qualification.runner;
     liveBudget = qualification.budget;
     liveDirectory = qualification.directory;

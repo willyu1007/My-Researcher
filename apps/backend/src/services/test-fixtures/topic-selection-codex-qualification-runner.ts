@@ -7,12 +7,11 @@ import { CodexQualificationBudget, type QualificationLimits } from './topic-sele
 export class QualificationPreviewComplete extends Error {}
 
 export function qualificationRunner(config: TopicSelectionCodexCliRunnerConfig, outputRoot: string, limits: QualificationLimits | null) {
-  if (config.transport !== 'app_server') throw new Error('Qualification requires App Server usage reporting and interruption.');
   const directory = limits ? outputRoot : join(outputRoot, 'preview');
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const budget = limits ? new CodexQualificationBudget(directory, limits) : null;
   let activeClient: TopicSelectionCodexAppServerClient | null = null;
-  const runner = new TopicSelectionCodexCliRunnerService(config, undefined, async options => {
+  const runner = new TopicSelectionCodexCliRunnerService(config, async options => {
     const client = await TopicSelectionCodexAppServerClient.spawn(options);
     activeClient = client;
     if (budget && budget.remainingAttemptMs <= 0) await client.close();
@@ -46,7 +45,7 @@ export function qualificationRunner(config: TopicSelectionCodexCliRunnerConfig, 
       throw new QualificationPreviewComplete('Compiled request saved without launching Codex.');
     }
     budget.begin(input);
-    // Include version/server/thread setup in the attempt deadline; never launch another attempt while shutdown settles.
+    // Include server/thread setup in the attempt deadline; never launch another attempt while shutdown settles.
     const deadline = setTimeout(() => { void activeClient?.close(); }, budget.remainingAttemptMs);
     try {
       const outcome = await run(input);

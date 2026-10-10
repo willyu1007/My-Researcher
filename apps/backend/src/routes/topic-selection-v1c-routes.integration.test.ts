@@ -1,4 +1,5 @@
 import { TopicSelectionCodexCliRunnerService } from '../services/topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from '../services/test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { TopicSelectionAgentOrchestratorService } from '../services/topic-selection-agent-orchestrator-service.js';
 import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from '../services/topic-selection-model-profile-registry-service.js';
 import { TopicSelectionV1cN6FeedbackNormalizationRuntimeService } from '../services/topic-selection-v1c-n6-feedback-normalization-runtime-service.js';
@@ -2768,9 +2769,8 @@ test('CLI HTTP candidate review and feedback normalization use canonical Human a
   const home = mkdtempSync(join(tmpdir(), 'v1c-http-cli-')); t.after(() => rmSync(home, { recursive: true, force: true }));
   const repository = makeSeededTopicPackageRepository(uniqueId('cli-http'));
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-    const packet: { context_packet: Record<string, unknown> } = JSON.parse(options.stdin.split('[user]\n')[1]!);
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+    const packet: { context_packet: Record<string, unknown> } = JSON.parse(prompt.split('[user]\n')[1]!);
     const p = packet.context_packet;
     const refs = p.allowed_refs as TopicSelectionFunctionalRef[];
     const output = p.slot_id === 'n4_delegated_promotion_decision_candidate' ? {
@@ -2789,8 +2789,7 @@ test('CLI HTTP candidate review and feedback normalization use canonical Human a
       cited_refs: refs, no_upstream_mutation_confirmed: true,
     };
     calls += 1;
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `v1c-http-${calls}` }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(output);
   }); t.after(() => runner.shutdown());
   const { app } = await makeV1cRouteHarness(repository, undefined, runner); t.after(() => app.close());
   const { gateBundle } = await createReadyGate(app, repository.v1cInputBundle.v1b_to_v1c_input_bundle_id);

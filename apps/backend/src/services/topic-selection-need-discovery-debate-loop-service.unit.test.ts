@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -1158,10 +1159,9 @@ test('CLI Debate rejects changed complete references before recording or invokin
     const home = await fs.mkdtemp(join(tmpdir(), 'need-debate-refs-'));
     t.after(() => fs.rm(home, { recursive: true, force: true }));
     let calls = 0;
-    const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+    const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
       calls++;
-      const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as { refs?: { role_level_summary_refs: TopicSelectionArtifactFunctionalRef[] } };
+      const packet = JSON.parse(prompt.split('[user]\n')[1]!) as { refs?: { role_level_summary_refs: TopicSelectionArtifactFunctionalRef[] } };
       const output = calls <= 2 ? explorerNotes(`explorer_${calls}`, `angle_${calls}`)
         : calls === 3 ? deepCriticNotes()
         : calls === 4 ? { ...issueFrame(), source_role_summary_refs: packet.refs!.role_level_summary_refs }
@@ -1180,9 +1180,7 @@ test('CLI Debate rejects changed complete references before recording or invokin
         Object.values(record).forEach(visit);
       };
       visit(output);
-      return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: `refs-thread-${calls}` }),
-        JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output) } })].join('\n'),
-        stderr: '', exit_code: 0, timed_out: false };
+      return JSON.stringify(output);
     });
     t.after(() => runner.shutdown());
     const ctx = await makeRuntime({ executionMode: 'codex_cli', codexCliRunner: runner });

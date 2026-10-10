@@ -27,6 +27,7 @@ import {
   TopicSelectionModelProfileRegistryService,
 } from './topic-selection-model-profile-registry-service.js';
 import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import {
   TopicSelectionMcpScopeStore,
   type TopicSelectionMcpEvidenceUnit,
@@ -1289,29 +1290,12 @@ test('agent orchestrator audit artifact stores hashes and provenance but not ful
   assert.equal(serialized.includes('fixture_generate_need_candidate_happy_path'), true);
 });
 
-const CODEX_TRACE_STDOUT = [
-  { type: 'thread.started', thread_id: 'thread_codex_001' },
-  { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output()) } },
-  {
-    type: 'turn.completed',
-    usage: {
-      input_tokens: 21520, cached_input_tokens: 0, cache_write_input_tokens: 0,
-      output_tokens: 90, reasoning_output_tokens: 47,
-    },
-  },
-].map((event) => JSON.stringify(event)).join('\n');
+const CODEX_FINAL_MESSAGE = JSON.stringify(output());
 
 function codexCliRunner(): TopicSelectionCodexCliRunnerService {
-  return new TopicSelectionCodexCliRunnerService(
-    {
-      codex_home: mkdtempSync(join(tmpdir(), 'orchestrator-codex-')),
-      model: 'gpt-6-astra',
-      reasoning_effort: 'high',
-      transport: 'exec',
-    },
-    async (args) => (args[0] === '--version'
-      ? { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false }
-      : { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false }),
+  return fakeCodexCliRunner(
+    { codex_home: mkdtempSync(join(tmpdir(), 'orchestrator-codex-')), model: 'gpt-6-astra', reasoning_effort: 'high' },
+    async () => CODEX_FINAL_MESSAGE,
   );
 }
 
@@ -1333,8 +1317,8 @@ void test('codex_cli line carries an authoritative runner identity and persists 
   // An authoritative runner identity, which is what model_hint could never be.
   assert.equal(provenance.provider_id, 'codex');
   assert.equal(provenance.model_id, 'gpt-6-astra');
-  assert.equal(provenance.runner_version, 'codex-cli 0.153.4');
-  assert.equal(provenance.thread_id, 'thread_codex_001');
+  assert.equal(provenance.runner_version, 'codex-cli test');
+  assert.equal(provenance.thread_id, 'thread_1');
   // ...but not a metered gateway identity.
   assert.equal(provenance.model_option_id, null);
   assert.equal(provenance.normalized_params_hash, null);
@@ -1351,12 +1335,9 @@ void test('a restarted CLI consumer reuses the persisted attempt and refuses cha
   let calls = 0;
   const makeConsumer = () => new TopicSelectionAgentOrchestratorService({
     controlPlane, modelProfileRegistry: new TopicSelectionModelProfileRegistryService(), codexCliModelId: 'gpt-6-astra',
-    codexCliRunner: new TopicSelectionCodexCliRunnerService({
-      codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
-    }, async args => {
-      if (args[0] === '--version') return { stdout: 'codex-cli 0.153.4', stderr: '', exit_code: 0, timed_out: false };
+    codexCliRunner: fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async () => {
       calls += 1;
-      return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
+      return CODEX_FINAL_MESSAGE;
     }),
   });
   const request = { ...baseInvocation(), run_mode: 'product' as const, execution_mode: 'codex_cli' as const };
@@ -1378,12 +1359,9 @@ void test('CLI replay rejects an attempt recorded before native tool restriction
   const controlPlane = new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository());
   let calls = 0;
   const makeConsumer = (legacy = false) => {
-    const runner = new TopicSelectionCodexCliRunnerService({
-      codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec',
-    }, async args => {
-      if (args[0] === '--version') return { stdout: 'codex-cli 0.153.4', stderr: '', exit_code: 0, timed_out: false };
+    const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async () => {
       calls += 1;
-      return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
+      return CODEX_FINAL_MESSAGE;
     });
     if (legacy) {
       const identity = { ...runner.executionIdentity };
@@ -1420,20 +1398,14 @@ const MCP_EVIDENCE: TopicSelectionMcpEvidenceUnit[] = [
 /** Captures what the runner was actually told, which is where the handle has to show up. */
 function capturingCodexRunner(): {
   runner: TopicSelectionCodexCliRunnerService;
-  seen: { prompt: string; argv: string }[];
+  seen: { prompt: string; mcp_servers: Record<string, unknown> }[];
 } {
   const home = mkdtempSync(join(tmpdir(), 'orchestrator-mcp-'));
-  const seen: { prompt: string; argv: string }[] = [];
-  const runner = new TopicSelectionCodexCliRunnerService(
-    { codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
-    async (args, opts) => {
-      if (args[0] === '--version') {
-        return { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false };
-      }
-      seen.push({ prompt: opts.stdin, argv: args.join(' ') });
-      return { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false };
-    },
-  );
+  const seen: { prompt: string; mcp_servers: Record<string, unknown> }[] = [];
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt, mcp_servers }) => {
+    seen.push({ prompt, mcp_servers });
+    return CODEX_FINAL_MESSAGE;
+  });
   return { runner, seen };
 }
 
@@ -1459,8 +1431,9 @@ void test('a codex_cli attempt gets a handle that is offered to the model and di
   assert.equal(seen.length, 1);
   // The product authors the handle into its own prompt; without it the model reaches no tool.
   assert.match(seen[0]!.prompt, /handle_under_test/);
-  assert.match(seen[0]!.argv, /mcp_servers\.research\.url="http:\/\/127\.0\.0\.1:3000\/topic-selection\/mcp"/);
-  assert.match(seen[0]!.argv, /mcp_servers\.research\.default_tools_approval_mode="approve"/);
+  assert.deepEqual(seen[0]!.mcp_servers, {
+    research: { url: 'http://127.0.0.1:3000/topic-selection/mcp', default_tools_approval_mode: 'approve' },
+  });
   // Released with the attempt: a handle that outlived it would be an unaudited way back in.
   assert.equal(scopes.resolve('handle_under_test'), null);
 });
@@ -1483,7 +1456,7 @@ void test('a codex_cli attempt without evidence runs toolless rather than half-c
 
   assert.equal(result.status, 'succeeded');
   assert.doesNotMatch(seen[0]!.prompt, /handle/);
-  assert.doesNotMatch(seen[0]!.argv, /mcp_servers/);
+  assert.deepEqual(seen[0]!.mcp_servers, {});
 });
 
 void test('a codex_cli invocation blocked before it runs keeps its identity and reports the blocker', async () => {

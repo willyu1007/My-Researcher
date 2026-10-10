@@ -11,7 +11,7 @@ const identity = {
 };
 const outcome: TopicSelectionCodexCliRunOutcome = {
   status: 'succeeded', final_message: '{"finding":"source does not support the claim"}',
-  runner_version: 'test-cli', transport: 'app_server', codex_home: null, thread_id: 'thread-1',
+  runner_version: 'test-cli', codex_home: '/fake/home', thread_id: 'thread-1',
   usage: null, tool_calls: [], trace_events: [],
 };
 

@@ -23,15 +23,15 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
   decision, without re-running that qualification.
 - Provenance carries an authoritative runner identity, not a metered gateway identity:
   `source_kind: codex_cli_response`, `provider_id: "codex"`, `model_id`, `runner_version` (read
-  from the binary that ran, never declared), `thread_id`, and `trace_artifact_ref` / `_hash`.
+  from the child's `initialize` user agent, never declared), `thread_id`, and
+  `trace_artifact_ref` / `_hash`.
   `model_option_id` and `normalized_params_hash` are pinned null. `non_provider` is `true`, which in
   this codebase means "not the `provider_llm` gateway path" rather than "no model ran". An
   invocation blocked before any run keeps the identity and has no run fields.
-- The trace artifact (`topic-selection-codex-cli-trace-v1`) holds the full event stream of the
-  transport that ran (`exec`: the `--json` lines; `app_server`: the App Server notifications plus
-  every server request with the product's answer), the `usage` totals, the tool-call list, the
-  `transport`, and on `app_server` the `codex_home` the server reported in `initialize`. It is
-  recorded on success and on failure alike.
+- The trace artifact (`topic-selection-codex-cli-trace-v1`) holds the App Server notifications
+  plus every server request with the product's answer, the `usage` totals, the tool-call list, and
+  the `codex_home` the server reported in `initialize`. It is recorded on success and on failure
+  alike. Traces written before the `exec` transport was retired also carry a `transport` field.
   `prompt_packet_hash` asserts what the product authored, not what the model consumed; Codex's
   own intra-turn context management is accepted. A hash alone cannot reproduce model output.
   The orchestrator can reuse a protected, completed attempt with matching input and execution
@@ -51,7 +51,6 @@ TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (defau
 TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT  same values, for judgment roles (default xhigh)
 TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
 TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout (default 1200000)
-TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
 ```
 
 Effort is chosen per role by `codexCliReasoningTier`: every `deep_critic` and `arbiter`, plus the
@@ -67,24 +66,22 @@ mkdir -p ~/.codex-my-researcher && chmod 700 ~/.codex-my-researcher
 CODEX_HOME=~/.codex-my-researcher codex login
 ```
 
-A run never writes into that directory. Everything per-invocation travels as `-c` overrides (or
-`thread/start` parameters on `app_server`) and a per-run scratch directory that is removed
-afterwards; the App Server keeps its own sqlite state there, as any Codex process does. Isolation
+A run never writes into that directory. Everything per-invocation travels as `thread/start`
+parameters and a per-run scratch directory that is removed afterwards; the App Server keeps its own sqlite state there, as any Codex process does. Isolation
 comes from the product-owned home, not from flags: `--ignore-user-config` suppresses a user's
 config but not their skills, and a probe run read a developer skill out of `~/.codex` and changed
 behaviour because of it.
 
 ## Invocation
 
-One fresh thread per invocation attempt on either transport; the runner has no resume or fork
+One fresh thread per invocation attempt; the runner has no resume or fork
 path, cross-round carry-over stays product-authored (`delta_hash`, `prior_role_artifact_hashes`),
 and forking was measured to amortise nothing.
 
-- `exec`: one `codex exec` per attempt, `--ephemeral`, `--json`, `-s read-only`,
-  `--output-schema`, an explicit model and reasoning effort. Kept selectable as the fallback if the
-  experimental App Server regresses; its removal is a recorded follow-up (registry Idea, T-152
-  D-6) due once the next Codex upgrade re-validates the App Server path.
-- `app_server` (default): one `codex app-server` child per runner instance, spawned from the product home
+- The runner reaches Codex over the App Server only. The per-attempt `codex exec` transport kept
+  as a fallback by T-152 D-6 was retired on 2026-10-10, once CLI 0.162.1 passed the bindings
+  check and all four live checks on the App Server.
+- One `codex app-server` child per runner instance, spawned from the product home
   with `CODEX_HOME` and `PATH` only and a neutral working directory, handshaken with
   `initialize` (`capabilities.experimentalApi`, which the granular approval policy needs) — the
   response's `codexHome` is what the trace records as the isolation proof. Per attempt:
@@ -111,23 +108,20 @@ and forking was measured to amortise nothing.
 
 - The output schema is prepared exactly as the gateway prepares it — the fail-closed encodability
   guardrail, then strict normalisation — because the CLI enforces the same OpenAI structured-output
-  subset. `--output-schema` is a hard constraint on shape only; a clamped value is a legal value,
+  subset. The turn's `outputSchema` is a hard constraint on shape only; a clamped value is a legal value,
   not the semantically nearest one, so scores still need a product-side gate.
-- Both transports apply a native tool policy that disables account Apps, shell, browser,
+- Every thread applies a native tool policy that disables account Apps, shell, browser,
   computer use, image tools, multi-agent, plugins, skill discovery and hooks, plus web search.
   `native_tool_policy` is part of execution identity, so an older policy cannot silently supply a
   reused result. Product MCP grants remain explicit and scoped; a read-only filesystem sandbox
   alone does not restrict account tools. Recheck this policy against the installed CLI after an
   upgrade.
-- Tool access is granted per server with `approval_policy = { granular = { sandbox_approval =
-  false, rules = false, mcp_elicitations = false } }` and
+- Tool access is granted per server with a granular no-approvals `approvalPolicy` and
   `mcp_servers.<name>.default_tools_approval_mode = "approve"`. The working value is `approve`;
   `auto` does not work despite its name. This keeps the sandbox read-only and adds no
   `codex-auto-review` call, unlike `--approve-for-me`.
 - A failed run is a result, not an exception, and keeps its trace. Configuration problems throw
-  before any gate. On `exec` a timeout settles the caller itself, signals the process group and
-  escalates to SIGKILL; a large prompt against a child that exits early is a failed result, not a
-  crash. On `app_server` a timeout interrupts the turn (`CODEX_CLI_TIMEOUT`), a turn that ends
+  before any gate. A timeout interrupts the turn (`CODEX_CLI_TIMEOUT`), a turn that ends
   `failed` or `interrupted` is `CODEX_CLI_TURN_FAILED`, a child that dies fails the attempt at
   once and is respawned for the next, and every other request has its own 60 s timeout so a
   silent server cannot hang an attempt. Aborted turns keep the partial trace.
@@ -183,8 +177,7 @@ cd apps/backend && TOPIC_SELECTION_CODEX_LIVE=1 node --test --import tsx --env-f
   src/services/topic-selection-provider-canary-codex-cli.live.test.ts
 ```
 
-Run them once per transport (`TOPIC_SELECTION_CODEX_TRANSPORT=exec` for the second pass); their
-assertions are transport-neutral. `src/services/topic-selection-codex-app-server.live.test.ts`
+`src/services/topic-selection-codex-app-server.live.test.ts`
 is the App Server spike: it re-answers the protocol questions (schema enforcement per turn,
 `config.mcp_servers` reachability, concurrency, what closing an ephemeral thread does) on the
 binary actually installed.

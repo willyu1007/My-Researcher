@@ -18,7 +18,7 @@ test('relational stable-key claims exclude concurrent Codex execution and surviv
   };
   const outcome: TopicSelectionCodexCliRunOutcome = {
     status: 'succeeded', final_message: '{"finding":"insufficient evidence"}', runner_version: 'test-cli',
-    transport: 'app_server', codex_home: null, thread_id: 'test-thread', usage: null, tool_calls: [], trace_events: [],
+    codex_home: '/fake/home', thread_id: 'test-thread', usage: null, tool_calls: [], trace_events: [],
   };
   const consumer = () => new TopicSelectionControlPlaneService(new PrismaTopicSelectionControlPlaneRepository(prisma));
   let calls = 0;

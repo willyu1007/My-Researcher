@@ -1054,7 +1054,7 @@ export class TopicSelectionAgentOrchestratorService {
     try {
       parsed = JSON.parse(outcome.final_message) as T;
     } catch {
-      // --output-schema constrains the shape, so unparsable text means the run did not honour it.
+      // The turn's output schema constrains the shape, so unparsable text means the run did not honour it.
       return this.blockedSource(
         input, resolvedProfile, 'CODEX_CLI_UNPARSABLE_OUTPUT', 'codex_cli_response', promptPacketHash, packetOptions,
       );
@@ -1169,7 +1169,6 @@ export class TopicSelectionAgentOrchestratorService {
       invocation_attempt_id: invocationAttemptId,
       status: outcome.status,
       runner_version: outcome.runner_version,
-      transport: outcome.transport,
       codex_home: outcome.codex_home,
       thread_id: outcome.thread_id,
       usage: outcome.usage,

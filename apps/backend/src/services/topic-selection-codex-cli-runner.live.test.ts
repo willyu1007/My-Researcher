@@ -1,4 +1,4 @@
-// T-151 Phase 1 live check. Runs one real `codex exec` through the runner against a product-owned,
+// T-151 Phase 1 live check. Runs one real Codex turn through the runner against a product-owned,
 // authenticated CODEX_HOME. Skipped unless the deployment variables are set, following the same
 // convention as the repository's other environment-dependent smokes.
 //
@@ -27,7 +27,7 @@ const skip = live && liveOptIn
   ? false
   : 'set TOPIC_SELECTION_CODEX_LIVE=1 (with TOPIC_SELECTION_CODEX_HOME and TOPIC_SELECTION_CODEX_MODEL) to run this live check';
 
-// The schema deliberately contradicts the prompt: --output-schema is claimed to be a hard
+// The schema deliberately contradicts the prompt: the turn's output schema is claimed to be a hard
 // constraint, so the live check is what proves it on the binary actually installed.
 const SCHEMA = {
   type: 'object',

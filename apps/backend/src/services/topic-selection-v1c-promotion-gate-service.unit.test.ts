@@ -45,6 +45,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 
 const NOW = '2026-05-15T00:00:00.000Z';
 
@@ -617,7 +618,6 @@ test('ordinary promotion CLI generates advisory prose once and recovers its supp
   const { join } = await import('node:path');
   const { TopicSelectionControlPlaneService } = await import('./topic-selection-control-plane-service.js');
   const { InMemoryTopicSelectionControlPlaneRepository } = await import('../repositories/in-memory-topic-selection-control-plane-repository.js');
-  const { TopicSelectionCodexCliRunnerService } = await import('./topic-selection-codex-cli-runner-service.js');
   const { TopicSelectionAgentOrchestratorService } = await import('./topic-selection-agent-orchestrator-service.js');
   const { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } = await import('./topic-selection-model-profile-registry-service.js');
   const home = mkdtempSync(join(tmpdir(), 'promotion-cli-'));
@@ -633,12 +633,10 @@ test('ordinary promotion CLI generates advisory prose once and recovers its supp
     reviewer_questions: ['Does the controlled archive assumption hold?'], risk_notes: ['Incomplete judgments limit interpretation.'],
     recheck_notes: [], dossier_markdown: 'Only historical replication is supported.', condition_candidates: [] };
   let calls = 0;
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
     calls += 1;
-    assert.match(options.stdin, /original comparison contradicts broad superiority/);
-    return { stdout: [JSON.stringify({ type: 'thread.started', thread_id: 'promotion-cli-thread' }),
-      JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(draft) } })].join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    assert.match(prompt, /original comparison contradicts broad superiority/);
+    return JSON.stringify(draft);
   });
   t.after(() => runner.shutdown());
   const agentOrchestrator = new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' });

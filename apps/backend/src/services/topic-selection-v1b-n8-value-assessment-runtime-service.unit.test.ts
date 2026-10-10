@@ -22,7 +22,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import {
   TOPIC_SELECTION_V1B_N7_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
@@ -360,16 +360,11 @@ test('N8 CLI uses resolved research bodies, replays one attempt and refuses sour
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let researchContext = { evidence: 'The source reports retrieval failures under vocabulary shift.' };
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' },
-    async (args, options) => {
-      if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-      calls += 1;
-      assert.ok(options.stdin.includes(researchContext.evidence));
-      return { stdout: [
-        { type: 'thread.started', thread_id: 'n8-thread' },
-        { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(valueDraft()) } },
-      ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
-    });
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+    calls += 1;
+    assert.ok(prompt.includes(researchContext.evidence));
+    return JSON.stringify(valueDraft());
+  });
   const makeRuntime = () => new TopicSelectionV1bN8ValueAssessmentRuntimeService(controlPlane, {
     modelProfileRegistry, resolveResearchContext: async () => researchContext,
     agentOrchestrator: new TopicSelectionAgentOrchestratorService({ controlPlane, modelProfileRegistry, codexCliRunner: runner, codexCliModelId: 'gpt-6-astra' }),

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-orchestrator-service.js';
-import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
+import { fakeCodexCliRunner } from './test-fixtures/topic-selection-codex-cli-fake-app-server.js';
 import { createDefaultTopicSelectionModelProfileRegistry, TopicSelectionModelProfileRegistryService } from './topic-selection-model-profile-registry-service.js';
 import {
   TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER,
@@ -163,9 +163,8 @@ test('CLI delta review reads exact Human context and prior bodies, preserves aud
   const modelProfileRegistry = new TopicSelectionModelProfileRegistryService({ registry });
   let calls = 0;
   let researchContext = { previous_contract: { metrics: ['Accuracy'] }, current_contract: { metrics: ['Brier Score'] } };
-  const runner = new TopicSelectionCodexCliRunnerService({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high', transport: 'exec' }, async (args, options) => {
-    if (args[0] === '--version') return { stdout: 'test-cli', stderr: '', exit_code: 0, timed_out: false };
-    const packet = JSON.parse(options.stdin.split('[user]\n')[1]!) as {
+  const runner = fakeCodexCliRunner({ codex_home: home, model: 'gpt-6-astra', reasoning_effort: 'high' }, async ({ prompt }) => {
+    const packet = JSON.parse(prompt.split('[user]\n')[1]!) as {
       role_slot: (typeof TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER)[number];
       context_packet: { research_context: unknown; prior_role_outputs: unknown[]; refinement_delta_context: { refinement: unknown } };
     };
@@ -173,10 +172,7 @@ test('CLI delta review reads exact Human context and prior bodies, preserves aud
     assert.deepEqual(packet.context_packet.research_context, researchContext);
     assert.deepEqual(packet.context_packet.refinement_delta_context.refinement, refinement);
     calls += 1;
-    return { stdout: [
-      { type: 'thread.started', thread_id: `delta-${calls}` },
-      { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(roleOutput(packet.role_slot)) } },
-    ].map(event => JSON.stringify(event)).join('\n'), stderr: '', exit_code: 0, timed_out: false };
+    return JSON.stringify(roleOutput(packet.role_slot));
   });
   const makeRuntime = () => new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(controlPlane, {
     modelProfileRegistry, resolveResearchContext: async () => researchContext,
