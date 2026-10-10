@@ -119,6 +119,7 @@ function makeBridgeAcceptanceSubject(
   const repository = new RecordingPaperProjectBridgeRepository();
   const handoffProvider = new MutablePromotionBridgeHandoffProvider(handoff);
   const service = new TopicSelectionV1cPaperProjectBridgeService({
+    controlPlane: new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository()),
     repository,
     humanPromotionDecisionService: handoffProvider,
     checkpointControl,
