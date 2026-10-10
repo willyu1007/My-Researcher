@@ -46,6 +46,7 @@ import type {
   TopicSelectionCodexCliRunOutcome,
   TopicSelectionCodexCliRunnerService,
 } from './topic-selection-codex-cli-runner-service.js';
+import { codexCliReasoningTier } from './topic-selection-codex-cli-runner-service.js';
 import {
   TOPIC_SELECTION_MCP_RESEARCH_ROLE_SCOPE,
   type TopicSelectionMcpEvidenceUnit,
@@ -1005,13 +1006,14 @@ export class TopicSelectionAgentOrchestratorService {
     let outcome: TopicSelectionCodexCliRunOutcome;
     try {
       const runner = this.codexCliRunner;
+      const reasoningTier = codexCliReasoningTier(resolvedProfile.profile);
       outcome = await executeClaimedCodexAttempt(this.controlPlane, {
         workspace_id: input.workspace_id ?? null, title_card_id: input.title_card_id ?? null,
         workflow_run_id: input.workflow_run_id, node_id: input.node_id,
         invocation_attempt_id: invocationAttemptId,
         request_hash: this.hash({
           prompt_packet_hash: promptPacketHash, output_schema: outputSchema,
-          profile_hash: resolvedProfile.profile_hash, runner: runner.executionIdentity,
+          profile_hash: resolvedProfile.profile_hash, runner: runner.executionIdentity, reasoning_tier: reasoningTier,
           mcp_evidence: input.mcp_evidence ?? [], mcp_read_budget: input.mcp_read_budget ?? null,
           run_mode: input.run_mode,
         }),
@@ -1020,6 +1022,7 @@ export class TopicSelectionAgentOrchestratorService {
         output_schema: outputSchema,
         invocation_attempt_id: invocationAttemptId,
         mcp_servers: this.codexCliMcpServers(scope !== null),
+        reasoning_tier: reasoningTier,
       }));
     } finally {
       if (scope) {

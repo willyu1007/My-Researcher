@@ -18,6 +18,9 @@ a product-served MCP tool surface and keeps the run's event trace as the provena
   external-process test passes with PostgreSQL repositories across application reconstruction.
   This verifies composition and persistent replay; real-model role qualification is recorded
   separately in T-153, and Human decisions in tests remain controlled inputs.
+- T-153 qualified `gpt-6-astra`/high on CLI 0.153.4. On 2026-10-10 the local deployment moved to
+  `gpt-6.1-sol` with per-role effort (high, judgment roles xhigh) on CLI 0.162.1 by researcher
+  decision, without re-running that qualification.
 - Provenance carries an authoritative runner identity, not a metered gateway identity:
   `source_kind: codex_cli_response`, `provider_id: "codex"`, `model_id`, `runner_version` (read
   from the binary that ran, never declared), `thread_id`, and `trace_artifact_ref` / `_hash`.
@@ -43,12 +46,19 @@ the process, because it is where the credential lives, and the line is not a `.a
 
 ```
 TOPIC_SELECTION_CODEX_HOME              product-owned CODEX_HOME; absent disables the line
-TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6-astra
+TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6.1-sol
 TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
+TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT  same values, for judgment roles (default xhigh)
 TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
 TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
 TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
 ```
+
+Effort is chosen per role by `codexCliReasoningTier`: every `deep_critic` and `arbiter`, plus the
+single agents whose output is itself a judgment (need adjudication, topic value assessment, N8
+bounded Debate, promotion decision support and its micro-debate, delegated promotion decision), run
+at the judgment effort; generation, extraction, sampling and support roles run at the base effort.
+The tier is part of each attempt's request hash.
 
 Provision the home once with its own login; nothing is copied from a developer's `~/.codex`:
 

@@ -18,6 +18,7 @@ import {
   TopicSelectionCodexCliRunnerService,
   buildCodexConfigOverrides,
   buildCodexThreadConfig,
+  codexCliReasoningTier,
   createTopicSelectionCodexCliRunnerFromEnv,
   defaultCodexCliSpawn,
   parseCodexEventStream,
@@ -26,6 +27,7 @@ import {
   type TopicSelectionCodexCliSpawn,
   type TopicSelectionCodexCliSpawnResult,
 } from './topic-selection-codex-cli-runner-service.js';
+import { createDefaultTopicSelectionModelProfileRegistry } from './topic-selection-model-profile-registry-service.js';
 
 const SCHEMA = { type: 'object', required: ['verdict'], properties: { verdict: { type: 'string' } } };
 
@@ -217,12 +219,19 @@ void test('codex_cli deployment config stays unavailable rather than half-config
   });
   assert.equal(configured?.model_id, 'gpt-6-astra');
   assert.ok(configured?.runner instanceof TopicSelectionCodexCliRunnerService);
+  assert.equal(configured?.runner.executionIdentity.reasoning_effort, 'high');
+  assert.equal(configured?.runner.executionIdentity.judgment_reasoning_effort, 'xhigh');
 
   assert.throws(() => createTopicSelectionCodexCliRunnerFromEnv({
     TOPIC_SELECTION_CODEX_HOME: '/srv/codex',
     TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
     TOPIC_SELECTION_CODEX_REASONING_EFFORT: 'ultra',
   }), /REASONING_EFFORT/);
+  assert.throws(() => createTopicSelectionCodexCliRunnerFromEnv({
+    TOPIC_SELECTION_CODEX_HOME: '/srv/codex',
+    TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
+    TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT: 'ultra',
+  }), /JUDGMENT_REASONING_EFFORT/);
   assert.throws(() => createTopicSelectionCodexCliRunnerFromEnv({
     TOPIC_SELECTION_CODEX_HOME: '/srv/codex',
     TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
@@ -384,6 +393,35 @@ void test('codex_cli runner on the App Server transport starts one ephemeral thr
   assert.equal(first.transport, 'app_server');
   // The isolation proof is what the server answered, not what the configuration said.
   assert.equal(first.codex_home, home);
+});
+
+void test('codex_cli judgment roles are critics, arbiters and decision-making single agents', () => {
+  const profiles = createDefaultTopicSelectionModelProfileRegistry().profiles
+    .filter((profile) => profile.allowed_execution_modes.includes('codex_cli'));
+  const judgment = profiles.filter((profile) => codexCliReasoningTier(profile) === 'judgment');
+  // 11 critics/arbiters by family plus the 6 named single agents; a renamed id drops the count.
+  assert.equal(judgment.length, 17);
+  assert.ok(profiles.every((profile) => codexCliReasoningTier(profile) === 'judgment'
+    || (profile.role_family !== 'deep_critic' && profile.role_family !== 'arbiter')));
+  const tierOf = (id: string) => codexCliReasoningTier(profiles.find((profile) => profile.profile_id === id)!);
+  assert.equal(tierOf('topic-selection.v1c.delegated-promotion-decision.v1'), 'judgment');
+  assert.equal(tierOf('topic-selection.need-discovery.explorer.v1'), 'standard');
+  assert.equal(tierOf('topic-selection.v1c.downstream-feedback-normalization.v1'), 'standard');
+});
+
+void test('codex_cli runner applies the judgment effort only to judgment-tier runs, on both transports', async () => {
+  const home = await mkdtemp(path.join(tmpdir(), 'codex-cli-runner-'));
+  const config = { codex_home: home, model: 'gpt-6.1-sol', reasoning_effort: 'high', judgment_reasoning_effort: 'xhigh' } as const;
+  const { factory, servers } = fakeAppServers();
+  const appServer = new TopicSelectionCodexCliRunnerService({ ...config, transport: 'app_server' }, recordingSpawn().spawn, factory);
+  await appServer.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_1' });
+  await appServer.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_2', reasoning_tier: 'judgment' });
+  assert.deepEqual(servers[0]!.turns.map((turn) => turn.effort), ['high', 'xhigh']);
+
+  const { spawn, calls } = recordingSpawn();
+  const exec = new TopicSelectionCodexCliRunnerService({ ...config, transport: 'exec' }, spawn);
+  await exec.run({ prompt: 'p', output_schema: SCHEMA, invocation_attempt_id: 'attempt_3', reasoning_tier: 'judgment' });
+  assert.ok(calls[0]!.args.includes('model_reasoning_effort="xhigh"'));
 });
 
 void test('codex_cli runner maps an App Server turn to the artifact, the usage, the tool calls and the trace', async () => {

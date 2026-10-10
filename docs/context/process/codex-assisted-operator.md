@@ -49,6 +49,7 @@ single-agent invocation. The existing gates remain responsible for advancement.
 
 Configuration uses `TOPIC_SELECTION_CODEX_HOME` (product-owned) and `TOPIC_SELECTION_CODEX_MODEL`.
 The existing factory also accepts `TOPIC_SELECTION_CODEX_REASONING_EFFORT`,
+`TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT`,
 `TOPIC_SELECTION_CODEX_TIMEOUT_MS`, `TOPIC_SELECTION_CODEX_BINARY`, and
 `TOPIC_SELECTION_CODEX_TRANSPORT` (default `app_server`). Runner shutdown follows backend shutdown.
 Completed attempts reuse persisted results; an interrupted claim without a recorded outcome

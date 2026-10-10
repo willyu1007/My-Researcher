@@ -21,6 +21,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import type { TopicSelectionModelProfile } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
 import type * as v2 from '../generated/codex-app-server/v2/index.js';
 import {
   CodexAppServerTurnAbortedError,
@@ -108,6 +109,8 @@ export interface TopicSelectionCodexCliRunInput {
   output_schema: Record<string, unknown>;
   invocation_attempt_id: string;
   mcp_servers?: readonly TopicSelectionCodexCliMcpServer[];
+  /** Selects the configured effort; absent means `standard`. */
+  reasoning_tier?: TopicSelectionCodexCliReasoningTier;
 }
 
 export interface TopicSelectionCodexCliSpawnResult {
@@ -131,11 +134,38 @@ export type TopicSelectionCodexAppServerFactory = (
   options: TopicSelectionCodexAppServerSpawnOptions,
 ) => Promise<TopicSelectionCodexAppServerSession>;
 
+const CODEX_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORTS)[number];
+
+export type TopicSelectionCodexCliReasoningTier = 'standard' | 'judgment';
+
+// Single-agent profiles whose output is itself an adjudication or a promotion decision. Every
+// critic and arbiter is a judgment role by family; generation, extraction and support roles are not.
+const JUDGMENT_SINGLE_AGENT_PROFILE_IDS: ReadonlySet<string> = new Set([
+  'topic-selection.need-adjudication.single-agent.v1',
+  'topic-selection.v1b.topic-value-assessment.single-agent.v1',
+  'topic-selection.v1b.n8-bounded-debate.v1',
+  'topic-selection-promotion-decision-support',
+  'topic-selection.v1c.promotion-support.bounded-micro-debate.v1',
+  'topic-selection.v1c.delegated-promotion-decision.v1',
+]);
+
+/** Which configured effort a profile runs at on the codex_cli line. */
+export function codexCliReasoningTier(
+  profile: Pick<TopicSelectionModelProfile, 'profile_id' | 'role_family'>,
+): TopicSelectionCodexCliReasoningTier {
+  return profile.role_family === 'deep_critic' || profile.role_family === 'arbiter'
+    || JUDGMENT_SINGLE_AGENT_PROFILE_IDS.has(profile.profile_id) ? 'judgment' : 'standard';
+}
+
 export interface TopicSelectionCodexCliRunnerConfig {
   /** Product-owned CODEX_HOME. Must not be the developer's ~/.codex. */
   codex_home: string;
   model: string;
-  reasoning_effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  /** Effort for `standard`-tier runs. */
+  reasoning_effort: CodexReasoningEffort;
+  /** Effort for `judgment`-tier runs; defaults to `reasoning_effort`. */
+  judgment_reasoning_effort?: CodexReasoningEffort;
   binary?: string;
   timeout_ms?: number;
   /** `app_server` is the line's transport; `exec` stays selectable until its recorded exit (T-152 D-6). */
@@ -442,10 +472,17 @@ export class TopicSelectionCodexCliRunnerService {
   get executionIdentity() {
     return {
       model: this.config.model, reasoning_effort: this.config.reasoning_effort,
+      judgment_reasoning_effort: this.config.judgment_reasoning_effort ?? this.config.reasoning_effort,
       codex_home: this.config.codex_home, binary: this.config.binary ?? 'codex',
       transport: this.config.transport, timeout_ms: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS,
       native_tool_policy: nativeToolPolicy(),
     };
+  }
+
+  private effortFor(input: TopicSelectionCodexCliRunInput): CodexReasoningEffort {
+    return input.reasoning_tier === 'judgment'
+      ? this.config.judgment_reasoning_effort ?? this.config.reasoning_effort
+      : this.config.reasoning_effort;
   }
 
   /** One invocation attempt, one fresh Codex thread. There is deliberately no resume or fork. */
@@ -475,7 +512,7 @@ export class TopicSelectionCodexCliRunnerService {
       '-s', 'read-only',
       '--output-schema', schemaPath,
       '-m', this.config.model,
-      '-c', `model_reasoning_effort="${this.config.reasoning_effort}"`,
+      '-c', `model_reasoning_effort="${this.effortFor(input)}"`,
       ...buildCodexConfigOverrides(input.mcp_servers ?? []),
       '-',
     ];
@@ -594,7 +631,7 @@ export class TopicSelectionCodexCliRunnerService {
         threadId,
         input: [{ type: 'text', text: input.prompt, text_elements: [] }],
         outputSchema: input.output_schema as v2.TurnStartParams['outputSchema'],
-        effort: this.config.reasoning_effort,
+        effort: this.effortFor(input),
       }, { timeout_ms: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS });
       collected = turn;
       // Account state after the attempt, as evidence beside the usage; never a reason to fail.
@@ -744,8 +781,9 @@ export class TopicSelectionCodexCliRunnerService {
  *  lives, and the line is deliberately not a provider route.
  *
  *    TOPIC_SELECTION_CODEX_HOME              product-owned CODEX_HOME; absent disables the line
- *    TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6-astra
+ *    TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6.1-sol
  *    TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
+ *    TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT  same values, for judgment roles (default xhigh)
  *    TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
  *    TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
  *    TOPIC_SELECTION_CODEX_TRANSPORT         app_server (default) | exec
@@ -760,12 +798,16 @@ export function createTopicSelectionCodexCliRunnerFromEnv(
   if (!codexHome || !model) {
     return null;
   }
-  const effortRaw = env.TOPIC_SELECTION_CODEX_REASONING_EFFORT?.trim() ?? 'high';
-  const efforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
-  const effort = efforts.find((candidate) => candidate === effortRaw);
-  if (!effort) {
-    throw new Error(`TOPIC_SELECTION_CODEX_REASONING_EFFORT must be one of ${efforts.join(', ')}.`);
-  }
+  const effortFromEnv = (key: string, fallback: CodexReasoningEffort): CodexReasoningEffort => {
+    const raw = env[key]?.trim() || fallback;
+    const effort = CODEX_REASONING_EFFORTS.find((candidate) => candidate === raw);
+    if (!effort) {
+      throw new Error(`${key} must be one of ${CODEX_REASONING_EFFORTS.join(', ')}.`);
+    }
+    return effort;
+  };
+  const effort = effortFromEnv('TOPIC_SELECTION_CODEX_REASONING_EFFORT', 'high');
+  const judgmentEffort = effortFromEnv('TOPIC_SELECTION_CODEX_JUDGMENT_REASONING_EFFORT', 'xhigh');
   const timeoutRaw = env.TOPIC_SELECTION_CODEX_TIMEOUT_MS?.trim();
   const timeoutMs = timeoutRaw ? Number.parseInt(timeoutRaw, 10) : undefined;
   if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)) {
@@ -781,6 +823,7 @@ export function createTopicSelectionCodexCliRunnerFromEnv(
       codex_home: codexHome,
       model,
       reasoning_effort: effort,
+      judgment_reasoning_effort: judgmentEffort,
       binary: env.TOPIC_SELECTION_CODEX_BINARY?.trim() || undefined,
       timeout_ms: timeoutMs,
       transport,
