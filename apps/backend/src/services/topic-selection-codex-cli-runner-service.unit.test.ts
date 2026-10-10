@@ -274,7 +274,7 @@ function appServerTurn(
   const completed = (item: v2.ThreadItem): CodexAppServerNotification => ({ method: 'item/completed', params: { item, threadId, turnId, completedAtMs: 1 } });
   const status = options.status ?? 'completed';
   const turn: v2.Turn = {
-    id: turnId, items: [], itemsView: 'full', status, startedAt: null, completedAt: null, durationMs: 1,
+    id: turnId, rootTurnId: null, items: [], itemsView: 'full', status, startedAt: null, completedAt: null, durationMs: 1,
     error: status === 'failed' ? { message: 'model refused', codexErrorInfo: null, additionalDetails: null, misalignment: null } : null,
   };
   return {
@@ -284,7 +284,7 @@ function appServerTurn(
       { method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'item_msg', delta: '{"ver' } },
       completed({
         type: 'mcpToolCall', id: 'item_tool', server: 'research', tool: 'list_evidence', status: 'completed',
-        arguments: {}, appContext: null, pluginId: null, readOnlyHint: null, result: null, error: null, durationMs: 3,
+        arguments: {}, appContext: null, mcpAppUi: null, pluginId: null, readOnlyHint: null, result: null, error: null, durationMs: 3,
       }),
       ...(options.final === null ? [] : [completed({
         type: 'agentMessage', id: 'item_msg', text: options.final ?? '{"verdict":"supported"}',
