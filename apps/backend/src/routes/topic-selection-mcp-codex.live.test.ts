@@ -66,7 +66,7 @@ void test('a real Codex run reaches the product tool surface over HTTP and selec
   });
 
   const app = Fastify();
-  // Codex health-checks the origin before it will initialise an HTTP MCP server.
+  // Codex 0.153.4 health-checked the origin before it would initialise an HTTP MCP server.
   app.get('/health', async () => ({ ok: true }));
   await registerTopicSelectionMcpRoutes(app, new TopicSelectionMcpProtocolService(surface));
   await app.listen({ port: 0, host: '127.0.0.1' });

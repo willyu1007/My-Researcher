@@ -3,8 +3,9 @@
 // Serving MCP from the backend rather than from a spawned stdio subprocess is what lets the tools
 // reach the product's own repositories; a subprocess would have needed its own database access.
 //
-// Two mechanics are load-bearing and were established by probing a real Codex client, because both
-// present as an unexplained hang rather than an error:
+// Two mechanics were load-bearing on codex-cli 0.153.4, established by probing a real client, because
+// both presented as an unexplained hang rather than an error. Neither occurs on 0.162.1 (probed
+// 2026-10-10); both stay for older clients:
 //   - Codex health-checks `GET /health` at the endpoint's origin before it will initialise. The
 //     backend's existing `/health` satisfies that; do not move or gate it.
 //   - Codex then holds a `GET` open on the endpoint itself for server-to-client notifications.

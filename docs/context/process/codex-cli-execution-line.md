@@ -139,9 +139,10 @@ and forking was measured to amortise nothing.
 ## Tool surface
 
 The backend serves MCP at `POST /topic-selection/mcp` (JSON-RPC) with a `GET` stream on the same
-path. Codex health-checks `GET /health` at the origin and will not initialise until it returns
-200, then holds the `GET` open for server-to-client notifications; both present as a hang when
-missing.
+path. Codex 0.153.4 health-checked `GET /health` at the origin and would not initialise until it
+returned 200, then held the `GET` open for server-to-client notifications; both presented as a hang
+when missing. On 0.162.1 (probed 2026-10-10, both transports) neither happens: Codex initialises
+even when `/health` answers 404 and opens no `GET` stream. Both endpoints stay for older clients.
 
 - The server speaks MCP `2026-07-28` natively — stateless, `server/discover`, per-request version in
   `_meta`, `resultType: "complete"` — and accepts the handshake-based revisions through a shim at
