@@ -59,7 +59,7 @@
             "option_id": "paper-implementation.claim-boundary.boundary-debate.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -82,7 +82,7 @@
             "option_id": "paper-implementation.claim-boundary.boundary-debate.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -105,7 +105,7 @@
             "option_id": "paper-implementation.claim-boundary.boundary-debate.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -277,7 +277,7 @@
             "option_id": "paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -300,7 +300,7 @@
             "option_id": "paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -323,7 +323,7 @@
             "option_id": "paper-implementation.cross-board-synthesis.merge-split-reuse-scenarios.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -495,7 +495,7 @@
             "option_id": "paper-implementation.dossier-readiness.readiness-audit.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -518,7 +518,7 @@
             "option_id": "paper-implementation.dossier-readiness.readiness-audit.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -541,7 +541,7 @@
             "option_id": "paper-implementation.dossier-readiness.readiness-audit.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -713,7 +713,7 @@
             "option_id": "paper-implementation.evidence-board-curation.binding-gap-candidates.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -736,7 +736,7 @@
             "option_id": "paper-implementation.evidence-board-curation.binding-gap-candidates.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -759,7 +759,7 @@
             "option_id": "paper-implementation.evidence-board-curation.binding-gap-candidates.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -931,7 +931,7 @@
             "option_id": "paper-implementation.experiment-critique.plan-critique.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -954,7 +954,7 @@
             "option_id": "paper-implementation.experiment-critique.plan-critique.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -977,7 +977,7 @@
             "option_id": "paper-implementation.experiment-critique.plan-critique.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -1149,7 +1149,7 @@
             "option_id": "paper-implementation.experiment-design.work-order-draft.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -1172,7 +1172,7 @@
             "option_id": "paper-implementation.experiment-design.work-order-draft.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -1195,7 +1195,7 @@
             "option_id": "paper-implementation.experiment-design.work-order-draft.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -1366,7 +1366,7 @@
             "option_id": "paper-implementation.feasibility-planning.probe-plan-candidates.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -1389,7 +1389,7 @@
             "option_id": "paper-implementation.feasibility-planning.probe-plan-candidates.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -1412,7 +1412,7 @@
             "option_id": "paper-implementation.feasibility-planning.probe-plan-candidates.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -1585,7 +1585,7 @@
             "option_id": "paper-implementation.motive-decomposition.draft-assertion-candidates.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -1608,7 +1608,7 @@
             "option_id": "paper-implementation.motive-decomposition.draft-assertion-candidates.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -1631,7 +1631,7 @@
             "option_id": "paper-implementation.motive-decomposition.draft-assertion-candidates.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -1802,7 +1802,7 @@
             "option_id": "paper-implementation.motive-evolution.evolution-decision-support.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -1825,7 +1825,7 @@
             "option_id": "paper-implementation.motive-evolution.evolution-decision-support.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -1848,7 +1848,7 @@
             "option_id": "paper-implementation.motive-evolution.evolution-decision-support.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -2019,7 +2019,7 @@
             "option_id": "paper-implementation.result-analysis.interpretation-scenarios.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -2042,7 +2042,7 @@
             "option_id": "paper-implementation.result-analysis.interpretation-scenarios.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -2065,7 +2065,7 @@
             "option_id": "paper-implementation.result-analysis.interpretation-scenarios.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -2237,7 +2237,7 @@
             "option_id": "paper-implementation.route-architecture.route-candidates.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -2260,7 +2260,7 @@
             "option_id": "paper-implementation.route-architecture.route-candidates.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -2283,7 +2283,7 @@
             "option_id": "paper-implementation.route-architecture.route-candidates.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -2455,7 +2455,7 @@
             "option_id": "paper-implementation.route-skeptic-review.route-risk-critique.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -2478,7 +2478,7 @@
             "option_id": "paper-implementation.route-skeptic-review.route-risk-critique.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -2501,7 +2501,7 @@
             "option_id": "paper-implementation.route-skeptic-review.route-risk-critique.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -2672,7 +2672,7 @@
             "option_id": "paper-implementation.trace-integrity.boundary-debate.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -2695,7 +2695,7 @@
             "option_id": "paper-implementation.trace-integrity.boundary-debate.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -2718,7 +2718,7 @@
             "option_id": "paper-implementation.trace-integrity.boundary-debate.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],
@@ -2939,7 +2939,7 @@
             "option_id": "paper-implementation.validation-cycle-planning.cycle-candidates.v1.openai-balanced",
             "option_purpose": "default_balanced_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "default_provider_run"
             ],
@@ -2962,7 +2962,7 @@
             "option_id": "paper-implementation.validation-cycle-planning.cycle-candidates.v1.openai-quality",
             "option_purpose": "quality_sensitive_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "quality_sensitive_manual_selection"
             ],
@@ -2985,7 +2985,7 @@
             "option_id": "paper-implementation.validation-cycle-planning.cycle-candidates.v1.openai-deep-reasoning",
             "option_purpose": "deep_reasoning_explicit_provider_run",
             "provider_id": "openai",
-            "model_id": "gpt-5.6-sol",
+            "model_id": "gpt-6.1-sol",
             "use_when": [
               "deep_reasoning_manual_selection"
             ],

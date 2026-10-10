@@ -308,7 +308,7 @@ test('agent orchestrator normalizes mocked, codex, and provider execution onto o
   assert.equal(providerGateway.calls[0]!.schemaName, 'topic_selection_ranked_candidate_draft_batch');
   assert.deepEqual(providerGateway.calls[0]!.model, {
     providerId: 'openai',
-    modelId: 'gpt-5.6-sol',
+    modelId: 'gpt-6.1-sol',
     profileId: TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
   });
   assert.equal(providerGateway.calls[0]!.policy?.timeoutMs, 180000);
@@ -874,7 +874,7 @@ test('agent orchestrator accepts canonical execution_spec and rejects ambiguous 
     result.provenance.model_option_id,
     `${TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID}.openai-deep-reasoning`,
   );
-  assert.equal(providerGateway.calls.at(-1)?.model.modelId, 'gpt-5.6-sol');
+  assert.equal(providerGateway.calls.at(-1)?.model.modelId, 'gpt-6.1-sol');
   assert.equal(
     (providerGateway.calls.at(-1)?.normalizedParams as { reasoning_depth?: string } | undefined)?.reasoning_depth,
     'high',
@@ -932,7 +932,7 @@ test('agent orchestrator blocks over-budget provider invocation before gateway c
   assert.equal(result.audit_snapshot.token_budget_gate_result?.decision, 'blocked_over_budget');
   assert.equal(result.provenance.source_kind, 'provider_response');
   assert.equal(result.provenance.provider_id, 'openai');
-  assert.equal(result.provenance.model_id, 'gpt-5.6-sol');
+  assert.equal(result.provenance.model_id, 'gpt-6.1-sol');
   assert.equal(providerGateway.calls.length, 0);
   assert.match(result.validation.errors[0] ?? '', /token budget gate decision blocked_over_budget/);
 

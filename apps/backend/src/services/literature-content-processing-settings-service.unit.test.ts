@@ -40,8 +40,8 @@ test('literature content-processing settings default to redacted OpenAI and larg
     assert.equal(settings.embedding.profiles.find((profile) => profile.profile_id === 'default')?.model, 'text-embedding-3-large');
     assert.equal(settings.embedding.profiles.find((profile) => profile.profile_id === 'economy')?.model, 'text-embedding-3-small');
     assert.equal(settings.extraction.active_profile_id, 'default');
-    assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'default')?.model, 'gpt-5.6-sol');
-    assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'high_accuracy')?.model, 'gpt-5.6-sol');
+    assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'default')?.model, 'gpt-6.1-sol');
+    assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'high_accuracy')?.model, 'gpt-6.1-sol');
     assert.deepEqual(settings.extraction.runtime, {
       preferred_key_content_method: 'codex_curated',
       section_concurrency: 3,
@@ -126,7 +126,7 @@ test('literature content-processing settings preserve, replace, and clear secret
   const extractionConfig = await service.resolveOpenAIExtractionConfig();
   assert.equal(extractionConfig?.apiKey, 'sk-test-secret');
   assert.equal(extractionConfig?.provider, 'openai');
-  assert.equal(extractionConfig?.model, 'gpt-5.6-sol');
+  assert.equal(extractionConfig?.model, 'gpt-6.1-sol');
   assert.equal(extractionConfig?.runtime.preferred_key_content_method, 'codex_curated');
   assert.equal(extractionConfig?.runtime.section_concurrency, 3);
   assert.equal(await service.resolvePreferredKeyContentMethod(), 'codex_curated');
@@ -161,7 +161,7 @@ test('literature content-processing settings preserve, replace, and clear secret
   assert.equal(replaced.extraction.runtime.diagnostic_policy, 'raw');
   assert.notEqual(replaced.providers[0]?.api_key_last_updated_at, null);
   assert.equal((await service.resolveOpenAIEmbeddingConfig())?.apiKey, 'sk-test-replaced');
-  assert.equal((await service.resolveOpenAIExtractionConfig())?.model, 'gpt-5.6-sol');
+  assert.equal((await service.resolveOpenAIExtractionConfig())?.model, 'gpt-6.1-sol');
   assert.equal(await service.resolvePreferredKeyContentMethod(), 'codex_curated');
 
   const cleared = await service.updateSettings({
@@ -251,8 +251,8 @@ test('literature content-processing settings migrate legacy extraction defaults 
 
   const settings = await service.getSettings();
 
-  assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'default')?.model, 'gpt-5.6-sol');
-  assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'high_accuracy')?.model, 'gpt-5.6-sol');
+  assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'default')?.model, 'gpt-6.1-sol');
+  assert.equal(settings.extraction.profiles.find((profile) => profile.profile_id === 'high_accuracy')?.model, 'gpt-6.1-sol');
   assert.equal(settings.extraction.active_profile_id, 'high_accuracy');
 });
 

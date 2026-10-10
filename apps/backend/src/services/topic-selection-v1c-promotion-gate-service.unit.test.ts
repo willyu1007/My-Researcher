@@ -677,7 +677,7 @@ test('risk-free LLM draft success stores prose while deterministic gate remains 
   };
   const telemetry: LlmCallTelemetry = {
     provider_id: 'openai',
-    model_id: 'gpt-5.6-sol',
+    model_id: 'gpt-6.1-sol',
     profile_id: 'topic-selection-promotion-decision-support',
     prompt_template_id: 'topic-selection-promotion-decision-support',
     prompt_template_version: '1',

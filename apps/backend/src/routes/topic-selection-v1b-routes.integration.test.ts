@@ -1163,7 +1163,7 @@ function manualLocator(input: {
 function telemetry(schemaName: string): LlmCallTelemetry {
   return {
     provider_id: 'openai',
-    model_id: 'gpt-5.6-sol',
+    model_id: 'gpt-6.1-sol',
     profile_id: schemaName,
     prompt_template_id: schemaName,
     prompt_template_version: '1',

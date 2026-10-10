@@ -20,7 +20,7 @@
     },
     "key-content-section-default": {
       "provider": "openai",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "version": "literature_key_content_v2",
       "prompt": {
         "system": "./prompts/key-content-section/system.md"
@@ -34,7 +34,7 @@
     },
     "key-content-section-high-accuracy": {
       "provider": "openai",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "version": "literature_key_content_v2",
       "prompt": {
         "system": "./prompts/key-content-section/system.md"
@@ -72,7 +72,7 @@
     },
     "key-content-consolidation-default": {
       "provider": "openai",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "version": "literature_key_content_v2",
       "prompt": {
         "system": "./prompts/key-content-consolidation/system.md"
@@ -86,7 +86,7 @@
     },
     "key-content-consolidation-high-accuracy": {
       "provider": "openai",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "version": "literature_key_content_v2",
       "prompt": {
         "system": "./prompts/key-content-consolidation/system.md"
@@ -124,7 +124,7 @@
     },
     "auto-pull-quality": {
       "provider": "openai",
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "version": "auto_pull_quality.v1",
       "prompt": {
         "system": "./prompts/auto-pull-quality/system.md"

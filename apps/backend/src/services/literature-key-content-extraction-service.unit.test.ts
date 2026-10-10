@@ -150,7 +150,7 @@ function createSettingsService(
   runtime: Partial<OpenAIExtractionConfig['runtime']> = {},
   profile: Pick<OpenAIExtractionConfig, 'provider' | 'model' | 'profileId'> = {
     provider: 'openai',
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6.1-sol',
     profileId: 'default',
   },
 ): LiteratureContentProcessingSettingsService {

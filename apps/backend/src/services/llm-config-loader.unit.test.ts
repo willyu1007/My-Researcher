@@ -24,7 +24,7 @@ test('default LLM configuration resolves providers, feature calls, prompts, and 
 
   const call = loader.getCall('literature-processing', 'key-content-section-default');
   assert.equal(call.provider.id, 'openai');
-  assert.equal(call.model, 'gpt-5.6-sol');
+  assert.equal(call.model, 'gpt-6.1-sol');
   assert.equal(call.version, 'literature_key_content_v2');
   assert.deepEqual(call.parameters, { reasoning: { effort: 'low' } });
   assert.equal(
@@ -39,9 +39,9 @@ test('topic-selection and paper-implementation keep independent shipped model ro
   const topicOpenAi = loader.getCall('topic-selection', 'openai-balanced');
   const paperOpenAi = loader.getCall('paper-implementation', 'openai-balanced');
   assert.equal(topicOpenAi.provider.id, 'openai');
-  assert.equal(topicOpenAi.model, 'gpt-5.6-sol');
+  assert.equal(topicOpenAi.model, 'gpt-6.1-sol');
   assert.equal(paperOpenAi.provider.id, 'openai');
-  assert.equal(paperOpenAi.model, 'gpt-5.6-sol');
+  assert.equal(paperOpenAi.model, 'gpt-6.1-sol');
 
   const topicDashScope = loader.getCall('topic-selection', 'dashscope-thinking-budget');
   const paperDashScope = loader.getCall('paper-implementation', 'dashscope-thinking-budget');

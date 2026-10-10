@@ -65,10 +65,10 @@ function providerAuditSnapshot(): TopicSelectionAgentInvocationAuditSnapshot {
       cache_status: 'not_applicable',
       response_reuse_ref: null,
       provider_id: 'openai',
-      model_id: 'gpt-5.6-sol',
+      model_id: 'gpt-6.1-sol',
       telemetry: {
         provider_id: 'openai',
-        model_id: 'gpt-5.6-sol',
+        model_id: 'gpt-6.1-sol',
         profile_id: 'topic-selection.generate-need-candidate.single-agent.v1',
         prompt_template_id: 'topic-selection-generate-need-candidate',
         prompt_template_version: 'v1',
