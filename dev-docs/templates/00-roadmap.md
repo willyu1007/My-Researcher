@@ -19,7 +19,7 @@
 |---|---|---|---|---|---|---|
 | <!-- material top-level question --> | <!-- viable choices and material tradeoffs --> | <!-- recommendation or settled choice --> | open / proposed / decided / superseded | <!-- user, role, or evidence owner --> | <!-- confirmation or evidence that closes it --> | <!-- effect on scope, design, plan, or verification --> |
 
-<!-- Track only choices that can change scope, design, sequencing, or verification. `proposed` awaits its named confirmation or evidence; `decided` has it. Use one `None` row when no material choice exists. -->
+<!-- Track only choices that can change scope, design, sequencing, or verification. Set `Status` under the kickoff rules in `dev-docs/AGENTS.md`. Use one `None` row when no material choice exists. -->
 
 ### Assumptions
 
@@ -61,7 +61,7 @@
 - [ ] Route: the major route connects the current Goal to the completion contract, and the first implementation phase is executable with exit, verification, and recovery criteria.
 - [ ] Verification: verification needed for the proposed route is identified in `verification.md`.
 
-<!-- Keep the four category prefixes; adapt the wording after each colon to the task. `ready` means every item is checked and the first implementation action can start without reopening the route. `Authorized boundary` records how far the user has authorized implementation: `none`, `through phase N`, or `complete task`. -->
+<!-- Keep the four category prefixes; adapt the wording after each colon to the task. Set `Status` and `Authorized boundary` under the kickoff rules in `dev-docs/AGENTS.md`. -->
 
 ## Risks and recovery
 
